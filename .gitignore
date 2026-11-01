@@ -1,0 +1,11 @@
+# WorkBuddy 本地工具数据 / 项目记忆（可重新生成，含本地隐私笔记，不进仓库）
+.workbuddy/
+
+# 依赖与构建产物（当前项目为纯前端+Worker，暂无，留作未来防护）
+node_modules/
+dist/
+*.log
+
+# 临时/调试文件
+*_dbg*
+_dbg.*

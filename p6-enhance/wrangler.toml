@@ -1,0 +1,16 @@
+name = "teleprompter-enhance"
+main = "enhance-worker.js"
+compatibility_date = "2024-09-23"
+
+# P6 独立 D1 库（与 P2 统一积分库分库，互不干扰；如需合并进 P2 库，改 database_name/binding 即可）
+[[d1_databases]]
+binding = "DB"
+database_name = "teleprompter-enhance"
+database_id = "__D1_DATABASE_ID_PLACEHOLDER__"   # 建库后由 wrangler d1 create 输出的 id 填入
+
+[vars]
+# BOT_USERNAME = "your_bot"   # 可选：分享深链 t.me/<bot>?start=CODE 用
+
+# secret（交互式设置，绝不落盘、不写死）：
+#   wrangler secret put BOT_TOKEN      # 与 BotFather token 一致（initData 验签）
+#   wrangler secret put ADMIN_SECRET   # 预留运营门禁（当前端点未强制使用，保留扩展位）
