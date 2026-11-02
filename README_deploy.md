@@ -1,8 +1,7 @@
 # 提词器 Telegram Mini App — P0 部署与验收手册
 
-> 范围：P0（脚手架 + initData 验签）+ P1（核心提词器零后台 MVP）+ P2（跨 App 统一积分账本）+ P3（Telegram Stars 支付账本）+ P4（悬赏改稿）+ P5（病毒增长）+ P6（增强模块）。
-> 本阶段**不含** 多语言（EN/JP/KR）（P7 留待后续）。
-> 产物：`index.html`（单文件提词器）、`worker.js`（initData 验签）、本文件；各后端见 `p2-credits/`、`p3-payments/`、`p4-bounty/`、`p5-growth/`、`p6-enhance/`。
+> 范围：P0（脚手架 + initData 验签）+ P1（核心提词器零后台 MVP）+ P2（跨 App 统一积分账本）+ P3（Telegram Stars 支付账本）+ P4（悬赏改稿）+ P5（病毒增长）+ P6（增强模块）+ P7（合规 + 多语言 EN/JP/KR + 平台对账 + 举报）。
+> 产物：`index.html`（单文件提词器，含多语切换 / 可见免责声明 / 举报入口）、`worker.js`（initData 验签）、本文件；各后端见 `p2-credits/`、`p3-payments/`、`p4-bounty/`、`p5-growth/`、`p6-enhance/`、`p7-compliance/`。
 
 ---
 
@@ -133,7 +132,7 @@ python -m http.server 8080
 - ✅ 悬赏改稿（P4）已完成（见第 10 节）；本地测试 6/6 通过，待 Cloudflare D1 部署。
 - ✅ 病毒增长（P5）已完成（见第 11 节）；本地测试 12/12 通过，待 Cloudflare D1 部署。
 - ✅ 增强模块（P6：云端同步 / 双设备遥控 / 语音跟随 / 模板库）已完成（见第 12 节）；本地测试 17/17 通过，待 Cloudflare D1 部署。
-- ❌ 多语言（EN/JP/KR）未做，文案为中文（P7 留待后续）。
+- ✅ 合规 + 多语言（P7：四语框架 zh/en/ja/ko + 可见免责声明 + 平台 Stars 对账 + 举报入口）已完成（见第 13 节）；本地测试 6/6 通过，待 Cloudflare D1 部署。
 - ❌ bot token 为占位，需你填入；未填时验签恒为 false。
 
 ---
@@ -230,7 +229,7 @@ node --test p2-credits/test-credits.mjs        # 5/5 应全绿
 | 文件 | 作用 |
 |---|---|
 | `p3-payments/payments-core.js` | 纯逻辑：商品目录 + `processSuccessfulPayment`（幂等发积分，依赖 store） |
-| `p3-payments/payments-worker.js` | Cloudflare Worker（Modules + D1）：`/webhook`、`/invoice`、`/history`、`/verify` |
+| `p3-payments/payments-worker.js` | Cloudflare Worker（Modules + D1）：`/webhook`、`/invoice`、`/history`、`/verify`、`/admin/summary`、`/admin`（平台 Stars 对账，ADMIN_SECRET 门禁） |
 | `p3-payments/inmemory-payments-store.js` | 测试 / 本地 dev 用的内存 Store（积分发放**复用 P2 ledger-core.grant**） |
 | `p3-payments/payments-client.js` | 三款 App 共用的浏览器客户端（`createPayments()`） |
 | `p3-payments/schema.sql` | D1 表（additive）：`payments_stars` + `UNIQUE(tg_payment_charge_id)` |
@@ -286,10 +285,11 @@ curl -F "url=https://teleprompter-payments.<sub>.workers.dev/payments/webhook" \
 ### 9.5 本地自测（无需 Cloudflare）
 ```bash
 node --check p3-payments/payments-worker.js     # 语法
-node --test  p3-payments/test-payments.mjs       # 11/11 应全绿
+node --test  p3-payments/test-payments.mjs       # 12/12 应全绿
 # 覆盖：成功支付记录+发积分 / 重复 charge_id 不二次发放 /
 #       pre_checkout 应答 ok / 未授权 webhook 401 + 缺 ADMIN_SECRET 403 /
-#       非法 initData 在 /invoice、/history 被拒 401
+#       非法 initData 在 /invoice、/history 被拒 401 /
+#       平台对账 /admin 无 ADMIN_SECRET 返回 403
 ```
 
 ---
@@ -449,4 +449,64 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 
 ---
 
-*部署配方与 `worker.js` 验签逻辑为三款出海小程序（提词器 / 决策助手 / 表情包）共用模板，后续项目复制即可，仅换 bot token。P2 统一积分账本为「真·全共用」后端，建一次三款白嫖；P3 在其上叠加 Telegram Stars 官方支付；P4 悬赏改稿、P5 病毒增长、P6 增强模块均**复用同一 D1 库与验签**，建一次、三款共用。*
+## 13. P7 合规 + 多语言（EN/JP/KR）+ 平台对账 + 举报
+
+> 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/ja/ko；② 可见的强免责声明（设置页 + 独立"关于"页，三语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
+> 合规红线（凌驾一切）：不预测、不算命、不占卜；积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。本模块刻意提供 `complianceScan()` 做危险词自检。
+> 代码位置：`p7-compliance/`。**本地测试已通过（`node --test p7-compliance/test-compliance.mjs`，6/6）**，待 Cloudflare D1 部署。
+
+### 13.1 交付清单
+| 文件 | 作用 |
+|---|---|
+| `p7-compliance/i18n.js` | 四语文案框架（zh/en/ja/ko）+ `t()` / `getLang()`（也供其他项目复用） |
+| `p7-compliance/compliance-core.js` | 免责声明三语文案 + `submitReport`（举报）+ `complianceScan`（危险词自检） |
+| `p7-compliance/compliance-worker.js` | Cloudflare Worker（Modules + D1）：`/compliance/disclaimer`、`/compliance/report` |
+| `p7-compliance/inmemory-compliance-store.js` | 测试用内存 Store |
+| `p7-compliance/compliance-client.js` | 浏览器客户端（`getDisclaimer` / `submitReport`） |
+| `p7-compliance/schema.sql` | D1 表（additive）：`reports` |
+| `p7-compliance/wrangler.toml` | 部署配置（**复用 P2 同一 D1 库** + BOT_TOKEN / ADMIN_SECRET） |
+| `p7-compliance/test-compliance.mjs` | 本地测试（四语声明 / 举报记录 / 空 detail 拒 / 危险词自检）6 项 |
+
+### 13.2 前端已落地（index.html 内联）
+- **多语切换器**：右上角语言下拉（中文 / EN / 日本語 / 한국어），选择持久化到 localStorage，自动渲染全站文案。
+- **可见免责声明**：设置页内嵌声明块 + 独立"关于"页，三语随语言切换；明确"积分 ≠ Stars ≠ 法币，不可提现 / 转账 / 交易"。
+- **举报 / 反馈**：设置页文本域 + 提交按钮，调用合规 Worker `/compliance/report`（未配 `CONFIG.COMPLIANCE_URL` 时仅本地提示）。
+
+### 13.3 平台 Stars 对账（"管理收到的 Stars"）
+P3 的 `payments-worker.js` 已新增（ADMIN_SECRET 门禁）：
+- `GET /admin/summary` → JSON：`totalPayments` / `totalStarsReceived` / `totalCreditsGranted` / 最近 20 笔。
+- `GET /admin` → HTML 仪表盘，可视化总笔数 / 收到 Stars 总额 / 兑换积分总量 / 最近交易。
+> 内部积分 ≠ Stars ≠ 法币；不可提现、不可转账、不可交易。数据仅平台可见。
+
+### 13.4 部署步骤
+```bash
+cd 提词器Telegram小程序
+# 1) 复用 P2 已建 D1 库（同一 database_id），仅追加 reports 表（本地 + 远程各跑一次）
+wrangler d1 execute teleprompter-credits --local  --file=./p7-compliance/schema.sql
+wrangler d1 execute teleprompter-credits --remote --file=./p7-compliance/schema.sql
+# 2) secret（BOT_TOKEN / ADMIN_SECRET）已在 P2 阶段填过，无需重复
+# 3) 部署合规 Worker
+wrangler deploy   # 读 p7-compliance/wrangler.toml → https://teleprompter-compliance.<sub>.workers.dev
+```
+
+### 13.5 前端接入
+```html
+<script type="module">
+  import { makeComplianceClient } from './p7-compliance/compliance-client.js';
+  const compliance = makeComplianceClient({ baseUrl: 'https://teleprompter-compliance.<sub>.workers.dev' });
+  const d = await compliance.getDisclaimer('en');     // 四语声明
+  await compliance.submitReport({ type: 'abuse', detail: '...' });
+</script>
+```
+> `index.html` 已内联等价多语框架，无需额外引入；仅在"设置 → 举报"真正上报时填写 `CONFIG.COMPLIANCE_URL`。
+
+### 13.6 本地自测（无需 Cloudflare）
+```bash
+node --check p7-compliance/compliance-worker.js
+node --test  p7-compliance/test-compliance.mjs      # 6/6 应全绿
+# 覆盖：四语声明齐全 / 举报记录 / 空 detail 拒 / 占卜·预测危险词自检
+```
+
+---
+
+*部署配方与 `worker.js` 验签逻辑为三款出海小程序（提词器 / 决策助手 / 表情包）共用模板，后续项目复制即可，仅换 bot token。P2 统一积分账本为「真·全共用」后端，建一次三款白嫖；P3 在其上叠加 Telegram Stars 官方支付；P4 悬赏改稿、P5 病毒增长、P6 增强模块、P7 合规多语均**复用同一 D1 库与验签**，建一次、三款共用。*

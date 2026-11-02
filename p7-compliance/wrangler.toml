@@ -1,0 +1,14 @@
+name = "teleprompter-compliance"
+main = "compliance-worker.js"
+compatibility_date = "2025-01-01"
+
+# 复用 P2/P3 同一 D1 库（teleprompter-credits）：举报表建在同一库，免去多库运维。
+[[d1_databases]]
+binding = "DB"
+database_name = "teleprompter-credits"
+database_id = "<YOUR_D1_DB_ID>"
+
+# 部署时填写（占位，勿提交真实值；用 `wrangler secret put` 注入）
+[vars]
+BOT_TOKEN = "<YOUR_BOT_TOKEN>"
+ADMIN_SECRET = "<YOUR_ADMIN_SECRET>"

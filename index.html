@@ -109,10 +109,18 @@
 <div id="app">
   <header>
     <div>
-      <div class="title">提词器</div>
-      <div class="sub">Teleprompter · 流畅提词，解放双眼</div>
+      <div class="title" data-i18n="appTitle">提词器</div>
+      <div class="sub" data-i18n="appSubtitle">Teleprompter · 流畅提词，解放双眼</div>
     </div>
-    <div class="sub" id="verifyStatus" style="text-align:right;"></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="sub" id="verifyStatus" style="text-align:right;"></div>
+      <select id="langSelect" aria-label="language" style="font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid #d8dde6;background:#fff;color:#222;">
+        <option value="zh">中文</option>
+        <option value="en">EN</option>
+        <option value="ja">日本語</option>
+        <option value="ko">한국어</option>
+      </select>
+    </div>
   </header>
 
   <div id="viewport">
@@ -134,7 +142,7 @@
   <!-- Settings sheet -->
   <div class="sheet hidden" id="settingsSheet">
     <div class="sheet-inner">
-      <h3>设置</h3>
+      <h3 data-i18n="settings">设置</h3>
 
       <div class="field">
         <label>脚本（粘贴或编辑你的讲稿，自动保存到本机）</label>
@@ -194,6 +202,18 @@
         <div class="hint">仅用于生成分享链接；不影响提词功能。留空时显示占位 <code>your_bot</code>。</div>
       </div>
 
+      <div class="field">
+        <label data-i18n="disclaimerTitle">免责声明</label>
+        <div class="hint" id="disclaimerBlock" style="line-height:1.6;"></div>
+        <button class="btn" id="btnOpenAbout" data-i18n="aboutTitle">关于</button>
+      </div>
+      <div class="field">
+        <label data-i18n="reportTitle">举报 / 反馈</label>
+        <textarea id="reportDetail" placeholder="请描述您要举报的问题或反馈……" style="width:100%;min-height:64px;padding:8px;border:1px solid #d8dde6;border-radius:10px;font-size:14px;"></textarea>
+        <button class="btn" id="btnReport" data-i18n="reportSubmit">提交</button>
+        <div class="hint" id="reportStatus"></div>
+      </div>
+
       <div class="sheet-actions">
         <button class="btn primary" id="btnCloseSettings">完成</button>
       </div>
@@ -217,6 +237,24 @@
     </div>
   </div>
 
+  <!-- About / 完整免责声明（P7） -->
+  <div class="sheet hidden" id="aboutSheet">
+    <div class="sheet-inner">
+      <h3 data-i18n="aboutTitle">关于</h3>
+      <div class="field">
+        <label data-i18n="disclaimerTitle">免责声明</label>
+        <div class="hint" id="aboutDisclaimer" style="line-height:1.6;"></div>
+      </div>
+      <div class="field">
+        <label>积分与购买须知</label>
+        <div class="hint" id="aboutPaidNotice" style="line-height:1.6;"></div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn primary" id="btnCloseAbout" data-i18n="close">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 </div>
 
@@ -231,11 +269,48 @@
 const CONFIG = {
   // Worker 验签地址；留空则跳过 initData 服务端校验（本地/浏览器测试用）
   VERIFY_URL: '',
+  // 合规 Worker 地址（免责声明 / 举报）；留空则举报仅本地提示，不真正上报
+  COMPLIANCE_URL: '',
   // Bot 用户名（用于分享深链）；留空时显示占位 your_bot
   BOT_USERNAME: ''
 };
 
 const LS_KEY = 'teleprompter_state_v1';
+
+/* ---------- 多语言（P7：zh 默认 + en/ja/ko） ---------- */
+const I18N = {
+  zh: { appTitle:'提词器', appSubtitle:'流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'本应用为纯工具类提词辅助软件，不含任何占卜、预测、算命或运势类功能。所有功能仅用于帮助您更流畅地朗读讲稿。应用内“积分”为平台发放的内部虚拟点数，不等于 Telegram Stars、不等于任何法定货币或加密货币，不可提现、不可转账、不可交易。', paidNotice:'你即将使用 Telegram Stars 购买内部积分。积分仅限本应用内消耗，非真钱、不可退款、不可提现。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵权；违规内容将被下架并收回奖励。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭' },
+  en: { appTitle:'Teleprompter', appSubtitle:'Smooth scrolling, free your eyes', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'This app is a pure utility teleprompter tool. It contains no fortune-telling, prediction, astrology, or horoscope features. All features only help you read scripts more smoothly. In-app “credits” are internal virtual points issued by the platform — they are NOT Telegram Stars, NOT any fiat currency or cryptocurrency, and cannot be withdrawn, transferred, or traded.', paidNotice:'You are about to purchase internal credits with Telegram Stars. Credits are for in-app use only — not real money, non-refundable, non-withdrawable.', submitNotice:'You are about to submit content. Ensure it is authentic, original, and non-infringing; violating content will be removed and rewards revoked.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close' },
+  ja: { appTitle:'テレプロンプター', appSubtitle:'スムーズなスクロールで目を解放', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'本アプリは純粋なユーティリティ型の原稿読み上げ支援ツールであり、占い・予測・星占い・運勢などの機能は一切含みません。すべての機能は原稿をよりスムーズに読むためのものです。アプリ内の「クレジット」はプラットフォームが発行する内部的な仮想ポイントであり、Telegram Stars でも法定通貨・暗号資産でもなく、出金・送金・取引はできません。', paidNotice:'まもなく Telegram Stars で内部クレジットを購入します。クレジットはアプリ内でのみ利用可能で、現金ではなく、返金・出金はできません。', submitNotice:'まもなくコンテンツを投稿します。真正性・独創性・権利侵害がないことを確認してください。違反コンテンツは削除され、報酬は没収されます。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる' },
+  ko: { appTitle:'텔레프로마터', appSubtitle:'부드러운 스크롤로 눈을 자유롭게', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'이 앱은 순수 유틸리티형 대본 낭독 보조 도구로, 점술·예측·운세 등의 기능은 일절 포함하지 않습니다. 모든 기능은 대본을 더 부드럽게 읽기 위한 것입니다. 앱 내 “크레딧”은 플랫폼이 발행하는 내부 가상 포인트로, Telegram Stars도 아니며 법정 화폐·암호화폐도 아니며 출금·송금·거래할 수 없습니다.', paidNotice:'곧 Telegram Stars로 내부 크레딧을 구매합니다. 크레딧은 앱 내에서만 사용 가능하며 현금이 아니고 환불·출금할 수 없습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 진정성·독창성·권리 침해가 없음을 확인하세요. 위반 콘텐츠는 삭제되고 보상이 회수됩니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기' },
+};
+const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko'];
+function detectLang() {
+  const n = (navigator.language || 'zh').slice(0, 2).toLowerCase();
+  return SUPPORTED_LANGS.includes(n) ? n : 'zh';
+}
+let curLang = (function () {
+  try { return localStorage.getItem('tp_lang') || detectLang(); } catch (e) { return 'zh'; }
+})();
+function t(key) {
+  return (I18N[curLang] && I18N[curLang][key]) || I18N.zh[key] || key;
+}
+function setLang(l) {
+  if (!SUPPORTED_LANGS.includes(l)) return;
+  curLang = l;
+  try { localStorage.setItem('tp_lang', l); } catch (e) {}
+  applyI18n();
+}
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(function (el) {
+    const k = el.getAttribute('data-i18n');
+    if (k) el.textContent = t(k);
+  });
+  const dp = document.getElementById('disclaimerBlock'); if (dp) dp.textContent = t('disclaimerBody');
+  const ad = document.getElementById('aboutDisclaimer'); if (ad) ad.textContent = t('disclaimerBody');
+  const pn = document.getElementById('aboutPaidNotice'); if (pn) pn.textContent = t('paidNotice');
+  const rp = document.getElementById('reportDetail'); if (rp) rp.placeholder = t('reportPlaceholder');
+}
 
 const defaultState = {
   script: '在这里粘贴你的讲稿……\n\n点击右下角 ⚙ 打开设置，编辑脚本、调整字号与速度。\n\n准备好后点左上角 ▶ 开始滚动提词。',
@@ -520,6 +595,29 @@ btnShareCard.addEventListener('click', function(){
   telegramShare(text, url);
 });
 
+/* ---------- 举报 / 反馈（P7） ---------- */
+async function submitReport() {
+  const detailEl = document.getElementById('reportDetail');
+  const statusEl = document.getElementById('reportStatus');
+  const detail = (detailEl.value || '').trim();
+  if (!detail) { statusEl.textContent = '请先填写内容'; return; }
+  statusEl.textContent = '提交中…';
+  try {
+    if (!CONFIG.COMPLIANCE_URL) { statusEl.textContent = t('reportThanks'); detailEl.value = ''; return; }
+    const url = (CONFIG.COMPLIANCE_URL || '').replace(/\/+$/, '') + '/compliance/report';
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'feedback', detail }),
+    });
+    const j = await r.json();
+    if (j && j.ok) { statusEl.textContent = t('reportThanks'); detailEl.value = ''; }
+    else statusEl.textContent = '提交失败，请稍后再试';
+  } catch (e) {
+    statusEl.textContent = '提交失败（网络）';
+  }
+}
+
 /* ---------- 初始化 ---------- */
 function init(){
   loadState();
@@ -539,6 +637,21 @@ function init(){
   applyPrompterStyle();
   renderSpeedUI();
   updatePlayBtn();
+
+  // P7：多语言 + 关于/举报入口
+  applyI18n();
+  const langSel = document.getElementById('langSelect');
+  if (langSel) {
+    langSel.value = curLang;
+    langSel.addEventListener('change', function (e) { setLang(e.target.value); });
+  }
+  document.getElementById('btnOpenAbout').addEventListener('click', function () {
+    document.getElementById('aboutSheet').classList.remove('hidden');
+  });
+  document.getElementById('btnCloseAbout').addEventListener('click', function () {
+    document.getElementById('aboutSheet').classList.add('hidden');
+  });
+  document.getElementById('btnReport').addEventListener('click', submitReport);
 
   rafId = requestAnimationFrame(loop);
   verifyInitData();

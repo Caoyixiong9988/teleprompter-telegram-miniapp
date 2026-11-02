@@ -325,3 +325,12 @@ test('合规：payments-core 不导出任何 transfer / withdraw / 赌博 能力
   }
   assert.equal(typeof mod.processSuccessfulPayment, 'function');
 });
+
+test('平台对账 admin 门禁：无/错 ADMIN_SECRET → 403', async () => {
+  const noSecret = await worker.fetch(new Request('https://x/admin/summary'), { ADMIN_SECRET: '' }, {});
+  assert.equal(noSecret.status, 403);
+  const noSecretPage = await worker.fetch(new Request('https://x/admin'), { ADMIN_SECRET: '' }, {});
+  assert.equal(noSecretPage.status, 403);
+  const wrong = await worker.fetch(new Request('https://x/admin/summary?adminSecret=bad'), { ADMIN_SECRET: 'good' }, {});
+  assert.equal(wrong.status, 403);
+});

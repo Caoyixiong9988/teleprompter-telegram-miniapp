@@ -263,6 +263,75 @@ async function handleVerify(request, env) {
   return json({ ok: true, total, recent });
 }
 
+// ── 平台对账：聚合收到 Stars 总额 / 兑换积分总量 / 笔数（ADMIN_SECRET 门禁）──
+async function requireAdmin(request, env) {
+  const provided =
+    request.headers.get('x-admin-secret') ||
+    new URL(request.url).searchParams.get('adminSecret');
+  if (!env.ADMIN_SECRET || provided !== env.ADMIN_SECRET) {
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
+async function handleAdminSummary(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return json({ error: 'forbidden' }, 403);
+  const store = new D1PaymentsStore(env.DB);
+  const total = await store.countPayments();
+  const agg = await env.DB
+    .prepare(
+      'SELECT COALESCE(SUM(stars),0) AS stars, COALESCE(SUM(credits_granted),0) AS credits FROM payments_stars'
+    )
+    .first();
+  const recent = await store.getRecentPayments(20);
+  return json({
+    ok: true,
+    totalPayments: total,
+    totalStarsReceived: agg ? agg.stars : 0,
+    totalCreditsGranted: agg ? agg.credits : 0,
+    recent,
+  });
+}
+
+// 平台对账页面（HTML 仪表盘，ADMIN_SECRET 门禁）—— 直接回答"管理收到的 Stars"
+async function handleAdminPage(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return new Response('403 Forbidden', { status: 403 });
+  const store = new D1PaymentsStore(env.DB);
+  const total = await store.countPayments();
+  const agg = await env.DB
+    .prepare(
+      'SELECT COALESCE(SUM(stars),0) AS stars, COALESCE(SUM(credits_granted),0) AS credits FROM payments_stars'
+    )
+    .first();
+  const recent = await store.getRecentPayments(20);
+  const rows = (recent || [])
+    .map(
+      (r) =>
+        `<tr><td>${String(r.user_id).replace(/[<>&]/g, '')}</td><td>${r.stars}</td><td>${r.credits_granted}</td><td>${r.status}</td><td>${new Date(r.created_at).toISOString()}</td></tr>`
+    )
+    .join('');
+  const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>Stars 对账</title>
+<style>body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f8fa;color:#222}
+.kpi{display:flex;gap:1rem;margin-bottom:1rem}.kpi div{background:#fff;border-radius:12px;padding:1rem 1.5rem;flex:1;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.kpi b{display:block;font-size:1.8rem}.kpi span{color:#888;font-size:.85rem}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+th,td{padding:.7rem 1rem;text-align:left;border-bottom:1px solid #eee;font-size:.9rem}</style></head>
+<body><h1>Telegram Stars 对账（平台）</h1>
+<div class="kpi">
+<div><b>${total}</b><span>总笔数</span></div>
+<div><b>${agg ? agg.stars : 0}</b><span>收到 Stars 总额</span></div>
+<div><b>${agg ? agg.credits : 0}</b><span>兑换积分总量</span></div>
+</div>
+<div><h3>最近 20 笔</h3>
+<table><thead><tr><th>用户</th><th>Stars</th><th>积分</th><th>状态</th><th>时间(UTC)</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="5">暂无记录</td></tr>'}</tbody></table></div>
+<p style="color:#888;font-size:.8rem">内部积分 ≠ Stars ≠ 法币；不可提现、不可转账、不可交易。数据仅平台可见。</p>
+</body></html>`;
+  return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+}
+
 // ── 路由 ───────────────────────────────────────────────────
 async function handle(request, env) {
   const url = new URL(request.url);
@@ -298,6 +367,16 @@ async function handle(request, env) {
   if (path === '/payments/verify') {
     if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
     return handleVerify(request, env);
+  }
+
+  // 平台对账（P7 Stars 管理落地）：ADMIN_SECRET 门禁
+  if (path === '/admin/summary') {
+    if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
+    return handleAdminSummary(request, env);
+  }
+  if (path === '/admin') {
+    if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
+    return handleAdminPage(request, env);
   }
 
   return json({ error: 'not_found' }, 404);
