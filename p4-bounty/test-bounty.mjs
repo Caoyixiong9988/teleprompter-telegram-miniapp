@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 
 import { createBounty, listOpenBounties, submitRevision, awardBounty, getBounty } from './bounty-core.js';
 import { InMemoryBountyStore } from './inmemory-bounty-store.js';
-import { grant, getBalance } from '../p2-credits/ledger-core.js';
+import { grant, getBalance } from '../shared/ledger-core.js';
 import worker from './bounty-worker.js';
 
 const BOT_TOKEN = 'TEST_BOT_TOKEN:abc';

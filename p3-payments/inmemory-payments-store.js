@@ -6,7 +6,7 @@
  * 关键点：积分发放**直接复用 P2 的 ledger-core.grant**（不重造轮子），
  * 支付行与积分发放在单线程内存里天然顺序执行，幂等靠 payments Map 的 charge_id 去重。
  */
-import { grant } from '../p2-credits/ledger-core.js';
+import { grant } from '../shared/ledger-core.js';
 
 export class InMemoryPaymentsStore {
   constructor() {

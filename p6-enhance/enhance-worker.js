@@ -2,7 +2,7 @@
  * enhance-worker.js — P6 增强模块（Cloudflare Worker, Modules 格式 + D1）
  *
  * 复用：
- *   - p2-credits/verify.js ：initData HMAC 验签（/scripts、/remote/create 门禁）
+ *   - shared/verify.js ：initData HMAC 验签（/scripts、/remote/create 门禁）
  *   （P6 不依赖积分/账本，故 ledger-core 无需引入；也绝不重造验签或账本逻辑。）
  *
  * 三大路由合入本 Worker（D1 bind = env.DB；BOT_TOKEN / ADMIN_SECRET 来自 env）：
@@ -16,7 +16,7 @@
  *   - secret（BOT_TOKEN / ADMIN_SECRET）保持占位，部署时由 wrangler secret put 注入
  */
 
-import { verifyInitData, getUserIdFromInitData } from '../p2-credits/verify.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
 import { TEMPLATES } from './templates.js';
 
 const ALLOWED_CMDS = ['play', 'pause', 'speed'];

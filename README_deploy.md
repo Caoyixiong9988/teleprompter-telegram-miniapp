@@ -1,7 +1,11 @@
-# 提词器 Telegram Mini App — P0 部署与验收手册
+# 提词器 Telegram Mini App — 部署与验收手册
 
 > 范围：P0（脚手架 + initData 验签）+ P1（核心提词器零后台 MVP）+ P2（跨 App 统一积分账本）+ P3（Telegram Stars 支付账本）+ P4（悬赏改稿）+ P5（病毒增长）+ P6（增强模块）+ P7（合规 + 多语言 EN/JP/KR + 平台对账 + 举报）。
-> 产物：`index.html`（单文件提词器，含多语切换 / 可见免责声明 / 举报入口）、`worker.js`（initData 验签）、本文件；各后端见 `p2-credits/`、`p3-payments/`、`p4-bounty/`、`p5-growth/`、`p6-enhance/`、`p7-compliance/`。
+> 产物：`index.html`（单文件提词器，含多语切换 / 可见免责声明 / 举报入口）、根目录 `worker.js`（**单体后端**：合并 P0+P2–P7）、根目录 `schema.sql` 与 `wrangler.toml`、本文件；各模块业务代码见 `p2-credits/`…`p7-compliance/`。
+
+> ★ **已合并为单体后端（Monolith）**：P0 验签 + P2 积分 + P3 支付 + P4 悬赏 + P5 增长 + P6 增强 + P7 合规，现在由**一个** Cloudflare Worker（`worker.js`）、**一个** D1 库（`teleprompter-credits`）、**一个** `wrangler.toml`、**一个** `schema.sql` 统一部署。Telegram Mini App 只需填**一个**后端 URL（`index.html` 的 `CONFIG.API_BASE`）。这彻底消除了"多独立 Worker 分头部署、日后改动互相漂移 / clash"的风险。
+>
+> ⚠️ **部署以 §3 单体部署为准**：下文 §8–§13 各模块里出现的 `p2-credits/schema.sql`、`*/wrangler.toml` 等逐模块路径**已不再单独存在**（已合并到根目录）。不要再逐模块执行 `wrangler deploy`；那些章节仅作各模块逻辑与前端客户端用法说明。
 
 ---
 
@@ -52,38 +56,62 @@ wrangler pages deploy . --project-name teleprompter
 
 ---
 
-## 3. 验签 Worker 部署（`worker.js`）
+## 3. 后端单体部署（`worker.js` + 单一 D1）
 
-### 3.1 配置文件 `wrangler.toml`（放在本目录）
+> 单体后端把 P0 验签 + P2 积分 + P3 支付 + P4 悬赏 + P5 增长 + P6 增强 + P7 合规合并到一个 Worker；路由按前缀分发到各模块 handler（各模块业务逻辑零改动）。详见根目录 `worker.js` 顶部注释。
+
+### 3.1 配置文件 `wrangler.toml`（根目录，已就绪）
 ```toml
-name = "teleprompter-verify"
+name = "teleprompter-monolith"
 main = "worker.js"
-compatibility_date = "2024-09-23"
+compatibility_date = "2025-01-01"
 
-# 明文变量（非敏感可用 [vars]）；bot token 建议用 secret
+[[d1_databases]]
+binding = "DB"
+database_name = "teleprompter-credits"
+database_id = "__D1_DATABASE_ID__"   # `wrangler d1 create teleprompter-credits` 拿到后填入
+
 [vars]
-# 若不想用 secret，可直接写：BOT_TOKEN = "123456789:AAE..."
+BOT_USERNAME = "__BOT_USERNAME_PLACEHOLDER__"   # 与 BotFather 用户名一致（分享深链）
 ```
-> 注意：`worker.js` 用 Service Worker 格式（`addEventListener('fetch', ...)`），`BOT_TOKEN` 以全局变量形式注入，无需 `env.` 前缀。
+> 注：根 `worker.js` 现为 **Modules 格式**（`export default { fetch }` + ESM 导入 `shared/verify.js` 等）。`BOT_TOKEN` / `ADMIN_SECRET` / `WEBHOOK_SECRET` 一律走 secret（见 §3.3），不再像旧 P0 那样以全局变量注入。
 
-### 3.2 部署（secret 方式，推荐）
+### 3.2 建库 + 初始化表（单一 D1，全量建表、幂等安全）
+```bash
+# 建库（一次性）
+wrangler d1 create teleprompter-credits
+#   拿到 database_id 填进根 wrangler.toml 的 database_id
+
+# 初始化全部表（本地 + 远程各跑一次；schema 已合并到根 ./schema.sql）
+wrangler d1 execute teleprompter-credits --local  --file=./schema.sql
+wrangler d1 execute teleprompter-credits --remote --file=./schema.sql
+```
+
+### 3.3 部署（secret 方式，推荐）
 ```bash
 wrangler login
-# 交互式输入 bot token（不会写入文件，安全）
-wrangler secret put BOT_TOKEN
-wrangler deploy
+wrangler secret put BOT_TOKEN        # BotFather token（initData 验签 + 调 Bot API 开发票/设 webhook）
+wrangler secret put ADMIN_SECRET     # /payments/verify、/bounty/verify、/growth/verify 运营对账门禁
+wrangler secret put WEBHOOK_SECRET   # setWebhook 的 secret_token（/payments/webhook 验签）
+wrangler deploy                      # 读根 wrangler.toml → https://teleprompter-monolith.<sub>.workers.dev
 ```
-部署后得到 Worker 地址，如 `https://teleprompter-verify.<sub>.workers.dev`。
 
-### 3.3 让前端使用该地址
+把 Bot 的 Stars 支付 webhook 指向单体 Worker：
+```bash
+curl -F "url=https://teleprompter-monolith.<sub>.workers.dev/payments/webhook" \
+     -F "secret_token=$WEBHOOK_SECRET" \
+     https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
+```
+
+### 3.4 让前端使用该地址（只需填一个根 URL）
 打开 `index.html`，修改顶部 `CONFIG`：
 ```js
 const CONFIG = {
-  VERIFY_URL: 'https://teleprompter-verify.<sub>.workers.dev/verify',
+  API_BASE: 'https://teleprompter-monolith.<sub>.workers.dev', // 单体后端根地址
   BOT_USERNAME: 'your_bot'   // 与 BotFather 用户名一致，用于分享深链
 };
 ```
-> 留空 `VERIFY_URL` 时，前端不会发起验签（适合本地/浏览器先测 UI）。真机验收前务必填好。
+> `/verify`、`/compliance/report` 等所有端点都由 `API_BASE` 经 `apiUrl()` 自动派生，**不再需要分别为每个服务填 URL**。留空 `API_BASE` 时，前端不会发起后端请求（适合本地/浏览器先测 UI）。真机验收前务必填好。
 
 ---
 
@@ -127,12 +155,12 @@ python -m http.server 8080
 
 ## 6. 已知限制（本阶段范围外）
 
-- ✅ 跨 App 统一积分（P2）已完成（见第 8 节）；本地测试 5/5 通过，待 Cloudflare D1 部署。
-- ✅ Telegram Stars 支付账本（P3）已完成（见第 9 节）；本地测试 11/11 通过，待 Cloudflare D1 部署。
-- ✅ 悬赏改稿（P4）已完成（见第 10 节）；本地测试 6/6 通过，待 Cloudflare D1 部署。
-- ✅ 病毒增长（P5）已完成（见第 11 节）；本地测试 12/12 通过，待 Cloudflare D1 部署。
-- ✅ 增强模块（P6：云端同步 / 双设备遥控 / 语音跟随 / 模板库）已完成（见第 12 节）；本地测试 17/17 通过，待 Cloudflare D1 部署。
-- ✅ 合规 + 多语言（P7：四语框架 zh/en/ja/ko + 可见免责声明 + 平台 Stars 对账 + 举报入口）已完成（见第 13 节）；本地测试 6/6 通过，待 Cloudflare D1 部署。
+- ✅ 跨 App 统一积分（P2）已完成（见第 8 节）；本地测试 5/5 通过，待统一单体部署（见 §3）。
+- ✅ Telegram Stars 支付账本（P3）已完成（见第 9 节）；本地测试 11/11 通过，待统一单体部署（见 §3）。
+- ✅ 悬赏改稿（P4）已完成（见第 10 节）；本地测试 6/6 通过，待统一单体部署（见 §3）。
+- ✅ 病毒增长（P5）已完成（见第 11 节）；本地测试 12/12 通过，待统一单体部署（见 §3）。
+- ✅ 增强模块（P6：云端同步 / 双设备遥控 / 语音跟随 / 模板库）已完成（见第 12 节）；本地测试 17/17 通过，待统一单体部署（见 §3）。
+- ✅ 合规 + 多语言（P7：四语框架 zh/en/ja/ko + 可见免责声明 + 平台 Stars 对账 + 举报入口）已完成（见第 13 节）；本地测试 6/6 通过，待统一单体部署（见 §3）。
 - ❌ bot token 为占位，需你填入；未填时验签恒为 false。
 
 ---
@@ -140,7 +168,7 @@ python -m http.server 8080
 ## 7. 故障排查
 
 1. **真机白屏 / 打不开**：确认 BotFather 的 Mini App URL 是 Cloudflare Pages 的 `https://` 地址（非 localhost）。
-2. **验签一直 false**：核对 `worker.js` 里的 `BOT_TOKEN` 与 BotFather token 完全一致；确认服务器时钟同步（auth_date 容差 24h）。
+2. **验签一直 false**：核对根 `wrangler.toml` 的 secret `BOT_TOKEN`（通过 `wrangler secret put BOT_TOKEN` 注入）与 BotFather token 完全一致；确认服务器时钟同步（auth_date 容差 24h）。
 3. **分享无反应**：确认是在 Telegram 内打开（浏览器本就只应优雅失败）。
 4. **localStorage 不持久**：勿用无痕模式；`index.html` 须经 http(s) 访问（file:// 下部分浏览器限制）。
 
@@ -150,7 +178,7 @@ python -m http.server 8080
 
 > 范围：三款出海小程序（提词器 / 决策助手 / 表情包）共用的**统一积分总账**。
 > 靠 Telegram `user_id`（跨 bot 恒定）打通：同一账号在任一 App 赚的积分，可在另一 App 花。
-> 代码位置：`p2-credits/`。**本地测试已通过（`node --test p2-credits/test-credits.mjs`，5/5）**，待 Cloudflare D1 部署。
+> 代码位置：`p2-credits/`。**本地测试已通过（`node --test p2-credits/test-credits.mjs`，5/5）**，待统一单体部署（见 §3）。
 
 ### 8.1 合规边界（红线，见功能清单第 7/8 节）
 - 内部积分 **≠ Telegram Stars、≠ 法定货币**，界面与声明须明确区分。
@@ -161,35 +189,16 @@ python -m http.server 8080
 ### 8.2 文件清单
 | 文件 | 作用 |
 |---|---|
-| `p2-credits/ledger-core.js` | 纯账本逻辑：grant / consume / getBalance / getLedger（依赖 store 接口，不依赖 Cloudflare） |
-| `p2-credits/verify.js` | initData HMAC 验签（共用模块，取代各 App 内联实现） |
+| `shared/ledger-core.js` | 纯账本逻辑：grant / consume / getBalance / getLedger（依赖 store 接口，不依赖 Cloudflare）；被 P2–P7 共用 |
+| `shared/verify.js` | initData HMAC 验签（共用模块，被 P0–P7 共用，取代各 App 内联实现） |
 | `p2-credits/credits-worker.js` | Cloudflare Worker（Modules + D1）：`/credits/balance`、`/ledger`、`/consume`、`/grant` |
 | `p2-credits/inmemory-store.js` | 测试用内存 Store |
-| `p2-credits/schema.sql` | D1 表结构：`users_credits` + `credits_ledger` |
-| `p2-credits/wrangler.toml` | 部署配置（D1 绑定 + BOT_TOKEN / ADMIN_SECRET secret） |
+| 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
 | `p2-credits/credits-client.js` | 三款 App 共用的浏览器客户端助手（`createCredits()`） |
 | `p2-credits/test-credits.mjs` | 本地测试（核心逻辑 + Worker 端到端 + 合规断言） |
 
-### 8.3 部署步骤
-```bash
-cd 提词器Telegram小程序
-
-# 1) 建 D1 数据库
-wrangler d1 create teleprompter-credits
-#   拿到 database_id 填进 p2-credits/wrangler.toml 的 database_id
-
-# 2) 初始化表（本地 + 远程各跑一次）
-wrangler d1 execute teleprompter-credits --local  --file=./p2-credits/schema.sql
-wrangler d1 execute teleprompter-credits --remote --file=./p2-credits/schema.sql
-
-# 3) 填 secret（交互式，不落盘）
-wrangler secret put BOT_TOKEN        # 与 BotFather token 一致（用于 initData 验签）
-wrangler secret put ADMIN_SECRET     # 发放积分的特权密钥（运营工具用）
-
-# 4) 部署
-wrangler deploy
-#   得到 Worker 地址，如 https://teleprompter-credits.<sub>.workers.dev
-```
+### 8.3 部署（已统一，见 §3）
+> 已合并为单体后端：**建库 / 建表 / 填 secret / 部署** 全部在根目录一次性完成，见 §3 单体部署。`p2-credits/wrangler.toml` 与 `p2-credits/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。
 
 ### 8.4 前端接入（任一款 App）
 ```html
@@ -217,7 +226,7 @@ node --test p2-credits/test-credits.mjs        # 5/5 应全绿
 
 > 范围：把 P2 的统一积分与 **Telegram Stars 官方支付**打通——用户用 Stars 买积分包，Worker 在支付成功时**原子地**记录支付并发放积分。
 > 这是后续 P4 悬赏改稿（用积分发赏）付费侧的基础设施。
-> 代码位置：`p3-payments/`。**本地测试已通过（`node --test p3-payments/test-payments.mjs`，11/11）**，待 Cloudflare D1 部署。
+> 代码位置：`p3-payments/`。**本地测试已通过（`node --test p3-payments/test-payments.mjs`，11/11）**，待统一单体部署（见 §3）。
 
 ### 9.1 合规边界（红线，与 P2 一致，凌驾一切）
 - **Stars 只经 Telegram 官方支付流转**，绝不经手法定货币 / 加密货币；一切扣款由 Telegram 完成。
@@ -232,34 +241,13 @@ node --test p2-credits/test-credits.mjs        # 5/5 应全绿
 | `p3-payments/payments-worker.js` | Cloudflare Worker（Modules + D1）：`/webhook`、`/invoice`、`/history`、`/verify`、`/admin/summary`、`/admin`（平台 Stars 对账，ADMIN_SECRET 门禁） |
 | `p3-payments/inmemory-payments-store.js` | 测试 / 本地 dev 用的内存 Store（积分发放**复用 P2 ledger-core.grant**） |
 | `p3-payments/payments-client.js` | 三款 App 共用的浏览器客户端（`createPayments()`） |
-| `p3-payments/schema.sql` | D1 表（additive）：`payments_stars` + `UNIQUE(tg_payment_charge_id)` |
-| `p3-payments/wrangler.toml` | 部署配置（**复用 P2 同一 D1 库** + BOT_TOKEN / ADMIN_SECRET / WEBHOOK_SECRET secret） |
+| 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
 | `p3-payments/test-payments.mjs` | 本地测试（支付记录 + 发积分 + 幂等等 11 项断言） |
 
-> 复用说明：`p3-payments/` **不重造** initData 验签与账本逻辑——直接 `import` 自 `p2-credits/verify.js` 与 `p2-credits/ledger-core.js`。D1 下"支付行 + 积分发放"用 `db.batch()` 一次性原子提交；内存 Store 下直接复用 `ledger-core.grant`。两者都靠 `tg_payment_charge_id` 唯一约束保证**重复回调不重复发放**。
+> 复用说明：`p3-payments/` **不重造** initData 验签与账本逻辑——直接 `import` 自 `shared/verify.js` 与 `shared/ledger-core.js`。D1 下"支付行 + 积分发放"用 `db.batch()` 一次性原子提交；内存 Store 下直接复用 `ledger-core.grant`。两者都靠 `tg_payment_charge_id` 唯一约束保证**重复回调不重复发放**。
 
-### 9.3 部署步骤
-```bash
-cd 提词器Telegram小程序
-
-# 1) 复用 P2 已建的 D1 库（同一 database_id），仅追加 P3 表（本地 + 远程各跑一次）
-wrangler d1 execute teleprompter-credits --local  --file=./p3-payments/schema.sql
-wrangler d1 execute teleprompter-credits --remote --file=./p3-payments/schema.sql
-
-# 2) 填 secret（交互式，不落盘）
-wrangler secret put BOT_TOKEN        # 与 BotFather token 一致
-wrangler secret put ADMIN_SECRET     # /payments/verify 运营对账门禁
-wrangler secret put WEBHOOK_SECRET   # 下方 setWebhook 的 secret_token（webhook 验签）
-
-# 3) 部署支付 Worker
-wrangler deploy                      # 读 p3-payments/wrangler.toml，得到如
-                                     # https://teleprompter-payments.<sub>.workers.dev
-
-# 4) 把 Bot 的 webhook 指向本 Worker，并带上 secret_token（Telegram 据此回调支付事件）
-curl -F "url=https://teleprompter-payments.<sub>.workers.dev/payments/webhook" \
-     -F "secret_token=$WEBHOOK_SECRET" \
-     https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
-```
+### 9.3 部署（已统一，见 §3）
+> 已合并为单体后端：`/payments/*` 路由随根 `worker.js` 一起部署（见 §3）。`p3-payments/wrangler.toml` 与 `p3-payments/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。支付 webhook 的配置见 §3.3。
 
 ### 9.4 前端接入（任一款 App）
 ```html
@@ -298,7 +286,7 @@ node --test  p3-payments/test-payments.mjs       # 12/12 应全绿
 
 > 范围：创作者经济——发布者用积分发赏（平台托管 escrow），他人投稿改写，发布者选定中标并释放奖励。
 > 奖励全程平台托管（escrow）→ 仅 award 释放给中标者；**绝不做 P2P 转账 / 赌博 / 预测**。
-> 代码位置：`p4-bounty/`。**本地测试已通过（`node --test p4-bounty/test-bounty.mjs`，6/6）**，待 Cloudflare D1 部署。
+> 代码位置：`p4-bounty/`。**本地测试已通过（`node --test p4-bounty/test-bounty.mjs`，6/6）**，待统一单体部署（见 §3）。
 
 ### 10.1 合规边界（红线，美国 App Store 合规）
 - 悬赏 = 任务奖励（task reward），由发布者用积分托管；中标后平台发放，**积分只由平台 grant，用户只 consume / 托管**。
@@ -312,20 +300,11 @@ node --test  p3-payments/test-payments.mjs       # 12/12 应全绿
 | `p4-bounty/bounty-worker.js` | Cloudflare Worker（Modules + D1）：`/bounty/create`、`/bounty/list`、`/bounty/submit`、`/bounty/award`、`/bounty/detail`、`/bounty/verify` |
 | `p4-bounty/inmemory-bounty-store.js` | 测试 / 本地 dev 用的内存 Store（积分托管**复用 P2 ledger-core.consume / grant**） |
 | `p4-bounty/bounty-client.js` | 三款 App 共用的浏览器客户端（`createBounty()`） |
-| `p4-bounty/schema.sql` | D1 表（additive）：`bounties` + `bounty_submissions` |
-| `p4-bounty/wrangler.toml` | 部署配置（**复用 P2 同一 D1 库** + BOT_TOKEN / ADMIN_SECRET secret） |
+| 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
 | `p4-bounty/test-bounty.mjs` | 本地测试（托管 / 余额不足 / owner 自投拒 / 释放幂等 / 越权 / 合规断言 / Worker 端到端）6 项 |
 
-### 10.3 部署步骤
-```bash
-cd 提词器Telegram小程序
-# 1) 复用 P2 已建 D1 库（同一 database_id），仅追加 P4 表（本地 + 远程各跑一次）
-wrangler d1 execute teleprompter-credits --local  --file=./p4-bounty/schema.sql
-wrangler d1 execute teleprompter-credits --remote --file=./p4-bounty/schema.sql
-# 2) secret（BOT_TOKEN / ADMIN_SECRET）已在 P2 阶段填过，无需重复
-# 3) 部署悬赏 Worker
-wrangler deploy   # 读 p4-bounty/wrangler.toml → https://teleprompter-bounty.<sub>.workers.dev
-```
+### 10.3 部署（已统一，见 §3）
+> 已合并为单体后端：`/bounty/*` 路由随根 `worker.js` 一起部署（见 §3）。`p4-bounty/wrangler.toml` 与 `p4-bounty/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。
 
 ### 10.4 前端接入
 ```html
@@ -351,7 +330,7 @@ node --test  p4-bounty/test-bounty.mjs      # 6/6 应全绿
 
 > 范围：获客增长——推荐归因（双方各得平台奖励）、群 / 全站排行榜、平台中介的积分礼物、分享深链。
 > 所有积分变动**平台中介**（consume + grant，非转账）；**无 transfer / withdraw / 赌博 / 预测**。
-> 代码位置：`p5-growth/`。**本地测试已通过（`node --test p5-growth/test-growth.mjs`，12/12）**，待 Cloudflare D1 部署。
+> 代码位置：`p5-growth/`。**本地测试已通过（`node --test p5-growth/test-growth.mjs`，12/12）**，待统一单体部署（见 §3）。
 
 ### 11.1 合规边界
 - 推荐奖励由平台发放（非转账）；礼物为平台中介的 consume + grant，**绝不做钱包互转**。
@@ -364,19 +343,11 @@ node --test  p4-bounty/test-bounty.mjs      # 6/6 应全绿
 | `p5-growth/growth-worker.js` | Cloudflare Worker（Modules + D1）：`/growth/referral`、`/growth/leaderboard`、`/growth/gift`、`/growth/share`、`/growth/verify` |
 | `p5-growth/inmemory-growth-store.js` | 测试 / 本地 dev 用的内存 Store（积分发放**复用 P2 ledger-core**） |
 | `p5-growth/growth-client.js` | 三款 App 共用的浏览器客户端（`createGrowth()`） |
-| `p5-growth/schema.sql` | D1 表（additive）：`users_referral` + `group_stats` + `gift_log` |
-| `p5-growth/wrangler.toml` | 部署配置（**复用 P2 同一 D1 库** + BOT_TOKEN / ADMIN_SECRET / BOT_USERNAME） |
+| 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
 | `p5-growth/test-growth.mjs` | 本地测试（归因 + 排行榜 + 礼物 + 幂等 + 合规断言 + Worker 端到端）12 项 |
 
-### 11.3 部署步骤
-```bash
-cd 提词器Telegram小程序
-wrangler d1 execute teleprompter-credits --local  --file=./p5-growth/schema.sql
-wrangler d1 execute teleprompter-credits --remote --file=./p5-growth/schema.sql
-wrangler secret put BOT_TOKEN        # 已在 P2 填过可跳过
-wrangler secret put BOT_USERNAME     # 与 BotFather 用户名一致（t.me/<bot>?start=CODE 深链）
-wrangler deploy                      # → https://teleprompter-growth.<sub>.workers.dev
-```
+### 11.3 部署（已统一，见 §3）
+> 已合并为单体后端：`/growth/*` 路由随根 `worker.js` 一起部署（见 §3）。`p5-growth/wrangler.toml` 与 `p5-growth/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。
 
 ### 11.4 前端接入
 ```html
@@ -401,7 +372,7 @@ node --test  p5-growth/test-growth.mjs      # 12/12 应全绿
 
 > 范围：增强提词器体验——A 台词云端同步、B 双设备远程控制（Telegram token 中转，绕过蓝牙）、C 语音跟随（Web Speech 纯逻辑可测）、D 台词模板库（合规、禁预测占卜）。
 > P6 **不引入积分 / 账本**（仅 A/B 走 initData 验签，D 模板库公开）。**无任何 P2P / 赌博 / 预测**。
-> 代码位置：`p6-enhance/`。**本地测试已通过（`node --test p6-enhance/test-*.mjs`，17/17）**，待 Cloudflare D1 部署。
+> 代码位置：`p6-enhance/`。**本地测试已通过（`node --test p6-enhance/test-*.mjs`，17/17）**，待统一单体部署（见 §3）。
 
 ### 12.1 合规铁律（美国 App Store）
 - 模板库只放"中性口播框架"，**绝不含** 算命 / 运势 / 预测 / 吉凶 / 卦 / 风水 / 占卜。
@@ -416,18 +387,11 @@ node --test  p5-growth/test-growth.mjs      # 12/12 应全绿
 | `p6-enhance/scripts-client.js` | 云端同步客户端（`createScripts()`：list / save / delete） |
 | `p6-enhance/remote-client.js` | 双设备遥控客户端（`createRemote()`：create / command / state） |
 | `p6-enhance/templates-client.js` | 模板库客户端（`createTemplates() / getTemplates()`） |
-| `p6-enhance/schema.sql` | D1 表：`scripts` + `remote_sessions` |
-| `p6-enhance/wrangler.toml` | 部署配置（**复用 P2 同一 D1 库** + BOT_TOKEN / ADMIN_SECRET） |
+| 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
 | `p6-enhance/test-*.mjs` | 本地测试（脚本 CRUD / 遥控会话 / 语音 clamp / 模板 / 合规）共 17 项 |
 
-### 12.3 部署步骤
-```bash
-cd 提词器Telegram小程序
-wrangler d1 execute teleprompter-credits --local  --file=./p6-enhance/schema.sql
-wrangler d1 execute teleprompter-credits --remote --file=./p6-enhance/schema.sql
-wrangler secret put BOT_TOKEN        # 已在 P2 填过可跳过
-wrangler deploy                      # → https://teleprompter-enhance.<sub>.workers.dev
-```
+### 12.3 部署（已统一，见 §3）
+> 已合并为单体后端：`/scripts`、`/remote`、`/templates` 路由随根 `worker.js` 一起部署（见 §3）。`p6-enhance/wrangler.toml` 与 `p6-enhance/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。
 
 ### 12.4 前端接入
 ```html
@@ -435,9 +399,9 @@ wrangler deploy                      # → https://teleprompter-enhance.<sub>.wo
   import { createScripts } from './p6-enhance/scripts-client.js';
   import { createRemote } from './p6-enhance/remote-client.js';
   import { getTemplates } from './p6-enhance/templates-client.js';
-  const scripts = createScripts({ baseUrl: 'https://teleprompter-enhance.<sub>.workers.dev' });
+  const scripts = createScripts({ baseUrl: 'https://teleprompter-monolith.<sub>.workers.dev' });
   await scripts.saveScript({ title: '我的口播', content: '...' });   // 自动带 initData 验签
-  const { templates } = await getTemplates('https://teleprompter-enhance.<sub>.workers.dev');
+  const { templates } = await getTemplates('https://teleprompter-monolith.<sub>.workers.dev');
 </script>
 ```
 
@@ -453,7 +417,7 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 
 > 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/ja/ko；② 可见的强免责声明（设置页 + 独立"关于"页，三语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
 > 合规红线（凌驾一切）：不预测、不算命、不占卜；积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。本模块刻意提供 `complianceScan()` 做危险词自检。
-> 代码位置：`p7-compliance/`。**本地测试已通过（`node --test p7-compliance/test-compliance.mjs`，6/6）**，待 Cloudflare D1 部署。
+> 代码位置：`p7-compliance/`。**本地测试已通过（`node --test p7-compliance/test-compliance.mjs`，6/6）**，待统一单体部署（见 §3）。
 
 ### 13.1 交付清单
 | 文件 | 作用 |
@@ -463,8 +427,7 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 | `p7-compliance/compliance-worker.js` | Cloudflare Worker（Modules + D1）：`/compliance/disclaimer`、`/compliance/report` |
 | `p7-compliance/inmemory-compliance-store.js` | 测试用内存 Store |
 | `p7-compliance/compliance-client.js` | 浏览器客户端（`getDisclaimer` / `submitReport`） |
-| `p7-compliance/schema.sql` | D1 表（additive）：`reports` |
-| `p7-compliance/wrangler.toml` | 部署配置（**复用 P2 同一 D1 库** + BOT_TOKEN / ADMIN_SECRET） |
+| 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
 | `p7-compliance/test-compliance.mjs` | 本地测试（四语声明 / 举报记录 / 空 detail 拒 / 危险词自检）6 项 |
 
 ### 13.2 前端已落地（index.html 内联）
@@ -478,16 +441,8 @@ P3 的 `payments-worker.js` 已新增（ADMIN_SECRET 门禁）：
 - `GET /admin` → HTML 仪表盘，可视化总笔数 / 收到 Stars 总额 / 兑换积分总量 / 最近交易。
 > 内部积分 ≠ Stars ≠ 法币；不可提现、不可转账、不可交易。数据仅平台可见。
 
-### 13.4 部署步骤
-```bash
-cd 提词器Telegram小程序
-# 1) 复用 P2 已建 D1 库（同一 database_id），仅追加 reports 表（本地 + 远程各跑一次）
-wrangler d1 execute teleprompter-credits --local  --file=./p7-compliance/schema.sql
-wrangler d1 execute teleprompter-credits --remote --file=./p7-compliance/schema.sql
-# 2) secret（BOT_TOKEN / ADMIN_SECRET）已在 P2 阶段填过，无需重复
-# 3) 部署合规 Worker
-wrangler deploy   # 读 p7-compliance/wrangler.toml → https://teleprompter-compliance.<sub>.workers.dev
-```
+### 13.4 部署（已统一，见 §3）
+> 已合并为单体后端：`/compliance/*` 路由随根 `worker.js` 一起部署（见 §3）。`p7-compliance/wrangler.toml` 与 `p7-compliance/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。
 
 ### 13.5 前端接入
 ```html

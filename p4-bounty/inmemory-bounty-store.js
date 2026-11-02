@@ -6,7 +6,7 @@
  * 关键点：积分托管/发放**直接复用 P2 的 ledger-core.consume / grant**（不重造轮子），
  * 因此本 Store 同时实现 ledger-core 与 bounty 两套接口。
  */
-import { grant, consume, getBalance, getLedger } from '../p2-credits/ledger-core.js';
+import { grant, consume, getBalance, getLedger } from '../shared/ledger-core.js';
 
 export class InMemoryBountyStore {
   constructor() {

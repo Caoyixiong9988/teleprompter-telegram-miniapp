@@ -2,7 +2,7 @@
  * compliance-worker.js — P7 合规 Worker（Cloudflare Modules + D1）
  *
  * 复用：
- *   - p2-credits/verify.js ：initData 验签（举报可带 initData 标识举报人）
+ *   - shared/verify.js ：initData 验签（举报可带 initData 标识举报人）
  *   - 同一 D1 库 teleprompter-credits（reports 表，见 schema.sql）
  *
  * 路由：
@@ -12,7 +12,7 @@
  * 合规：本 Worker 不提供任何预测/算命能力；免责声明与积分红线见 compliance-core.js。
  */
 
-import { verifyInitData, getUserIdFromInitData } from '../p2-credits/verify.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
 import { getDisclaimerText, submitReport } from './compliance-core.js';
 
 // ── D1 Store 适配器 ──

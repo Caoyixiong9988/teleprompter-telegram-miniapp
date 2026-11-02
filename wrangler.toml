@@ -1,0 +1,38 @@
+# wrangler.toml — 提词器 Telegram Mini App 单体后端（Monolith）
+# 一个 Worker + 一个 D1 + 一个后端 URL，合并 P0 验签 + P2 积分 + P3 支付
+# + P4 悬赏 + P5 增长 + P6 增强 + P7 合规。彻底消除"多 Worker 分头部署"带来的 clash 风险。
+
+name = "teleprompter-monolith"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# 单一 D1 库：所有模块（含原 P6 独立库 teleprompter-enhance）共用同一库
+[[d1_databases]]
+binding = "DB"
+database_name = "teleprompter-credits"
+database_id = "__D1_DATABASE_ID__"   # `wrangler d1 create teleprompter-credits` 拿到后填入
+
+# 明文变量（非敏感）。BOT_USERNAME 用于分享深链，明文即可。
+[vars]
+BOT_USERNAME = "__BOT_USERNAME_PLACEHOLDER__"   # 与 BotFather 用户名一致（t.me/<bot>?start=CODE 深链）
+# APP_URL = "https://your-pages.pages.dev"      # 可选：分享卡片跳转用的 Mini App 地址
+
+# 部署 secret（交互式输入，不落盘、不提交真实值）：
+#   wrangler secret put BOT_TOKEN        # 与 BotFather token 一致（initData 验签 + 调 Bot API 开发票/设 webhook）
+#   wrangler secret put ADMIN_SECRET     # /payments/verify、/bounty/verify、/growth/verify 运营对账门禁
+#   wrangler secret put WEBHOOK_SECRET   # setWebhook 的 secret_token（/payments/webhook 验签）
+#
+# 初始化数据库（本地 + 远程各跑一次，schema 全量建表、幂等安全）：
+#   wrangler d1 execute teleprompter-credits --local  --file=./schema.sql
+#   wrangler d1 execute teleprompter-credits --remote --file=./schema.sql
+#
+# 部署：
+#   wrangler deploy
+#
+# 把 Bot 的 webhook 指向单体 Worker 的支付回调，并带上 secret_token：
+#   curl -F "url=https://teleprompter-monolith.<sub>.workers.dev/payments/webhook" \
+#        -F "secret_token=$WEBHOOK_SECRET" \
+#        https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
+#
+# 前端 index.html 只需填一个后端根地址 CONFIG.API_BASE（如 https://teleprompter-monolith.<sub>.workers.dev）
+# 所有 /verify /credits /payments /bounty /growth /scripts /remote /templates /compliance 都挂在此 URL 下。

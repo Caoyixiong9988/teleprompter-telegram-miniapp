@@ -2,8 +2,8 @@
  * growth-worker.js — P5 病毒增长（Cloudflare Worker, Modules 格式 + D1）
  *
  * 复用：
- *   - p2-credits/verify.js      ：initData HMAC 验签
- *   - p2-credits/ledger-core.js ：积分发放/消耗语义（grant / consume）
+ *   - shared/verify.js          ：initData HMAC 验签
+ *   - shared/ledger-core.js     ：积分发放/消耗语义（grant / consume）
  *   - ./growth-core.js          ：纯逻辑（归因 / 排行榜 / 礼物 / 分享载荷）
  *   - 同一 D1 库 teleprompter-credits（P2 统一积分总账），使积分变动与增长表同库。
  *
@@ -20,8 +20,8 @@
  * vars  ：BOT_USERNAME（分享深链用，明文即可，但建议放 secret 避免泄露 bot 指纹）
  */
 
-import { verifyInitData, getUserIdFromInitData } from '../p2-credits/verify.js';
-import { grant, consume, getBalance } from '../p2-credits/ledger-core.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
+import { grant, consume, getBalance } from '../shared/ledger-core.js';
 import { attributeReferral, getLeaderboard, sendGift, buildSharePayload } from './growth-core.js';
 
 // ── D1 Store 适配器（同时实现 growth-core 与 ledger-core 的 Store 接口）──

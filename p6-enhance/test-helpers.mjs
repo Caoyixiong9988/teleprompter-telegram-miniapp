@@ -9,7 +9,7 @@ const cryptoObj = globalThis.crypto || webcrypto;
 export const BOT_TOKEN = 'TEST_BOT_TOKEN:abc';
 export const ADMIN_SECRET = 'super-secret';
 
-// ── 签发合法 initData（与 p2-credits/verify.js 同算法）──
+// ── 签发合法 initData（与 shared/verify.js 同算法）──
 export async function signInitData(botToken, userId) {
   const params = new URLSearchParams();
   params.set('user', JSON.stringify({ id: userId, first_name: 'Tester' }));

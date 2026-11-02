@@ -267,13 +267,18 @@
 
 // ---- 配置（部署时按需修改） ----
 const CONFIG = {
-  // Worker 验签地址；留空则跳过 initData 服务端校验（本地/浏览器测试用）
-  VERIFY_URL: '',
-  // 合规 Worker 地址（免责声明 / 举报）；留空则举报仅本地提示，不真正上报
-  COMPLIANCE_URL: '',
+  // 单体后端根地址：所有 /verify /credits /payments /bounty /growth /scripts /remote /templates /compliance 都挂在这一个 Worker 下。
+  // 只填这一个 URL；下方端点由它派生，避免多处重复填 URL 导致日后漂移 / clash。
+  API_BASE: '',
   // Bot 用户名（用于分享深链）；留空时显示占位 your_bot
   BOT_USERNAME: ''
 };
+
+// 由 API_BASE 派生任意后端路径；留空时返回相对路径（本地/浏览器测试用）
+function apiUrl(path) {
+  const base = (CONFIG.API_BASE || '').replace(/\/+$/, '');
+  return base + path;
+}
 
 const LS_KEY = 'teleprompter_state_v1';
 
@@ -533,12 +538,12 @@ function renderVerifyStatus(){
   if (el2) el2.textContent = txt;
 }
 async function verifyInitData(){
-  if (!CONFIG.VERIFY_URL) return;
+  if (!CONFIG.API_BASE) return;
   if (!(window.Telegram && Telegram.WebApp)) return;
   const initData = Telegram.WebApp.initData;
   if (!initData) return;
   try {
-    const r = await fetch(CONFIG.VERIFY_URL, {
+    const r = await fetch(apiUrl('/verify'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ initData: initData })
@@ -603,8 +608,8 @@ async function submitReport() {
   if (!detail) { statusEl.textContent = '请先填写内容'; return; }
   statusEl.textContent = '提交中…';
   try {
-    if (!CONFIG.COMPLIANCE_URL) { statusEl.textContent = t('reportThanks'); detailEl.value = ''; return; }
-    const url = (CONFIG.COMPLIANCE_URL || '').replace(/\/+$/, '') + '/compliance/report';
+    if (!CONFIG.API_BASE) { statusEl.textContent = t('reportThanks'); detailEl.value = ''; return; }
+    const url = apiUrl('/compliance/report');
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

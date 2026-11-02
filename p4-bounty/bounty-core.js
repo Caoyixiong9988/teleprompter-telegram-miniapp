@@ -2,8 +2,8 @@
  * bounty-core.js — P4 悬赏改稿「纯逻辑」核心（不依赖 Cloudflare）
  *
  * 复用：
- *   - p2-credits/ledger-core.js ：积分托管/发放语义（consume 托管 escrow、grant 释放奖励）
- *   - p2-credits/verify.js      ：initData 验签（在 worker 层做）
+ *   - shared/ledger-core.js     ：积分托管/发放语义（consume 托管 escrow、grant 释放奖励）
+ *   - shared/verify.js          ：initData 验签（在 worker 层做）
  *
  * 合规红线（凌驾一切，见功能清单 / README）：
  *   - 悬赏 = 任务奖励（task reward）。奖励在创建时由平台托管（escrow），仅当发布者 award 时释放给中标者。
@@ -26,7 +26,7 @@
  *   setBountyStatus(bountyId, status) -> Promise<void>
  */
 
-import { grant, consume } from '../p2-credits/ledger-core.js';
+import { grant, consume } from '../shared/ledger-core.js';
 
 // ── 参数校验 ──
 function assertPositiveCredits(n) {

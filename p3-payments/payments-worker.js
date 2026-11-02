@@ -2,8 +2,8 @@
  * payments-worker.js — P3 Telegram Stars 支付账本（Cloudflare Worker, Modules 格式 + D1）
  *
  * 复用：
- *   - p2-credits/verify.js      ：initData HMAC 验签（/invoice、/history 门禁）
- *   - p2-credits/ledger-core.js ：积分发放语义（grant 三步：ensureUser→atomicAdjust→recordLedger）
+ *   - shared/verify.js          ：initData HMAC 验签（/invoice、/history 门禁）
+ *   - shared/ledger-core.js     ：积分发放语义（grant 三步：ensureUser→atomicAdjust→recordLedger）
  *   - 同一 D1 库 teleprompter-credits（P2 统一积分总账），使"支付 + 积分"可原子 batch。
  *
  * 路由：
@@ -17,7 +17,7 @@
  * secret（占位，部署时填）：BOT_TOKEN、ADMIN_SECRET、WEBHOOK_SECRET（setWebhook 的 secret_token）
  */
 
-import { verifyInitData, getUserIdFromInitData } from '../p2-credits/verify.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
 import { processSuccessfulPayment, STARS_PRODUCTS } from './payments-core.js';
 
 // ── D1 Store 适配器（实现 payments-core 的 Store 接口 + ledger-core 的 Store 接口）──

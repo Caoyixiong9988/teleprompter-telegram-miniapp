@@ -16,8 +16,8 @@
  * 部署见 wrangler.toml；secret：BOT_TOKEN、ADMIN_SECRET。
  */
 
-import { verifyInitData, getUserIdFromInitData } from './verify.js';
-import { grant, consume, getBalance, getLedger } from './ledger-core.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
+import { grant, consume, getBalance, getLedger } from '../shared/ledger-core.js';
 
 // ── D1 Store 适配器（实现 ledger-core 的 Store 接口）──────────
 class D1Store {

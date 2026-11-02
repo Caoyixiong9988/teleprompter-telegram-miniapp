@@ -2,8 +2,8 @@
  * bounty-worker.js — P4 悬赏改稿（Cloudflare Worker, Modules 格式 + D1）
  *
  * 复用：
- *   - p2-credits/verify.js      ：initData HMAC 验签
- *   - p2-credits/ledger-core.js ：积分托管/发放语义（consume / grant）
+ *   - shared/verify.js          ：initData HMAC 验签
+ *   - shared/ledger-core.js     ：积分托管/发放语义（consume / grant）
  *   - ./bounty-core.js          ：纯逻辑（托管 / 投稿 / 释放奖励 / 幂等）
  *   - 同一 D1 库 teleprompter-credits（P2 统一积分总账），使 escrow 托管与积分发放同库。
  *
@@ -20,8 +20,8 @@
  * secret（占位，部署时填）：BOT_TOKEN、ADMIN_SECRET
  */
 
-import { verifyInitData, getUserIdFromInitData } from '../p2-credits/verify.js';
-import { grant, consume, getBalance } from '../p2-credits/ledger-core.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
+import { grant, consume, getBalance } from '../shared/ledger-core.js';
 import { createBounty, listOpenBounties, submitRevision, awardBounty, getBounty } from './bounty-core.js';
 
 // ── D1 Store 适配器（同时实现 bounty-core 与 ledger-core 的 Store 接口）──

@@ -2,8 +2,8 @@
  * growth-core.js — P5 病毒增长「纯逻辑」核心（不依赖 Cloudflare）
  *
  * 复用：
- *   - p2-credits/ledger-core.js ：积分发放/消耗语义（grant / consume）
- *   - p2-credits/verify.js      ：initData 验签（在 worker 层做）
+ *   - shared/ledger-core.js     ：积分发放/消耗语义（grant / consume）
+ *   - shared/verify.js          ：initData 验签（在 worker 层做）
  *
  * 合规红线（凌驾一切，见功能清单）：
  *   - 所有积分变动均由平台中介：发放=grant、消耗=consume，绝不做钱包对钱包的 transfer()。
@@ -26,7 +26,7 @@
  *   // ledger-core 接口（grant/consume 需要）：ensureUser/getBalance/atomicAdjust/recordLedger/getLedger
  */
 
-import { grant, consume } from '../p2-credits/ledger-core.js';
+import { grant, consume } from '../shared/ledger-core.js';
 
 // 邀请双方各得平台发放积分（非转账）。值为正整数，符合 ledger-core 的 assertPositiveAmount。
 export const REFERRAL_BONUS = 50;

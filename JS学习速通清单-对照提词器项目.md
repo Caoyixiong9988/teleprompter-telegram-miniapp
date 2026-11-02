@@ -62,7 +62,7 @@
 | JS 概念 | 红宝书 | 现代教程 | 项目实弹 | 小练习 |
 |---|---|---|---|---|
 | 导出函数 `export` | 第 13 章 | 模块 | `ledger-core.js:36` `export async function grant(...)` | — |
-| 具名导入 `import { }` | 第 13 章 | 模块 | `bounty-core.js:29` `import { grant, consume } from '../p2-credits/ledger-core.js';` | 注意这是**相对路径 + 带 .js 后缀**（浏览器/ESM 要求） |
+| 具名导入 `import { }` | 第 13 章 | 模块 | `bounty-core.js` `import { grant, consume } from '../shared/ledger-core.js';` | 注意这是**相对路径 + 带 .js 后缀**（浏览器/ESM 要求） |
 | 默认导入 `import x from` | 第 13 章 | 模块 | `test-credits.mjs:16` `import worker from './credits-worker.js';` | — |
 
 > 💡 你项目的依赖关系是：`bounty-core` / `growth-core` 都 `import` 了 `ledger-core` 的 `grant/consume`——这就是**代码复用**：P2 的积分账本被 P4、P5 共用。理解这条线，你就理解了"为什么要把逻辑拆成模块"。
@@ -137,7 +137,7 @@
 
 ## 10. 推荐阅读顺序（从你项目里挑文件，由易到难）
 
-1. **先读最"纯"的逻辑**：`p2-credits/ledger-core.js`（72 行，函数+错误处理，无 DOM 无网络）。
+1. **先读最"纯"的逻辑**：`shared/ledger-core.js`（72 行，函数+错误处理，无 DOM 无网络；由 P2–P7 共用，已上提到 `shared/`）。
 2. **再读复用它的**：`p4-bounty/bounty-core.js`、`p5-growth/growth-core.js`（看 `import` 怎么复用 P2）。
 3. **读前端**：`index.html`（搜 `getElementById` / `addEventListener`，理解界面怎么动）。
 4. **读加密/后端入口**：`worker.js`（看 `fetch` 怎么接收请求、`crypto` 怎么验签）。

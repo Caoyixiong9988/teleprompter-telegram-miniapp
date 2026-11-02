@@ -1,130 +1,132 @@
 /**
- * worker.js — Telegram initData HMAC 服务端验签（P0 脚手架）
+ * worker.js — 提词器 Telegram Mini App 单体后端（Monolith）
  *
- * 用途：在 Cloudflare Worker 上校验 Telegram Mini App 传入的 initData，
- *       防止伪造身份。暴露 POST /verify 端点，返回 { valid: true/false, reason? }。
+ * 合并范围：P0 验签 + P2 统一积分 + P3 Stars 支付 + P4 悬赏改稿
+ *           + P5 病毒增长 + P6 增强（台词云同步/远程控制/模板）
+ *           + P7 合规（免责声明/举报）
  *
- * 部署格式：Service Worker（兼容 `wrangler deploy`，且可被 `node --check worker.js` 通过）。
+ * 形态：Cloudflare Workers Modules 格式 + 单一 D1（teleprompter-credits）。
  *
- * 必填环境变量（在 wrangler.toml [vars] 或 `wrangler secret put BOT_TOKEN`）：
- *   BOT_TOKEN  = 你的 BotFather bot token（如 123456:ABC-DEF...）
+ * 为什么合并为单体（直接回应"后续改动会 clash"的担忧）：
+ *   - 原本 P0–P7 是 6+1 个独立 Worker，各带独立 wrangler.toml / schema.sql / URL；
+ *     Telegram Mini App 只有一个后端 URL，未来任何鉴权/路由改动都要同步改 6 份，极易漂移冲突。
+ *   - 现在：一个 Worker、一个 D1、一个 wrangler.toml、一个 schema.sql、一条后端 URL。
+ *     路由按前缀分发给各模块 handler（每个模块逻辑完全保留，零重写），共享验签/账本集中在 shared/。
  *
- * 验签算法（Telegram 官方）：
- *   1. 解析 initData，取出 hash，其余键值按字母序排序，拼成 data_check_string（key=value\n 连接）
- *   2. secret_key = HMAC_SHA256(key="WebAppData", msg=bot_token)
- *   3. hmac       = HMAC_SHA256(key=secret_key, msg=data_check_string)
- *   4. 比较 hex(hmac) 与 hash（常量时间比较）
- *   5. 可选：校验 auth_date 是否在容差内（默认 24h）
+ * 路由总览（全部挂在同一个 Worker 下）：
+ *   /verify                 POST  initData 验签（P0，直接用 shared/verify.js，消除旧 worker.js 的重复实现）
+ *   /credits/*              P2 统一积分账本
+ *   /payments/*             P3 Telegram Stars 支付账本（+ /admin 运营对账）
+ *   /bounty/*               P4 悬赏改稿
+ *   /growth/*               P5 病毒增长 / 推荐 / 排行榜 / 礼物
+ *   /scripts/* /remote/* /templates  P6 增强（云同步 / 远程控制 / 模板库）
+ *   /compliance/*           P7 免责声明 / 举报
+ *
+ * 部署：见根目录 wrangler.toml；secret：BOT_TOKEN、ADMIN_SECRET、WEBHOOK_SECRET；
+ *       vars：BOT_USERNAME、APP_URL。单一 D1 = teleprompter-credits（建表见根 schema.sql）。
  */
 
-// 占位符：部署前请通过环境变量注入真实 bot token；未配置时验签返回 false（属预期）。
-const BOT_TOKEN = (typeof BOT_TOKEN !== 'undefined') ? BOT_TOKEN : '__BOT_TOKEN_PLACEHOLDER__';
-const MAX_AGE_SECONDS = 86400; // auth_date 容差：24 小时
+import { verifyInitData } from './shared/verify.js';
 
-function constantTimeCompare(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
-}
+import creditsHandler from './p2-credits/credits-worker.js';
+import paymentsHandler from './p3-payments/payments-worker.js';
+import bountyHandler from './p4-bounty/bounty-worker.js';
+import growthHandler from './p5-growth/growth-worker.js';
+import enhanceHandler from './p6-enhance/enhance-worker.js';
+import complianceHandler from './p7-compliance/compliance-worker.js';
 
-function bytes(str) {
-  return new TextEncoder().encode(str);
-}
+// 前缀 → 模块 handler（顺序无关，首个命中前缀即分发）
+const ROUTES = [
+  ['/credits', creditsHandler],
+  ['/payments', paymentsHandler],
+  ['/bounty', bountyHandler],
+  ['/growth', growthHandler],
+  ['/scripts', enhanceHandler],
+  ['/remote', enhanceHandler],
+  ['/templates', enhanceHandler],
+  ['/compliance', complianceHandler],
+];
 
-function toHex(buf) {
-  return Array.from(buf).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-}
+// 全局 CORS 预检（各模块 handler 内部不再各自处理 OPTIONS，统一在此拦截）
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'content-type, x-telegram-bot-api-secret-token, x-admin-secret',
+  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+};
 
-async function hmacSha256(key, msg) {
-  const keyBuf = await crypto.subtle.importKey(
-    'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', keyBuf, msg);
-  return new Uint8Array(sig);
-}
-
-async function verifyInitData(initData) {
-  if (!initData || typeof initData !== 'string' || initData.trim() === '') {
-    return { valid: false, reason: 'empty' };
-  }
-  if (!BOT_TOKEN || BOT_TOKEN === '__BOT_TOKEN_PLACEHOLDER__') {
-    return { valid: false, reason: 'token_not_configured' };
-  }
-
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return { valid: false, reason: 'no_hash' };
-  params.delete('hash');
-
-  // data_check_string：键字母序排序，key=value 以 \n 连接
-  const keys = Array.from(params.keys()).sort();
-  const dataCheckString = keys.map(function (k) { return k + '=' + params.get(k); }).join('\n');
-
-  // secret_key = HMAC_SHA256("WebAppData", bot_token)
-  const secret = await hmacSha256(bytes('WebAppData'), bytes(BOT_TOKEN));
-  // hash = HMAC_SHA256(secret, data_check_string)
-  const computed = await hmacSha256(secret, bytes(dataCheckString));
-  const computedHex = toHex(computed);
-
-  if (!constantTimeCompare(computedHex, hash)) {
-    return { valid: false, reason: 'bad_hash' };
-  }
-
-  // 可选：auth_date 过期检查
-  const authDate = parseInt(params.get('auth_date') || '0', 10);
-  if (authDate) {
-    const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - authDate) > MAX_AGE_SECONDS) {
-      return { valid: false, reason: 'expired' };
-    }
-  }
-
-  return { valid: true };
-}
-
-function jsonResponse(obj, status) {
+function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
-    status: status || 200,
+    status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
-      'access-control-allow-origin': '*'
-    }
+      ...CORS_HEADERS,
+    },
   });
 }
 
-async function handleRequest(request) {
-  const url = new URL(request.url);
-
-  if (url.pathname === '/verify') {
-    if (request.method !== 'POST') {
-      return jsonResponse({ valid: false, reason: 'method_not_post' }, 405);
-    }
-    let initData;
-    try {
-      const ct = request.headers.get('content-type') || '';
-      if (ct.indexOf('application/json') !== -1) {
-        const body = await request.json();
-        initData = body && body.initData;
-      } else {
-        const form = await request.formData();
-        initData = form.get('initData');
-      }
-    } catch (e) {
-      return jsonResponse({ valid: false, reason: 'bad_body' }, 400);
-    }
-    const result = await verifyInitData(initData);
-    return jsonResponse(result, 200);
+async function readJson(request) {
+  try {
+    return await request.json();
+  } catch {
+    return {};
   }
-
-  return new Response(
-    'Teleprompter initData verify worker.\nPOST your initData to /verify',
-    { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } }
-  );
 }
 
-addEventListener('fetch', function (event) {
-  event.respondWith(handleRequest(event.request));
-});
+// ── P0：/verify（集中复用 shared/verify.js，取代旧 worker.js 的重复验签实现）──
+async function handleVerify(request, env) {
+  if (request.method !== 'POST') {
+    return json({ valid: false, reason: 'method_not_post' }, 405);
+  }
+  let initData;
+  try {
+    const ct = request.headers.get('content-type') || '';
+    if (ct.indexOf('application/json') !== -1) {
+      const body = await request.json();
+      initData = body && body.initData;
+    } else {
+      const form = await request.formData();
+      initData = form.get('initData');
+    }
+  } catch {
+    return json({ valid: false, reason: 'bad_body' }, 400);
+  }
+  const result = await verifyInitData(initData, env.BOT_TOKEN);
+  return json(result, 200);
+}
+
+// ── 单体 fetch 入口 ──
+async function fetch(request, env, ctx) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  // 1) 全局 CORS 预检
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  // 2) P0 验签端点（旧 P0 worker 的能力，现内建，避免多 Worker）
+  if (path === '/verify') {
+    return handleVerify(request, env);
+  }
+
+  // 3) 按前缀分发给各模块 handler（模块内部保留完整路由与 404 兜底）
+  for (const [prefix, handler] of ROUTES) {
+    if (path === prefix || path.startsWith(prefix + '/')) {
+      return handler.fetch(request, env, ctx);
+    }
+  }
+
+  // 4) 健康检查 / 落地页
+  if (path === '/' || path === '/health') {
+    return json({
+      service: 'teleprompter-monolith',
+      status: 'ok',
+      version: '0.1.0',
+      modules: ['credits', 'payments', 'bounty', 'growth', 'enhance', 'compliance', 'verify'],
+    });
+  }
+
+  return json({ error: 'not_found', path }, 404);
+}
+
+export default { fetch };

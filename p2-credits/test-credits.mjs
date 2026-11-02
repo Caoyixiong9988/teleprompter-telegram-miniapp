@@ -11,8 +11,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { grant, consume, getBalance, getLedger } from './ledger-core.js';
-import { verifyInitData, getUserIdFromInitData } from './verify.js';
+import { grant, consume, getBalance, getLedger } from '../shared/ledger-core.js';
+import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
 import worker from './credits-worker.js';
 import { InMemoryStore } from './inmemory-store.js';
 
@@ -189,7 +189,7 @@ test('3) Worker 端到端：验签门禁 / adminSecret / 402 / 401 / 403', async
 });
 
 test('4) 合规：核心模块不得提供 transfer（禁止 P2P 转账）', async () => {
-  const mod = await import('./ledger-core.js');
+  const mod = await import('../shared/ledger-core.js');
   assert.equal(typeof mod.transfer, 'undefined', '绝不能出现 transfer —— 积分只由平台发放，用户间不可转账');
   assert.equal(typeof mod.grant, 'function');
   assert.equal(typeof mod.consume, 'function');
