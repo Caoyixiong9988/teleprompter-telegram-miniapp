@@ -514,6 +514,8 @@ function applyI18n() {
   const ad = document.getElementById('aboutDisclaimer'); if (ad) ad.textContent = t('disclaimerBody');
   const pn = document.getElementById('aboutPaidNotice'); if (pn) pn.textContent = t('paidNotice');
   const rp = document.getElementById('reportDetail'); if (rp) rp.placeholder = t('reportPlaceholder');
+  // 默认示例稿随语言切换；用户已自定义讲稿（dataset.isDefault !== '1'）则不覆盖
+  if (scrollText.dataset.isDefault === '1') scrollText.textContent = t('defaultScript');
   if (typeof renderSpeedUI === 'function') renderSpeedUI();
 }
 
@@ -774,6 +776,7 @@ btnSpeedUnit.addEventListener('click', function(){
 setScript.addEventListener('input', function(e){
   state.script = e.target.value;
   scrollText.textContent = state.script;
+  scrollText.dataset.isDefault = '0'; // 用户已编辑，视为自定义内容，不再随语言切换示例稿
   offset = 0; applyPrompterStyle();
   debounceSave();
 });
@@ -831,6 +834,9 @@ function init(){
   // 还原 DOM
   setScript.value = state.script;
   scrollText.textContent = state.script;
+  // 标记提词区是否为默认示例稿：是则语言切换时跟随语言刷新示例（用户自定义内容不覆盖）
+  const isDefaultScript = Object.values(I18N).some(function (d) { return d.defaultScript === state.script; });
+  scrollText.dataset.isDefault = isDefaultScript ? '1' : '0';
   setFontSize.value = state.fontSize;
   setFontSizeLabel.textContent = state.fontSize + 'px';
   setColor.value = state.color;
