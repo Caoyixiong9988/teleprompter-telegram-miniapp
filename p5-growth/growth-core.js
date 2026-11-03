@@ -9,7 +9,7 @@
  *   - 所有积分变动均由平台中介：发放=grant、消耗=consume，绝不做钱包对钱包的 transfer()。
  *   - 邀请 / 礼物奖励均为平台发放（reason='referral_bonus' / 'gift_receive'），不是 A 转 B。
  *   - 分享卡片是用户原创（UGC）有机传播，非付费广告网络。
- *   - 绝不出现占卜 / 预测 / 赌博类文案或能力。
+ *   - 绝不出现赌博、收益承诺类文案或能力。
  *   本模块刻意不提供任何 transfer / withdraw / bet / predict 能力。
  *
  * ── Store 接口（由 adapter 实现）─────────────────────────────────
@@ -117,7 +117,7 @@ export async function sendGift(store, { fromUserId, toUserId, amount, reason = '
 
 /**
  * 构建分享载荷（"作品即广告"）。实际 Canvas 卡片渲染在 index.html 完成；此处仅返回数据/深链。
- * 分享文案不含任何占卜 / 预测措辞，属用户原创（UGC）有机传播。
+ * 分享文案不含任何收益承诺措辞，属用户原创（UGC）有机传播。
  *
  * @param {{userId:string, referralCode:string, botUsername?:string, appUrl?:string}} params
  */

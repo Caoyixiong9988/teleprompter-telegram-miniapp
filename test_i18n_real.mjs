@@ -58,6 +58,17 @@ const autoRu = window.eval('detectLang()');
 const autoJa = window.eval('pickSupported("ja_JP")');
 Object.defineProperty(window.navigator, 'language', { value: 'zh-CN', configurable: true });
 
+// ---- 客户文案守门：五语文案里不得出现占卜/预测类字样（提词器与这类内容无关）----
+const BANNED_RE = /占卜|算命|运势|预测|黄历|四镜|吉凶|风水|塔罗|命理|fortune|horoscope|tarot|divination|astrology/i;
+const bannedHits = [];
+for (const l of langList) {
+  const dict = JSON.parse(window.eval(`JSON.stringify(I18N['${l}'])`));
+  for (const [k, v] of Object.entries(dict)) {
+    if (typeof v === 'string' && BANNED_RE.test(v)) bannedHits.push(`${l}.${k}`);
+  }
+}
+const copyClean = bannedHits.length === 0;
+
 // ---- 问题二：抽屉退出方式 ----
 const sheet = doc.getElementById('settingsSheet');
 sheet.classList.remove('hidden');
@@ -110,6 +121,8 @@ console.log('--- 五语键集 ---');
 console.log('各语言键数:', langList.map(l => `${l}=${keySets[l].size}`).join(', '));
 console.log('--- 自动语言识别 ---');
 console.log('navigator=ru-RU -> detectLang:', autoRu, '| pickSupported("ja_JP"):', autoJa);
+console.log('--- 客户文案守门 ---');
+console.log('命中占卜类字样:', bannedHits.length ? bannedHits.join(', ') : '无');
 console.log('--- 脚本运行错误 ---');
 console.log(errors.length ? errors.join('\n') : '无');
 
@@ -121,6 +134,7 @@ const p0 = errors.length === 0;
 const p5 = pickRuOk && htmlLangRu && taRu.includes('Вставьте сценарий') && uiSpeedRu === 'Скорость' && scrollRu.includes('Вставьте сценарий');
 const p6 = keySetOk;
 const p7 = autoRu === 'ru' && autoJa === 'ja';
+const p8 = copyClean;
 
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
@@ -131,6 +145,7 @@ console.log('4) Pro 权益页(价格/多语/遮罩关闭):', p4 ? '✅' : '❌')
 console.log('5) 俄语(第 5 语言) 切换生效:', p5 ? '✅' : '❌');
 console.log('6) 五语键集一致:', p6 ? `✅ (各 ${keyCount} 键)` : '❌');
 console.log('7) 俄语环境自动识别:', p7 ? '✅' : '❌');
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7;
+console.log('8) 五语客户文案无占卜类字样:', p8 ? '✅' : '❌ ' + bannedHits.join(', '));
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);

@@ -2,13 +2,15 @@
  * compliance-core.js — P7 合规核心（纯逻辑，不依赖 Cloudflare）
  *
  * 职责：
- *   1) 免责声明三语文案（结构化，便于 /disclaimer 接口与前端分块展示）。
+ *   1) 免责声明五语文案（结构化，便于 /disclaimer 接口与前端分块展示）。
  *   2) 举报 / 反馈记录（submitReport，依赖 store 适配器）。
- *   3) 合规自检（complianceScan）：文案不得出现占卜 / 预测 / 算命类危险词
- *      —— 对应美国 App Store Guideline 1.4.1 红线，上线前 CI 可复用。
  *
- * 合规红线（凌驾一切）：不预测、不算命、不占卜；积分 ≠ Stars ≠ 法币；
- * 无 P2P 转账、无赌博。本模块不提供任何预测 / 算命能力。
+ * 口径（对齐同类提词器产品的通行写法）：
+ *   - 工具定位：只显示并滚动用户输入的文字，不替用户创作、发布或评价内容。
+ *   - 内容归属：讲稿归用户所有；默认只存本机，我方不读取 / 不上传 / 不备份。
+ *   - 自行备份：清除浏览器数据、卸载或换设备后可能无法恢复。
+ *   - 按「现状」提供：不对录制效果或使用后果作保证。
+ *   - 支付边界：Stars 由 Telegram 处理；积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。
  */
 
 import { UI_STRINGS, getLang } from './i18n.js';
@@ -44,22 +46,4 @@ export async function submitReport(store, { type, targetId, detail, userId }) {
   if (!detail.trim()) return { ok: false, reason: 'empty_detail' };
   const id = await store.insertReport({ type, targetId, detail, userId, createdAt: Date.now() });
   return { ok: true, id };
-}
-
-/**
- * 合规自检：扫描文本是否含占卜 / 预测 / 算命类危险词（美国合规红线）。
- * @param {string} text
- * @returns {{safe:boolean, hits:string[]}}
- */
-const FORBIDDEN = [
-  '运势', '算命', '占卜', '预测', '占星', '塔罗', '八字', '风水', '吉凶', '黄历宜忌',
-  'fortune', 'predict', 'horoscope', 'astrology', 'divination', 'tarot', 'lucky',
-];
-export function complianceScan(text) {
-  const hits = [];
-  const lower = String(text || '').toLowerCase();
-  for (const w of FORBIDDEN) {
-    if (lower.includes(w.toLowerCase())) hits.push(w);
-  }
-  return { safe: hits.length === 0, hits };
 }

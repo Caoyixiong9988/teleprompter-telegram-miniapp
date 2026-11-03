@@ -4,7 +4,7 @@
  *
  * 覆盖：
  *   1) 模板可加载，且涵盖关键 category（口播开场白 / 产品介绍 / 感谢结尾 / 教学分段）
- *   2) 合规断言：所有模板正文绝不出现算命/预测/运势/吉凶/卦/风水/占卜 等关键词
+ *   2) 质量断言：所有模板正文不含绝对化承诺用语（保证 / 100% / 根治 等）
  *   3) Worker GET /templates（PUBLIC）返回模板列表
  */
 import test from 'node:test';
@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { TEMPLATES } from './templates.js';
 import worker from './enhance-worker.js';
-import { makeEnv, containsForbidden } from './test-helpers.mjs';
+import { makeEnv, containsClaim } from './test-helpers.mjs';
 
 const REQUIRED_CATEGORIES = ['口播开场白', '产品介绍', '感谢结尾', '教学分段'];
 
@@ -27,13 +27,13 @@ test('1) 模板可加载，且关键 category 齐全', () => {
   }
 });
 
-test('2) 合规：模板正文绝不含算命/预测/运势等关键词', () => {
+test('2) 质量：模板正文不含绝对化承诺用语', () => {
   for (const t of TEMPLATES) {
     const blob = [t.id, t.title, t.category, t.body].join(' | ');
     assert.equal(
-      containsForbidden(blob),
+      containsClaim(blob),
       false,
-      `模板「${t.title}」命中违规关键词，违反美国 App Store 合规（非算命/非预测）`
+      `模板「${t.title}」含绝对化承诺用语，用户照读后可能形成不当承诺`
     );
   }
 });
@@ -44,8 +44,8 @@ test('3) Worker GET /templates（PUBLIC）返回模板列表', async () => {
   assert.equal(r.status, 200);
   const d = await r.json();
   assert.ok(Array.isArray(d.templates) && d.templates.length === TEMPLATES.length);
-  // 且同样满足合规
+  // 且同样不含绝对化承诺用语
   for (const t of d.templates) {
-    assert.equal(containsForbidden([t.title, t.category, t.body].join(' | ')), false);
+    assert.equal(containsClaim([t.title, t.category, t.body].join(' | ')), false);
   }
 });

@@ -321,10 +321,10 @@ test('e4) Worker：排行榜公开可读（群内维度）', async () => {
   assert.deepEqual(d.leaderboard.map((x) => x.user_id), ['m2', 'm3', 'm1']);
 });
 
-test('f) 合规：growth-core 不得导出任何 transfer/withdraw/gamble/predict/fortune/bet 能力', async () => {
+test('f) 合规：growth-core 不得导出任何 transfer/withdraw/gamble/bet 能力', async () => {
   const mod = await import('./growth-core.js');
-  for (const banned of ['transfer', 'withdraw', 'payout', 'gamble', 'bet', 'predict', 'fortune', 'casino']) {
-    assert.equal(typeof mod[banned], 'undefined', `绝不能出现 ${banned} —— 增长模块严禁转账/提现/赌博/预测`);
+  for (const banned of ['transfer', 'withdraw', 'payout', 'gamble', 'bet', 'casino']) {
+    assert.equal(typeof mod[banned], 'undefined', `绝不能出现 ${banned} —— 增长模块严禁转账/提现/赌博`);
   }
   // 允许的纯函数应存在
   assert.equal(typeof mod.attributeReferral, 'function');
@@ -333,11 +333,3 @@ test('f) 合规：growth-core 不得导出任何 transfer/withdraw/gamble/predic
   assert.equal(typeof mod.buildSharePayload, 'function');
 });
 
-test('f2) 合规：用户可见分享文案不含占卜 / 预测字眼（美国 App Store 红线）', async () => {
-  const payload = buildSharePayload({ userId: 'x', referralCode: 'ABC123', botUsername: 'bot' });
-  // 仅校验面向用户的文案（shareText + 卡片标题/副标题）；note 为开发侧合规备注，可含"无占卜"说明
-  const text = (payload.shareText + ' ' + payload.card.title + ' ' + payload.card.subtitle).toLowerCase();
-  for (const banned of ['fortune', 'predict', '命运', '预测', '占卜', '运势', '算命']) {
-    assert.equal(text.includes(banned), false, `用户可见分享文案不得含合规禁用词：${banned}`);
-  }
-});

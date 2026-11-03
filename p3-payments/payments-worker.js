@@ -12,7 +12,7 @@
  *   GET  /payments/history   经 initData 验签；返回当前用户 Stars 支付历史
  *   GET  /payments/verify    ADMIN_SECRET 门禁；运营对账
  *
- * 合规：Stars 只经 Telegram 官方；积分仅平台发放、用户只消耗；无 P2P 转账 / 无赌博 / 无预测。
+ * 合规：Stars 只经 Telegram 官方；积分仅平台发放、用户只消耗；无 P2P 转账 / 无赌博。
  *
  * secret（占位，部署时填）：BOT_TOKEN、ADMIN_SECRET、WEBHOOK_SECRET（setWebhook 的 secret_token）
  */
@@ -170,7 +170,7 @@ async function handleWebhook(request, env) {
     return json({ error: 'bad_json' }, 400);
   }
 
-  // 2) pre_checkout_query：必须应答 ok（此时尚未扣款，只做放行；商品为功能解锁积分包，无预测/赌博）
+  // 2) pre_checkout_query：必须应答 ok（此时尚未扣款，只做放行；商品为功能解锁积分包）
   if (update.pre_checkout_query) {
     const pcq = update.pre_checkout_query;
     // Telegram webhook 支持"以方法作为响应体"：直接返回 answerPreCheckoutQuery

@@ -8,11 +8,11 @@
  * 三大路由合入本 Worker（D1 bind = env.DB；BOT_TOKEN / ADMIN_SECRET 来自 env）：
  *   A) 台词云端同步 /scripts        （initData 验签：list / save 即 upsert / delete owner-only）
  *   B) 双设备远程控制 /remote/*      （Telegram 中转的共享 token；create 需验签，command/state 凭 token）
- *   D) 台词模板库 /templates         （PUBLIC，无鉴权；返回中性口播框架，绝不含算命/预测文案）
+ *   D) 台词模板库 /templates         （PUBLIC，无鉴权；返回中性口播框架）
  *
  * 合规铁律（凌驾一切，美国 App Store）：
- *   - 模板库只放"中性口播框架"，绝不含算命/运势/预测/吉凶/卦/风水/占卜等内容
- *   - 远程控制只是设备间播放指令中转，绝不涉及 P2P 转账 / 赌博 / 预测
+ *   - 模板库只放"中性口播框架"，不含绝对化承诺用语
+ *   - 远程控制只是设备间播放指令中转，绝不涉及 P2P 转账 / 赌博
  *   - secret（BOT_TOKEN / ADMIN_SECRET）保持占位，部署时由 wrangler secret put 注入
  */
 
@@ -127,7 +127,7 @@ async function authUser(initData, env) {
   return { ok: true, userId };
 }
 
-// 生成不可预测的 session_token（Web Crypto；Cloudflare Workers 与 Node 22+ 均原生支持）
+// 生成随机的 session_token（Web Crypto；Cloudflare Workers 与 Node 22+ 均原生支持）
 function mintToken() {
   return (globalThis.crypto?.randomUUID?.() || 'tok_' + Date.now() + '_' + Math.random().toString(16).slice(2));
 }

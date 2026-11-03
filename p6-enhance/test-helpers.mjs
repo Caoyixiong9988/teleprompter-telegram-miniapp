@@ -90,14 +90,14 @@ export function makeEnv() {
   return { DB: makeMockDB(), BOT_TOKEN, ADMIN_SECRET };
 }
 
-// ── 合规：算命/预测/赌博 等关键词（任一出现即违规）──
-export const FORTUNE_KEYWORDS = [
-  '算命', '运势', '预测', '吉凶', '卦', '风水', '占卜', '命理', '卜卦',
-  '黄道吉日', '宜忌', '择日', '财运', '桃花', '塔罗', '星座运势', '幸运',
-  'fortune', 'predict', 'horoscope', 'tarot', 'zodiac',
+// ── 质量守门：模板正文不得含绝对化承诺用语（避免用户照读形成不当承诺）──
+export const CLAIM_KEYWORDS = [
+  '保证', '百分百', '100%', '绝对', '稳赚', '必赚', '根治', '包治', '永不复发',
+  'guaranteed', 'risk-free', 'cure',
 ];
 
-export function containsForbidden(text) {
+export function containsClaim(text) {
   const t = String(text || '');
-  return FORTUNE_KEYWORDS.some((k) => t.includes(k));
+  return CLAIM_KEYWORDS.some((k) => t.toLowerCase().includes(k.toLowerCase()));
 }
+

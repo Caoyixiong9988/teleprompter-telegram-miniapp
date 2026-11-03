@@ -233,8 +233,8 @@ node --test p2-credits/test-credits.mjs        # 5/5 应全绿
 ### 9.1 合规边界（红线，与 P2 一致，凌驾一切）
 - **Stars 只经 Telegram 官方支付流转**，绝不经手法定货币 / 加密货币；一切扣款由 Telegram 完成。
 - 内部积分 **≠ Telegram Stars、≠ 法定货币**；界面与声明须明确区分，且**不可提现**。
-- 积分只由平台在支付成功后发放，用户只消耗（P2 已刻意不提供 transfer）——**无 P2P 转账、无赌博、无预测 / 算命**。
-- 商品描述只谈"功能解锁 / 创作额度"（Pro 主题、去水印导出、生成次数等），不出现运势、预测类字眼（美国 App Store 合规）。
+- 积分只由平台在支付成功后发放，用户只消耗（P2 已刻意不提供 transfer）——**无 P2P 转账、无赌博**。
+- 商品描述只谈"功能解锁 / 创作额度"（Pro 主题、去水印导出、生成次数等），不写效果承诺或收益暗示。
 
 ### 9.2 文件清单
 | 文件 | 作用 |
@@ -287,12 +287,12 @@ node --test  p3-payments/test-payments.mjs       # 12/12 应全绿
 ## 10. P4 悬赏改稿（平台托管 + 释放奖励，无 P2P）
 
 > 范围：创作者经济——发布者用积分发赏（平台托管 escrow），他人投稿改写，发布者选定中标并释放奖励。
-> 奖励全程平台托管（escrow）→ 仅 award 释放给中标者；**绝不做 P2P 转账 / 赌博 / 预测**。
+> 奖励全程平台托管（escrow）→ 仅 award 释放给中标者；**绝不做 P2P 转账 / 赌博**。
 > 代码位置：`p4-bounty/`。**本地测试已通过（`node --test p4-bounty/test-bounty.mjs`，6/6）**，待统一单体部署（见 §3）。
 
 ### 10.1 合规边界（红线，美国 App Store 合规）
 - 悬赏 = 任务奖励（task reward），由发布者用积分托管；中标后平台发放，**积分只由平台 grant，用户只 consume / 托管**。
-- **绝不实现** 钱包到钱包 P2P 转账（transfer）、提现（withdraw）、押注 / 彩票（gamble / lottery）、预测 / 算命。
+- **绝不实现** 钱包到钱包 P2P 转账（transfer）、提现（withdraw）、押注 / 彩票（gamble / lottery）。
 - 代码刻意不导出 `transfer / withdraw / gamble / predict / fortune`（测试已断言）。
 
 ### 10.2 文件清单
@@ -331,12 +331,12 @@ node --test  p4-bounty/test-bounty.mjs      # 6/6 应全绿
 ## 11. P5 病毒增长（推荐归因 / 排行榜 / 礼物 / 分享，平台中介）
 
 > 范围：获客增长——推荐归因（双方各得平台奖励）、群 / 全站排行榜、平台中介的积分礼物、分享深链。
-> 所有积分变动**平台中介**（consume + grant，非转账）；**无 transfer / withdraw / 赌博 / 预测**。
+> 所有积分变动**平台中介**（consume + grant，非转账）；**无 transfer / withdraw / 赌博**。
 > 代码位置：`p5-growth/`。**本地测试已通过（`node --test p5-growth/test-growth.mjs`，12/12）**，待统一单体部署（见 §3）。
 
 ### 11.1 合规边界
 - 推荐奖励由平台发放（非转账）；礼物为平台中介的 consume + grant，**绝不做钱包互转**。
-- 分享为 UGC 有机传播；**不含** 赌博 / 预测 / 算命。
+- 分享为 UGC 有机传播；**不含** 赌博 / 收益承诺。
 
 ### 11.2 文件清单
 | 文件 | 作用 |
@@ -372,20 +372,20 @@ node --test  p5-growth/test-growth.mjs      # 12/12 应全绿
 
 ## 12. P6 增强模块（云端同步 / 双设备遥控 / 语音跟随 / 模板库）
 
-> 范围：增强提词器体验——A 台词云端同步、B 双设备远程控制（Telegram token 中转，绕过蓝牙）、C 语音跟随（Web Speech 纯逻辑可测）、D 台词模板库（合规、禁预测占卜）。
-> P6 **不引入积分 / 账本**（仅 A/B 走 initData 验签，D 模板库公开）。**无任何 P2P / 赌博 / 预测**。
+> 范围：增强提词器体验——A 台词云端同步、B 双设备远程控制（Telegram token 中转，绕过蓝牙）、C 语音跟随（Web Speech 纯逻辑可测）、D 台词模板库（中性口播框架）。
+> P6 **不引入积分 / 账本**（仅 A/B 走 initData 验签，D 模板库公开）。**无任何 P2P / 赌博**。
 > 代码位置：`p6-enhance/`。**本地测试已通过（`node --test p6-enhance/test-*.mjs`，17/17）**，待统一单体部署（见 §3）。
 
 ### 12.1 合规铁律（美国 App Store）
-- 模板库只放"中性口播框架"，**绝不含** 算命 / 运势 / 预测 / 吉凶 / 卦 / 风水 / 占卜。
-- 远程控制只是设备间播放指令中转（play / pause / speed），绝不涉及转账 / 赌博 / 预测。
+- 模板库只放"中性口播框架"，**不含** 医疗 / 收益等绝对化承诺用语。
+- 远程控制只是设备间播放指令中转（play / pause / speed），绝不涉及转账 / 赌博。
 
 ### 12.2 文件清单
 | 文件 | 作用 |
 |---|---|
 | `p6-enhance/enhance-worker.js` | Cloudflare Worker（Modules + D1）：`/scripts`(GET/POST/DELETE)、`/remote/create`、`/remote/command`、`/remote/state`、`/templates` |
 | `p6-enhance/speech-follow.js` | 语音跟随纯逻辑（clamp 等可单测，无浏览器依赖） |
-| `p6-enhance/templates.js` | 中性口播模板数据（合规审查过，无预测 / 占卜词） |
+| `p6-enhance/templates.js` | 中性口播模板数据（已过质量审查，无绝对化承诺用语） |
 | `p6-enhance/scripts-client.js` | 云端同步客户端（`createScripts()`：list / save / delete） |
 | `p6-enhance/remote-client.js` | 双设备遥控客户端（`createRemote()`：create / command / state） |
 | `p6-enhance/templates-client.js` | 模板库客户端（`createTemplates() / getTemplates()`） |
@@ -418,19 +418,19 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 ## 13. P7 合规 + 多语言（EN/JP/KR/RU）+ 平台对账 + 举报
 
 > 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/ja/ko/ru；② 可见的强免责声明（设置页 + 独立"关于"页，五语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
-> 合规红线（凌驾一切）：不预测、不算命、不占卜；积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。本模块刻意提供 `complianceScan()` 做危险词自检。
+> 口径：纯工具定位——只显示并滚动用户输入的文字，不替用户创作、发布或评价内容；讲稿归用户所有，默认只存本机，我方不读取 / 不上传 / 不备份；按「现状」提供，不对录制效果或使用后果作保证。积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。
 > 代码位置：`p7-compliance/`。**本地测试已通过（`node --test p7-compliance/test-compliance.mjs`，6/6）**，待统一单体部署（见 §3）。
 
 ### 13.1 交付清单
 | 文件 | 作用 |
 |---|---|
 | `p7-compliance/i18n.js` | 五语文案框架（zh/en/ja/ko/ru）+ `t()` / `getLang()`（也供其他项目复用） |
-| `p7-compliance/compliance-core.js` | 免责声明五语文案 + `submitReport`（举报）+ `complianceScan`（危险词自检） |
+| `p7-compliance/compliance-core.js` | 免责声明五语文案 + `submitReport`（举报记录） |
 | `p7-compliance/compliance-worker.js` | Cloudflare Worker（Modules + D1）：`/compliance/disclaimer`、`/compliance/report` |
 | `p7-compliance/inmemory-compliance-store.js` | 测试用内存 Store |
 | `p7-compliance/compliance-client.js` | 浏览器客户端（`getDisclaimer` / `submitReport`） |
 | 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
-| `p7-compliance/test-compliance.mjs` | 本地测试（五语声明 / 举报记录 / 空 detail 拒 / 危险词自检）6 项 |
+| `p7-compliance/test-compliance.mjs` | 本地测试（五语声明 / 未知语言回落 / 举报记录 / 空 detail 拒）5 项 |
 
 ### 13.2 前端已落地（index.html 内联）
 - **多语切换器**：右上角语言下拉（中文 / EN / 日本語 / 한국어 / Русский），选择持久化到 localStorage，自动渲染全站文案。
@@ -461,7 +461,7 @@ P3 的 `payments-worker.js` 已新增（ADMIN_SECRET 门禁）：
 ```bash
 node --check p7-compliance/compliance-worker.js
 node --test  p7-compliance/test-compliance.mjs      # 6/6 应全绿
-# 覆盖：五语声明齐全 / 举报记录 / 空 detail 拒 / 占卜·预测危险词自检
+# 覆盖：五语声明齐全 / 未知语言回落 / 举报记录 / 空 detail 拒
 ```
 
 ---

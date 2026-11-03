@@ -15,7 +15,7 @@
  *   GET  /bounty/detail         公开；详情 + 投稿列表
  *   GET  /bounty/verify         ADMIN_SECRET 门禁；运营对账
  *
- * 合规：奖励全程平台托管（escrow）→ 仅 award 释放给中标者；绝不 P2P 转账 / 赌博 / 预测。
+ * 合规：奖励全程平台托管（escrow）→ 仅 award 释放给中标者；绝不 P2P 转账 / 赌博。
  *
  * secret（占位，部署时填）：BOT_TOKEN、ADMIN_SECRET
  */

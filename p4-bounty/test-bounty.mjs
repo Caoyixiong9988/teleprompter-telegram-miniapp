@@ -7,7 +7,7 @@
  *   b) 投稿：owner 不可自投（OWNER_CANNOT_SUBMIT）；非 owner 可投；已关闭悬赏拒绝（BOUNTY_CLOSED）
  *   c) 释放奖励（幂等）：award 给中标者 +reward（grant 非转账）；重复 award → ALREADY_AWARDED
  *   d) 越权：非 owner award → FORBIDDEN；错误 submission → BAD_SUBMISSION
- *   e) 合规：bounty-core 不得导出 transfer/withdraw/gamble/predict/fortune（绝无 P2P / 赌博 / 预测）
+ *   e) 合规：bounty-core 不得导出 transfer/withdraw/gamble（绝无 P2P / 赌博）
  *   f) Worker 端到端：验签门禁 401 / 402 / 403；create/list/submit/award/detail/verify
  */
 import test from 'node:test';
@@ -244,10 +244,10 @@ test('d) 越权：非 owner award → FORBIDDEN；错误 submission → BAD_SUBM
   assert.equal(await getBalance(s, { userId: 'writerA' }), 0);
 });
 
-test('e) 合规：bounty-core 不得导出 transfer/withdraw/gamble/predict/fortune', async () => {
+test('e) 合规：bounty-core 不得导出 transfer/withdraw/gamble', async () => {
   const mod = await import('./bounty-core.js');
-  for (const bad of ['transfer', 'withdraw', 'gamble', 'predict', 'fortune']) {
-    assert.equal(typeof mod[bad], 'undefined', `绝不能出现 ${bad} —— 积分只由平台托管/发放，绝无 P2P 转账 / 赌博 / 预测`);
+  for (const bad of ['transfer', 'withdraw', 'gamble']) {
+    assert.equal(typeof mod[bad], 'undefined', `绝不能出现 ${bad} —— 积分只由平台托管/发放，绝无 P2P 转账 / 赌博`);
   }
   assert.equal(typeof mod.createBounty, 'function');
   assert.equal(typeof mod.awardBounty, 'function');

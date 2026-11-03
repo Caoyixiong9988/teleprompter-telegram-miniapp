@@ -122,7 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_group_reads ON group_stats(group_id, reads_count 
 
 -- ---------------------------------------------------------------------------
 -- P6 增强模块（云同步 / 远程控制 / 模板）—— 原独立库 teleprompter-enhance，现并入单体库
--- 合规：模板库只放中性口播框架，绝不含算命/运势/预测/吉凶/卦/风水/占卜；远程控制仅设备间播放指令中转。
+-- 口径：模板库只放中性口播框架；远程控制仅设备间播放指令中转。
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS scripts (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

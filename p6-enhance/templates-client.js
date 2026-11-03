@@ -1,7 +1,7 @@
 /**
  * templates-client.js — P6 台词模板库客户端助手（浏览器 ES module）
  *
- * 模板库为 PUBLIC 端点（无鉴权），返回中性口播框架，绝不含量身/预测文案。
+ * 模板库为 PUBLIC 端点（无鉴权），返回中性口播框架。
  *
  * 用法：
  *   import { createTemplates, getTemplates } from './p6-enhance/templates-client.js';

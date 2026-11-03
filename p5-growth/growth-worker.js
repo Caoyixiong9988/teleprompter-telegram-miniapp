@@ -14,7 +14,7 @@
  *   GET  /growth/share      经 initData 验签；返回分享深链 + 卡片数据（Canvas 渲染在 index.html）
  *   GET  /growth/verify     ADMIN_SECRET 门禁；运营对账
  *
- * 合规：所有积分变动平台中介；无 transfer/withdraw/赌博/预测；分享为 UGC 有机传播。
+ * 合规：所有积分变动平台中介；无 transfer/withdraw/赌博；分享为 UGC 有机传播。
  *
  * secret（占位，部署时填）：BOT_TOKEN、ADMIN_SECRET
  * vars  ：BOT_USERNAME（分享深链用，明文即可，但建议放 secret 避免泄露 bot 指纹）

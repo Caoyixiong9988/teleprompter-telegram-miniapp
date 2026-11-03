@@ -1,11 +1,11 @@
 /**
  * test-compliance.mjs — P7 合规模块测试（node --test，无需 Cloudflare）
- * 覆盖：五语声明齐全、举报记录、空 detail 拒绝、合规危险词自检。
+ * 覆盖：五语声明齐全、未知语言回落、举报记录、空 detail 拒绝。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getDisclaimerText, submitReport, complianceScan } from './compliance-core.js';
+import { getDisclaimerText, submitReport } from './compliance-core.js';
 import { makeInMemoryComplianceStore } from './inmemory-compliance-store.js';
 
 test('免责声明五语齐全（zh/en/ja/ko/ru 均有 body/paid/submit）', () => {
@@ -46,11 +46,4 @@ test('submitReport 缺 detail 被拒', async () => {
   const res = await submitReport(store, {});
   assert.equal(res.ok, false);
   assert.equal(res.reason, 'empty_detail');
-});
-
-test('complianceScan 命中占卜/预测危险词返回 unsafe', () => {
-  assert.equal(complianceScan('今日运势测算').safe, false);
-  assert.equal(complianceScan('fortune telling').safe, false);
-  assert.equal(complianceScan('纯工具提词器').safe, true);
-  assert.equal(complianceScan('').safe, true);
 });

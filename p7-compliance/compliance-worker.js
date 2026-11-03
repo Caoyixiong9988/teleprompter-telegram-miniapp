@@ -9,7 +9,7 @@
  *   GET  /compliance/disclaimer?lang=zh|en|ja|ko   返回四语免责声明（公开，供前端/爬虫）
  *   POST /compliance/report                        提交举报/反馈（可带 initData 匿名亦可）
  *
- * 合规：本 Worker 不提供任何预测/算命能力；免责声明与积分红线见 compliance-core.js。
+ * 合规：本 Worker 只提供声明文本与举报记录；免责声明口径与积分红线见 compliance-core.js。
  */
 
 import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';

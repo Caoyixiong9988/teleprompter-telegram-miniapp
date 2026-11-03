@@ -7,7 +7,7 @@
  *   - createSpeechRecognition：真正的 webkitSpeechRecognition 绑定，**仅 typeof window !== 'undefined'
  *     且 API 存在时才执行**，否则返回 null，绝不破坏 Node 端 import / 测试。
  *
- * 合规：本模块只做"按语速快慢调节滚动速度"的辅助交互，不涉及任何预测 / 算命 / 运势。
+ * 说明：本模块只做"按语速快慢调节滚动速度"的辅助交互。
  */
 
 export const MIN_SCROLL_PX = 5;    // px/sec 下限（防止停死）
