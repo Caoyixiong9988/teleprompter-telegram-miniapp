@@ -1,4 +1,6 @@
-# 提词器 Telegram Mini App — 部署与验收手册
+# ScriptDeck · 提词器 Telegram Mini App — 部署与验收手册
+
+> **产品对外品牌名：`ScriptDeck`**（副标题 `Teleprompter & Cue Cards`）。本文档中出现的 `teleprompter-credits`（D1 库）、`teleprompter-monolith`（Worker）、`teleprompter`（Pages 项目名）均为**内部技术标识，不随品牌改名**——改名意味着重建数据库、迁移数据、更换 Worker URL，用户不可见且纯属额外风险。前端所有用户可见的品牌位（标题、副标题、分享卡片水印、分享文案）已统一为 `ScriptDeck`。
 
 > 范围：P0（脚手架 + initData 验签）+ P1（核心提词器零后台 MVP）+ P2（跨 App 统一积分账本）+ P3（Telegram Stars 支付账本）+ P4（悬赏改稿）+ P5（病毒增长）+ P6（增强模块）+ P7（合规 + 多语言 EN/JP/KR + 平台对账 + 举报）。
 > 产物：`index.html`（单文件提词器，含多语切换 / 可见免责声明 / 举报入口）、根目录 `worker.js`（**单体后端**：合并 P0+P2–P7）、根目录 `schema.sql` 与 `wrangler.toml`、本文件；各模块业务代码见 `p2-credits/`…`p7-compliance/`。

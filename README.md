@@ -1,4 +1,8 @@
-# 提词器 Telegram Mini App
+# ScriptDeck · 提词器 Telegram Mini App
+
+> **产品对外品牌名：`ScriptDeck`**（副标题 `Teleprompter & Cue Cards`，中/日/韩各为「提词器」「プロンプター＆キューヶード」「텔레프롬프터 & 큐 카드」）。
+> 命名理由：App Store / Google Play 上 `Teleprompter`、`EasyPrompt`、`CueFlow`、`CueDeck`、`Promptr`、`EasyCue`、`Sayline` 等同品类名称已被占用（含 100k+ 安装的竞品），`ScriptDeck` 经检索**同品类无同名 App**。
+> ⚠️ **内部技术标识沿用 `teleprompter`，不随品牌改名**：D1 库 `teleprompter-credits`、Worker `teleprompter-monolith`、npm 包名、以及 `index.html` 的 `LS_KEY = 'teleprompter_state_v1'`（改了会导致老用户已存讲稿全部丢失）。这些用户不可见，改动只会有额外风险。
 
 面向海外市场（美 / 日 / 韩）的 Telegram 小程序提词器。本仓库为**私有源码备份**，包含 P0–P6 全部模块。
 
