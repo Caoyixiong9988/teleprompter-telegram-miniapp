@@ -37,6 +37,27 @@ const taJa = doc.getElementById('setScript').value;
 const uiSpeed = q('[data-i18n="speed"]');
 const scrollJa = doc.getElementById('scrollText').textContent;
 
+// ---- 俄语（第 5 种语言）----
+pick('ru');
+const taRu = doc.getElementById('setScript').value;
+const uiSpeedRu = q('[data-i18n="speed"]');
+const scrollRu = doc.getElementById('scrollText').textContent;
+const pickRuOk = doc.getElementById('langSelect').value === 'ru';
+const htmlLangRu = doc.documentElement.lang === 'ru';
+
+// ---- 五语键集一致性（防止某语言漏键回退成中文）----
+const langList = ['zh', 'en', 'ja', 'ko', 'ru'];
+const keySets = {};
+for (const l of langList) keySets[l] = new Set(JSON.parse(window.eval(`JSON.stringify(Object.keys(I18N['${l}']))`)));
+const keyCount = keySets.zh.size;
+const keySetOk = langList.every(l => keySets[l].size === keyCount && [...keySets.zh].every(k => keySets[l].has(k)));
+
+// ---- 自动语言识别：俄语环境应默认落 ru（无需用户手动切）----
+Object.defineProperty(window.navigator, 'language', { value: 'ru-RU', configurable: true });
+const autoRu = window.eval('detectLang()');
+const autoJa = window.eval('pickSupported("ja_JP")');
+Object.defineProperty(window.navigator, 'language', { value: 'zh-CN', configurable: true });
+
 // ---- 问题二：抽屉退出方式 ----
 const sheet = doc.getElementById('settingsSheet');
 sheet.classList.remove('hidden');
@@ -81,6 +102,14 @@ console.log('--- 广告位默认隐藏 ---');
 console.log('adSlots hidden:', adHidden);
 console.log('--- UI 文案 ---');
 console.log('speed(ja):', uiSpeed, '| scroll(ja)前40字:', JSON.stringify(scrollJa.slice(0, 40)));
+console.log('--- 俄语 ---');
+console.log('langSelect:', pickRuOk, '| html lang:', htmlLangRu, '| speed(ru):', uiSpeedRu);
+console.log('setScript(ru):', JSON.stringify(taRu.slice(0, 40)));
+console.log('scroll(ru):', JSON.stringify(scrollRu.slice(0, 40)));
+console.log('--- 五语键集 ---');
+console.log('各语言键数:', langList.map(l => `${l}=${keySets[l].size}`).join(', '));
+console.log('--- 自动语言识别 ---');
+console.log('navigator=ru-RU -> detectLang:', autoRu, '| pickSupported("ja_JP"):', autoJa);
 console.log('--- 脚本运行错误 ---');
 console.log(errors.length ? errors.join('\n') : '无');
 
@@ -89,6 +118,9 @@ const p2 = closeByBackdrop && closeByEsc;
 const p3 = adHidden;
 const p4 = proOpened && priceM === '400' && priceY === '4000' && proTitleEn === 'Pro Membership' && proCloseByBackdrop;
 const p0 = errors.length === 0;
+const p5 = pickRuOk && htmlLangRu && taRu.includes('Вставьте сценарий') && uiSpeedRu === 'Скорость' && scrollRu.includes('Вставьте сценарий');
+const p6 = keySetOk;
+const p7 = autoRu === 'ru' && autoJa === 'ja';
 
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
@@ -96,5 +128,9 @@ console.log('1) 设置面板输入框随语言切换 & 自定义稿保留:', p1 
 console.log('2) 点遮罩/ESC 均可退出抽屉:', p2 ? '✅' : '❌');
 console.log('3) 广告位默认隐藏:', p3 ? '✅' : '❌');
 console.log('4) Pro 权益页(价格/多语/遮罩关闭):', p4 ? '✅' : '❌');
-console.log('总体:', (p0 && p1 && p2 && p3 && p4) ? '✅ 全部通过' : '❌ 存在失败项');
-process.exit(p0 && p1 && p2 && p3 && p4 ? 0 : 1);
+console.log('5) 俄语(第 5 语言) 切换生效:', p5 ? '✅' : '❌');
+console.log('6) 五语键集一致:', p6 ? `✅ (各 ${keyCount} 键)` : '❌');
+console.log('7) 俄语环境自动识别:', p7 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7;
+console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
+process.exit(allOk ? 0 : 1);

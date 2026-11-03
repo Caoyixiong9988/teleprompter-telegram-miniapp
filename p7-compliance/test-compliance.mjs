@@ -1,6 +1,6 @@
 /**
  * test-compliance.mjs — P7 合规模块测试（node --test，无需 Cloudflare）
- * 覆盖：四语声明齐全、举报记录、空 detail 拒绝、合规危险词自检。
+ * 覆盖：五语声明齐全、举报记录、空 detail 拒绝、合规危险词自检。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 import { getDisclaimerText, submitReport, complianceScan } from './compliance-core.js';
 import { makeInMemoryComplianceStore } from './inmemory-compliance-store.js';
 
-test('免责声明四语齐全（zh/en/ja/ko 均有 body/paid/submit）', () => {
-  for (const lang of ['zh', 'en', 'ja', 'ko']) {
+test('免责声明五语齐全（zh/en/ja/ko/ru 均有 body/paid/submit）', () => {
+  for (const lang of ['zh', 'en', 'ja', 'ko', 'ru']) {
     const d = getDisclaimerText(lang);
     assert.ok(d.title, `${lang} 缺 title`);
     assert.ok(d.body, `${lang} 缺 body`);

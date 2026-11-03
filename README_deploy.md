@@ -162,7 +162,7 @@ python -m http.server 8080
 - ✅ 悬赏改稿（P4）已完成（见第 10 节）；本地测试 6/6 通过，待统一单体部署（见 §3）。
 - ✅ 病毒增长（P5）已完成（见第 11 节）；本地测试 12/12 通过，待统一单体部署（见 §3）。
 - ✅ 增强模块（P6：云端同步 / 双设备遥控 / 语音跟随 / 模板库）已完成（见第 12 节）；本地测试 17/17 通过，待统一单体部署（见 §3）。
-- ✅ 合规 + 多语言（P7：四语框架 zh/en/ja/ko + 可见免责声明 + 平台 Stars 对账 + 举报入口）已完成（见第 13 节）；本地测试 6/6 通过，待统一单体部署（见 §3）。
+- ✅ 合规 + 多语言（P7：五语框架 zh/en/ja/ko/ru + 可见免责声明 + 平台 Stars 对账 + 举报入口）已完成（见第 13 节）；本地测试 6/6 通过，待统一单体部署（见 §3）。
 - ❌ bot token 为占位，需你填入；未填时验签恒为 false。
 
 ---
@@ -415,25 +415,25 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 
 ---
 
-## 13. P7 合规 + 多语言（EN/JP/KR）+ 平台对账 + 举报
+## 13. P7 合规 + 多语言（EN/JP/KR/RU）+ 平台对账 + 举报
 
-> 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/ja/ko；② 可见的强免责声明（设置页 + 独立"关于"页，三语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
+> 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/ja/ko/ru；② 可见的强免责声明（设置页 + 独立"关于"页，五语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
 > 合规红线（凌驾一切）：不预测、不算命、不占卜；积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。本模块刻意提供 `complianceScan()` 做危险词自检。
 > 代码位置：`p7-compliance/`。**本地测试已通过（`node --test p7-compliance/test-compliance.mjs`，6/6）**，待统一单体部署（见 §3）。
 
 ### 13.1 交付清单
 | 文件 | 作用 |
 |---|---|
-| `p7-compliance/i18n.js` | 四语文案框架（zh/en/ja/ko）+ `t()` / `getLang()`（也供其他项目复用） |
-| `p7-compliance/compliance-core.js` | 免责声明三语文案 + `submitReport`（举报）+ `complianceScan`（危险词自检） |
+| `p7-compliance/i18n.js` | 五语文案框架（zh/en/ja/ko/ru）+ `t()` / `getLang()`（也供其他项目复用） |
+| `p7-compliance/compliance-core.js` | 免责声明五语文案 + `submitReport`（举报）+ `complianceScan`（危险词自检） |
 | `p7-compliance/compliance-worker.js` | Cloudflare Worker（Modules + D1）：`/compliance/disclaimer`、`/compliance/report` |
 | `p7-compliance/inmemory-compliance-store.js` | 测试用内存 Store |
 | `p7-compliance/compliance-client.js` | 浏览器客户端（`getDisclaimer` / `submitReport`） |
 | 部署 / 建表 | 已合并到根目录 `wrangler.toml` + `schema.sql`，见 §3 单体部署 |
-| `p7-compliance/test-compliance.mjs` | 本地测试（四语声明 / 举报记录 / 空 detail 拒 / 危险词自检）6 项 |
+| `p7-compliance/test-compliance.mjs` | 本地测试（五语声明 / 举报记录 / 空 detail 拒 / 危险词自检）6 项 |
 
 ### 13.2 前端已落地（index.html 内联）
-- **多语切换器**：右上角语言下拉（中文 / EN / 日本語 / 한국어），选择持久化到 localStorage，自动渲染全站文案。
+- **多语切换器**：右上角语言下拉（中文 / EN / 日本語 / 한국어 / Русский），选择持久化到 localStorage，自动渲染全站文案。
 - **可见免责声明**：设置页内嵌声明块 + 独立"关于"页，三语随语言切换；明确"积分 ≠ Stars ≠ 法币，不可提现 / 转账 / 交易"。
 - **举报 / 反馈**：设置页文本域 + 提交按钮，调用合规 Worker `/compliance/report`（未配 `CONFIG.COMPLIANCE_URL` 时仅本地提示）。
 
@@ -451,7 +451,7 @@ P3 的 `payments-worker.js` 已新增（ADMIN_SECRET 门禁）：
 <script type="module">
   import { makeComplianceClient } from './p7-compliance/compliance-client.js';
   const compliance = makeComplianceClient({ baseUrl: 'https://teleprompter-compliance.<sub>.workers.dev' });
-  const d = await compliance.getDisclaimer('en');     // 四语声明
+  const d = await compliance.getDisclaimer('en');     // 五语声明（zh/en/ja/ko/ru）
   await compliance.submitReport({ type: 'abuse', detail: '...' });
 </script>
 ```
@@ -461,7 +461,7 @@ P3 的 `payments-worker.js` 已新增（ADMIN_SECRET 门禁）：
 ```bash
 node --check p7-compliance/compliance-worker.js
 node --test  p7-compliance/test-compliance.mjs      # 6/6 应全绿
-# 覆盖：四语声明齐全 / 举报记录 / 空 detail 拒 / 占卜·预测危险词自检
+# 覆盖：五语声明齐全 / 举报记录 / 空 detail 拒 / 占卜·预测危险词自检
 ```
 
 ---

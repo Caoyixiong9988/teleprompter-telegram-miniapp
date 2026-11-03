@@ -139,6 +139,7 @@
         <option value="en">EN</option>
         <option value="ja">日本語</option>
         <option value="ko">한국어</option>
+        <option value="ru">Русский</option>
       </select>
     </div>
   </header>
@@ -369,7 +370,7 @@ function apiUrl(path) {
 //    一旦修改，老用户已保存的讲稿与设置会全部丢失（读到空值）。
 const LS_KEY = 'teleprompter_state_v1';
 
-/* ---------- 多语言（P7：zh 默认 + en/ja/ko） ---------- */
+/* ---------- 多语言（P7：zh 默认 + en/ja/ko/ru） ---------- */
 const I18N = {
   zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'本应用为纯工具类提词辅助软件，不含任何占卜、预测、算命或运势类功能。所有功能仅用于帮助您更流畅地朗读讲稿。应用内“积分”为平台发放的内部虚拟点数，不等于 Telegram Stars、不等于任何法定货币或加密货币，不可提现、不可转账、不可交易。', paidNotice:'你即将使用 Telegram Stars 购买内部积分。积分仅限本应用内消耗，非真钱、不可退款、不可提现。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵权；违规内容将被下架并收回奖励。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
   playPause:"播放/暂停",
@@ -655,14 +656,102 @@ const I18N = {
   proCta:"Pro 업그레이드",
   proCtaSoon:"Pro 곧 출시 예정"
  },
+  ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'Это приложение — исключительно утилита для подсказки текста. В нём нет никаких функций гадания, предсказаний, астрологии или гороскопов. Все функции служат только тому, чтобы вы читали сценарий более плавно. «Кредиты» в приложении — это внутренние виртуальные баллы, выпущенные платформой: они НЕ являются Telegram Stars, НЕ являются фиатной валютой или криптовалютой и не могут быть выведены, переданы или обменены.', paidNotice:'Вы собираетесь приобрести внутренние кредиты за Telegram Stars. Кредиты используются только внутри приложения: это не реальные деньги, возврат и вывод невозможны.', submitNotice:'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален и не нарушает авторских прав; нарушающий правила контент будет удалён, а вознаграждение аннулировано.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
+  playPause:"Пуск / Пауза",
+  reset:"Сброс",
+  speed:"Скорость",
+  genCard:"Создать карточку",
+  scriptLabel:"Сценарий (вставьте или отредактируйте текст; сохраняется на этом устройстве)",
+  scriptPlaceholder:"Вставьте или введите текст сценария…\nПоддерживаются несколько абзацев и переносы строк.",
+  saveHint:"Текст сохраняется только в браузере этого устройства (localStorage) и не отправляется на сервер.",
+  fontSize:"Размер шрифта",
+  colorLabel:"Цвет текста",
+  colorHint:"Используется в области суфлёра и на итоговой карточке.",
+  alignLabel:"Выравнивание",
+  alignLeft:"По левому краю",
+  alignCenter:"По центру",
+  alignRight:"По правому краю",
+  mirrorLabel:"Зеркальный режим (включайте при работе с физическим суфлёром)",
+  scrollSpeed:"Скорость прокрутки",
+  switchUnit:"Ед. изм.",
+  speedHint:"Единицы: пиксели в секунду (px/s) или символы в минуту (CPM, оценка по текущему размеру шрифта).",
+  refCodeLabel:"Реферальный код (для диплинка в карточке; можно изменить)",
+  refHint:"Карточка содержит диплинк ?startapp=код. Укажите ниже имя бота (настроенное в BotFather), чтобы ссылка заработала.",
+  botUserLabel:"Имя бота (для диплинка; можно не заполнять)",
+  botUserHint:"Используется только для ссылки и не влияет на суфлёр. Если пусто — показывается заглушка your_bot.",
+  refCodePlaceholder:"например my2026",
+  botUserPlaceholder:"например your_bot",
+  done:"Готово",
+  cardTitle:"Итоговая карточка / Карточка сценария",
+  cardHint:"Карточка содержит фрагмент сценария, водяной знак приложения и диплинк с вашим реферальным кодом. Её можно сохранить в галерею или отправить в чат.",
+  saveAlbum:"В галерею",
+  shareChat:"Поделиться",
+  creditsNotice:"Кредиты и условия покупки",
+  defaultScript:"Вставьте сценарий здесь…\n\nНажмите ⚙ справа внизу, чтобы открыть настройки и изменить текст, размер шрифта и скорость.\n\nКогда всё готово, нажмите ▶ слева вверху, чтобы начать прокрутку.",
+  cardBrand:"ScriptDeck",
+  cardTagline:"Плавная прокрутка · свободные глаза",
+  cardGeneratedBy:"Создано в ScriptDeck",
+  cardMore:"…(продолжение в приложении)",
+  shareToast:"Откройте в Telegram, чтобы поделиться",
+  shareText:"Я записал видео по сценарию со ScriptDeck 🎬 Попробуйте и вы:",
+  verifyOk:"Личность подтверждена ✓",
+  verifyFail:"Подпись не прошла проверку",
+  verifyErr:"Не удалось выполнить проверку",
+  reportEmpty:"Сначала заполните поле",
+  reportSending:"Отправка…",
+  reportFailRetry:"Не удалось отправить, попробуйте позже",
+  reportFailNet:"Не удалось отправить (сеть)",
+  unitPx:"пикс/с",
+  unitCpm:"симв/мин",
+  proEntry:"Перейти на Pro / Посмотреть возможности",
+  proEntryHint:"Возможности и цены Pro (оплата в Telegram Stars)",
+  proTitle:"Pro-подписка",
+  proSubtitle:"Профессиональный суфлёр и инструменты для контента",
+  proMonth:"Месяц",
+  proYear:"Год",
+  proPerMonth:"/мес",
+  proPerYear:"/год",
+  proYearSave:"выгода 2 месяца",
+  proBenefitsTitle:"Что входит в Pro",
+  proB1:"Прокрутка за голосом (Android / компьютер)",
+  proB2:"Без водяного знака · экспорт карточки в высоком качестве",
+  proB3:"Облачная синхронизация сценариев",
+  proB4:"Пульт / удалённый предпросмотр",
+  proB5:"Без ограничения числа сценариев",
+  proB6:"Экспорт субтитров",
+  proFreeTitle:"Что входит в бесплатную версию",
+  proF1:"Базовая прокрутка, размер шрифта / цвет / выравнивание",
+  proF2:"Зеркальный режим, до 3 сценариев локально",
+  proF3:"Итоговая карточка с водяным знаком",
+  proNote:"Оплата в Telegram Stars; Pro — разблокировка функций, а не автопродлеваемая подписка.",
+  proCta:"Перейти на Pro",
+  proCtaSoon:"Pro скоро появится"
+ },
 };
-const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko'];
+const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko', 'ru'];
+// 把 "ru-RU" / "ru_RU" / "RU" 归一化为受支持的两位语言码；不支持时返回 ''
+function pickSupported(code) {
+  const n = String(code || '').toLowerCase().replace('_', '-').split('-')[0];
+  return SUPPORTED_LANGS.indexOf(n) >= 0 ? n : '';
+}
 function detectLang() {
-  const n = (navigator.language || 'zh').slice(0, 2).toLowerCase();
-  return SUPPORTED_LANGS.includes(n) ? n : 'zh';
+  // 优先用 Telegram 客户端的界面语言（language_code），比 navigator.language 更贴近用户在 Telegram 内的习惯；
+  // 俄语区是 Telegram 最大用户池，这一步能让俄语用户首开即见俄语，而不用手动切。
+  let tg = '';
+  try {
+    const u = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe
+      && window.Telegram.WebApp.initDataUnsafe.user;
+    if (u && u.language_code) tg = pickSupported(u.language_code);
+  } catch (e) {}
+  if (tg) return tg;
+  try { return pickSupported(navigator.language) || 'zh'; } catch (e) { return 'zh'; }
 }
 let curLang = (function () {
-  try { return localStorage.getItem('tp_lang') || detectLang(); } catch (e) { return 'zh'; }
+  try {
+    const saved = localStorage.getItem('tp_lang');
+    if (saved && SUPPORTED_LANGS.includes(saved)) return saved; // 忽略历史遗留的非法值
+    return detectLang();
+  } catch (e) { return 'zh'; }
 })();
 function t(key) {
   return (I18N[curLang] && I18N[curLang][key]) || I18N.zh[key] || key;
