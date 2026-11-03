@@ -260,6 +260,57 @@ console.log('面板/按钮存在:', remoteBtn, remoteSheetEl);
 console.log('令牌解析 start_param/URL/裸令牌/非法:', pt1, pt2, pt3, pt4);
 console.log('深链:', dl, '| 指令应用 play/pause/speed:', acPlay, acPause, acSpeed);
 
+// ---- 字幕 / 文本导出：纯函数 + Pro 门禁 + 按钮存在 ----
+const expSrtBtn = !!doc.getElementById('btnExportSrt');
+const expTxtBtn = !!doc.getElementById('btnExportTxt');
+const p20 = expSrtBtn && expTxtBtn;
+
+// 时间码格式
+const ft1 = window.eval('fmtSrtTime(0)');
+const ft2 = window.eval('fmtSrtTime(4.2)');
+const ft3 = window.eval('fmtSrtTime(3661.5)');
+const p21 = ft1 === '00:00:00,000' && ft2 === '00:00:04,200' && ft3 === '01:01:01,500';
+
+// 切句：短段整段保留；超长按标点切分；空稿返回空
+const cues1 = JSON.parse(window.eval('JSON.stringify(splitCues("你好，世界。\\n第二段内容", 42))'));
+const longText = '第一句话有十五个字左右，第二句话也有十五个字，第三句话同样很长。';
+const cues2 = JSON.parse(window.eval('JSON.stringify(splitCues(' + JSON.stringify(longText) + ', 12))'));
+const cuesEmpty = window.eval('splitCues("   ", 42).length');
+const p22 = cues1.length === 2 && cues1[0] === '你好，世界。' && cues2.length > 1 && cues2.every(function (c) { return c.length > 0; }) && cuesEmpty === 0;
+
+// SRT 结构：序号 / 时间轴 / 文本 / 空行，且时间递增
+const srtOut = window.eval('buildSrt("你好，世界。\\n第二段内容", 4, 42)');
+const srtLines = srtOut.split('\n');
+const startsAt0 = srtLines[1].indexOf('00:00:00,000') === 0;
+const arrowOk = srtLines[1].indexOf(' --> ') > 0;
+const p23 = srtLines[0] === '1' && startsAt0 && arrowOk && srtLines[2] === '你好，世界。' && srtLines[3] === '' && srtOut.includes('2\n');
+
+// TXT 去尾部空白
+const txtOut = window.eval('buildTxt("abc  \\n\\n")');
+const p24 = txtOut === 'abc';
+
+// 文件名安全化
+const fn1 = window.eval('safeFileName("我的讲稿/2026")');
+const fn2 = window.eval('safeFileName("")');
+const p25 = fn1.indexOf('/') === -1 && fn1.length > 0 && fn2 === 'script';
+
+// Pro 门禁：非 Pro 不可导出；Pro + 有内容才可
+window.eval('state.isPro=false;');
+const can1 = window.eval('canExport()');
+window.eval('state.isPro=true;');
+const canEmpty = window.eval('(function(){ var s=activeScript(); var old=s.content; s.content=""; var r=canExport(); s.content=old; return r; })()');
+const canOk = window.eval('canExport()');
+window.eval('state.isPro=false;');
+const p26 = can1 === false && canEmpty === false && canOk === true;
+
+console.log('--- 字幕 / 文本导出 ---');
+console.log('SRT/TXT 按钮:', expSrtBtn, expTxtBtn);
+console.log('时间码 0 / 4.2 / 3661.5:', ft1, ft2, ft3);
+console.log('切句 短段', cues1.length, '长段', cues2.length, '空稿', cuesEmpty);
+console.log('SRT 首行:', JSON.stringify(srtLines.slice(0, 4).join(' | ')));
+console.log('TXT:', JSON.stringify(txtOut), '| 文件名:', fn1, fn2);
+console.log('门禁 非Pro/空稿/Pro有内容:', can1, canEmpty, canOk);
+
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
 console.log('1) 设置面板输入框随语言切换 & 自定义稿保留:', p1 ? '✅' : '❌');
@@ -281,6 +332,13 @@ console.log('16) 遥控面板与按钮存在:', p16 ? '✅' : '❌');
 console.log('17) 遥控令牌解析(start_param/URL/裸令牌/非法):', p17 ? '✅' : '❌');
 console.log('18) 遥控深链生成:', p18 ? '✅' : '❌');
 console.log('19) 遥控指令应用(play/pause/speed→全局):', p19 ? '✅' : '❌');
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15 && p16 && p17 && p18 && p19;
+console.log('20) 导出按钮(SRT/TXT)存在:', p20 ? '✅' : '❌');
+console.log('21) SRT 时间码格式(0/4.2/3661.5):', p21 ? '✅' : '❌ ' + [ft1, ft2, ft3].join(','));
+console.log('22) 字幕切句(短段/超长/空稿):', p22 ? '✅' : '❌');
+console.log('23) SRT 结构(序号/时间轴/递增):', p23 ? '✅' : '❌ ' + JSON.stringify(srtLines.slice(0, 4)));
+console.log('24) TXT 纯文本去尾空白:', p24 ? '✅' : '❌ ' + JSON.stringify(txtOut));
+console.log('25) 导出文件名安全化:', p25 ? '✅' : '❌');
+console.log('26) 导出门禁(非Pro/空稿不可，Pro有内容可):', p26 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15 && p16 && p17 && p18 && p19 && p20 && p21 && p22 && p23 && p24 && p25 && p26;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);

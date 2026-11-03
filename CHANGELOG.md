@@ -8,6 +8,33 @@
 
 ---
 
+## 2026-11-03 · feat — 字幕 / 文本导出 SRT·TXT（Pro 权益 #4 落地）
+
+**改了什么**
+- 前端 `index.html`：成片卡页新增「字幕 / 文本导出」区块，两个按钮 —— **导出 SRT 字幕** / **导出 TXT 文本**。
+- 新增纯函数（不依赖 canvas，可单测）：
+  - `fmtSrtTime()` 秒 → SRT 时间码（`00:00:04,200`）。
+  - `splitCues()` 切句：先按换行分段，超长段在标点处就近切分（避免句子被从中间砍断），兜底硬切。
+  - `buildSrt()` 按当前语速估算每句时长，生成标准 SRT（序号 / 时间轴 / 文本 / 空行，句间留 120ms 间隙）。
+  - `buildTxt()` 纯文本导出（统一 `\n`、去尾部空白）。
+  - `readingCharsPerSec()` 语速换算：cpm 直接换算；px 模式用字符宽估算，canvas 不可用时按 0.55em 兜底。
+  - `safeFileName()` 文件名安全化（去路径与非法字符、限长 60）。
+  - `canExport()` / `exportScript(kind)`：Pro 门禁 + 空稿校验，未开通 Pro 时提示并打开 Pro 权益页。
+- 五语各新增 8 个键（`exportTitle/exportHint/exportSrt/exportTxt/exportNeedPro/exportEmpty/exportDoneSrt/exportDoneTxt`），键集各 **143 键**一致。
+
+**为什么**
+- Pro 六项权益中「字幕与文本导出」此前完全空白（0 行代码）。补齐后 Pro 权益达到 4/6 可用。
+- 时间码是**估算值**，文案中明确写了"供剪辑参考"，不做任何准确性承诺（沿用不承诺结果的合规口径）。
+
+**怎么验证**
+- `npm test` → **63/63**；前端回归 `node test_i18n_real.mjs` → **26/26**。
+- 新增前端用例 20–26：按钮存在、时间码格式（0 / 4.2 / 3661.5）、切句（短段 / 超长 / 空稿）、SRT 结构、TXT 去尾空白、文件名安全化、导出门禁（非 Pro / 空稿不可，Pro 有内容可）。
+- ⚠️ 局限：jsdom 无 canvas、也无真实下载行为，**实际下载到的 .srt / .txt 文件内容需真机点一次确认**；时间与切分逻辑已由纯函数单测覆盖。
+
+**涉及文件**：`index.html`、`test_i18n_real.mjs`、`CHANGELOG.md`、`【功能清单】…2026-10-29.md`
+
+---
+
 ## 2026-11-03 · feat — 双设备遥控（Pro 权益 #3 落地）+ 后端 Pro 门禁
 
 **改了什么**

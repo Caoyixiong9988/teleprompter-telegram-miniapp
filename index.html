@@ -124,6 +124,8 @@
   .pro-list li{list-style:disc; margin:2px 0;}
   .pro-list-free{color:var(--muted);}
   #proStatusBadge.on{color:#1f9d55;}
+  .export-box{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card,#fafbff);}
+  .export-head{font-size:15px;font-weight:700;margin-bottom:4px;}
   /* 双设备遥控 */
   .tab-row{display:flex;gap:8px;margin-bottom:12px;}
   .tab-row .btn{flex:1;}
@@ -319,6 +321,15 @@
       <div class="card-actions">
         <button class="btn" id="btnDownloadCard" data-i18n="saveAlbum">保存到相册</button>
         <button class="btn primary" id="btnShareCard" data-i18n="shareChat">分享到聊天</button>
+      </div>
+      <!-- 字幕 / 文本导出（Pro） -->
+      <div class="export-box" style="margin-top:14px;">
+        <div class="export-head" data-i18n="exportTitle">字幕 / 文本导出</div>
+        <div class="hint" data-i18n="exportHint"></div>
+        <div class="card-actions" style="margin-top:8px;">
+          <button class="btn" id="btnExportSrt" data-i18n="exportSrt">导出 SRT 字幕</button>
+          <button class="btn" id="btnExportTxt" data-i18n="exportTxt">导出 TXT 文本</button>
+        </div>
       </div>
       <!-- 广告位 B（预留，默认隐藏）：成片卡页底部（用户已完成任务，非打断）。接入后由 SDK 填充 #adSlotCard -->
       <div class="ad-slot" id="adSlotCard" data-ad-slot="card-bottom" hidden>AD</div>
@@ -613,7 +624,15 @@ const I18N = {
   proRefund:'14 天无理由退款：购买后 14 天内可申请全额退还 Stars。',
   proNote:'价格以 Telegram Stars 结算；Pro 为按周期解锁，到期后不自动续费，可随时手动续期。云同步默认关闭，由你主动开启；开启后讲稿会保存到服务器，以便在其他设备取回。部分功能依赖设备能力（如语音跟随需 Android 或桌面浏览器）。',
   proCta:"升级 Pro",
-  proCtaSoon:"Pro 即将上线，敬请期待"
+  proCtaSoon:"Pro 即将上线，敬请期待",
+  exportTitle:"字幕 / 文本导出",
+  exportHint:"按你当前的阅读速度把讲稿切成时间轴字幕（SRT），或直接导出纯文本（TXT）。时间码为估算值，供剪辑参考。",
+  exportSrt:"导出 SRT 字幕",
+  exportTxt:"导出 TXT 文本",
+  exportNeedPro:"字幕与文本导出为 Pro 权益，请先开通 Pro。",
+  exportEmpty:"讲稿为空，先写点内容再导出",
+  exportDoneSrt:"SRT 已导出",
+  exportDoneTxt:"TXT 已导出"
  },
   en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', submitNotice:'You are about to submit content. Please make sure it is accurate, original, does not infringe the rights of others, and complies with the laws where you live; content that breaks the platform rules will be removed and no reward will be paid.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   playPause:"Play / Pause",
@@ -736,7 +755,15 @@ const I18N = {
   proRefund:'14-day refund: request a full Stars refund within 14 days of purchase, no reason needed.',
   proNote:'Prices are settled in Telegram Stars. Pro unlocks features for the period you pay for; it does not auto-renew, and you can renew manually at any time. Cloud Sync is off by default and only turns on when you enable it; once on, scripts are stored on our servers so you can retrieve them on your other devices. Some features depend on your device (voice-follow needs Android or a desktop browser).',
   proCta:"Upgrade to Pro",
-  proCtaSoon:"Pro is coming soon"
+  proCtaSoon:"Pro is coming soon",
+  exportTitle:"Subtitle / Text Export",
+  exportHint:"Split your script into timed captions (SRT) based on your current reading speed, or export plain text (TXT). Timecodes are estimates for editing reference only.",
+  exportSrt:"Export SRT",
+  exportTxt:"Export TXT",
+  exportNeedPro:"Subtitle and text export is a Pro benefit. Please unlock Pro first.",
+  exportEmpty:"Script is empty — write something before exporting",
+  exportDoneSrt:"SRT exported",
+  exportDoneTxt:"TXT exported"
  },
   ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', submitNotice:'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、お住まいの地域の法令に従っていることを確認してください。規約に違反する内容は削除され、報酬は支払われません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   playPause:"再生/一時停止",
@@ -859,7 +886,15 @@ const I18N = {
   proRefund:'14 日間返金保証：購入から 14 日以内であれば理由を問わず全額返金を申請できます。',
   proNote:'料金は Telegram Stars で決済されます。Pro は購入した期間のみ機能を解放し、自動更新はありません（いつでも手動で更新できます）。クラウド同期は初期状態でオフで、ご自身で有効にした場合のみ動作します。有効にすると原稿がサーバーに保存され、他の端末で取得できます。一部機能は端末に依存します（音声追従は Android またはデスクトップ版ブラウザが必要）。',
   proCta:"Pro にアップグレード",
-  proCtaSoon:"Pro は近日公開予定です"
+  proCtaSoon:"Pro は近日公開予定です",
+  exportTitle:"字幕 / テキスト書き出し",
+  exportHint:"現在の読み取り速度に合わせて原稿をタイムコード付き字幕（SRT）に分割、またはプレーンテキスト（TXT）を書き出します。タイムコードは編集用の目安です。",
+  exportSrt:"SRT を書き出し",
+  exportTxt:"TXT を書き出し",
+  exportNeedPro:"字幕・テキスト書き出しは Pro 特典です。先に Pro を開通してください。",
+  exportEmpty:"原稿が空です。書き出前に入力してください",
+  exportDoneSrt:"SRT を書き出しました",
+  exportDoneTxt:"TXT を書き出しました"
  },
   ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   playPause:"재생/일시정지",
@@ -982,7 +1017,15 @@ const I18N = {
   proRefund:'14일 환불 보장: 구매 후 14일 이내에 이유 없이 전액 환불을 요청할 수 있습니다.',
   proNote:'가격은 Telegram Stars로 결제됩니다. Pro는 결제한 기간 동안 기능을 열어 주며 자동 갱신되지 않습니다(언제든 직접 갱신 가능). 클라우드 동기화는 기본적으로 꺼져 있으며 사용자가 직접 켤 때만 작동합니다. 켜면 대본이 서버에 저장되어 다른 기기에서 불러올 수 있습니다. 일부 기능은 기기에 따라 달라집니다(음성 추적은 Android 또는 데스크톱 브라우저 필요).',
   proCta:"Pro 업그레이드",
-  proCtaSoon:"Pro 곧 출시 예정"
+  proCtaSoon:"Pro 곧 출시 예정",
+  exportTitle:"자막 / 텍스트 내보내기",
+  exportHint:"현재 읽기 속도에 맞춰 원고를 타임코드 자막(SRT)으로 나누거나, 텍스트(TXT)로 내보냅니다. 타임코드는 편집 참고용 추정값입니다.",
+  exportSrt:"SRT 내보내기",
+  exportTxt:"TXT 내보내기",
+  exportNeedPro:"자막·텍스트 내보내기는 Pro 혜택입니다. 먼저 Pro를 이용해 주세요.",
+  exportEmpty:"원고가 비어 있습니다. 내용을 입력한 뒤 내보내세요",
+  exportDoneSrt:"SRT 내보내기 완료",
+  exportDoneTxt:"TXT 내보내기 완료"
  },
   ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', submitNotice:'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, будет удалён, а вознаграждение не выплачивается.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
   playPause:"Пуск / Пауза",
@@ -1105,7 +1148,15 @@ const I18N = {
   proRefund:'Возврат в течение 14 дней: полный возврат Stars по запросу, без объяснения причин.',
   proNote:'Цены рассчитываются в Telegram Stars. Pro открывает функции на оплаченный период, автопродления нет — продлить можно вручную в любой момент. Облачная синхронизация по умолчанию выключена и работает только после того, как вы включите её сами. После включения сценарии сохраняются на сервере, чтобы их можно было открыть на других устройствах. Некоторые функции зависят от устройства (для прокрутки за голосом нужен Android или браузер на компьютере).',
   proCta:"Перейти на Pro",
-  proCtaSoon:"Pro скоро появится"
+  proCtaSoon:"Pro скоро появится",
+  exportTitle:"Экспорт субтитров / текста",
+  exportHint:"Разбейте сценарий на субтитры с таймкодами (SRT) по вашей текущей скорости чтения или экспортируйте обычный текст (TXT). Таймкоды — ориентир для монтажа.",
+  exportSrt:"Экспорт SRT",
+  exportTxt:"Экспорт TXT",
+  exportNeedPro:"Экспорт субтитров и текста — преимущество Pro. Сначала оформите Pro.",
+  exportEmpty:"Сценарий пуст — напишите текст перед экспортом",
+  exportDoneSrt:"SRT экспортирован",
+  exportDoneTxt:"TXT экспортирован"
  },
 };
 const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko', 'ru'];
@@ -1497,6 +1548,121 @@ function cardExportOptions(){
   return { scale: pro ? 2 : 1, noWatermark: pro, hiRes: pro };
 }
 
+/* ---------- 字幕 / 文本导出（Pro 权益 #4） ---------- */
+// 以下均为纯函数（不依赖 canvas / DOM），便于 jsdom 单测。
+
+// 秒 → SRT 时间码（00:00:04,200）
+function fmtSrtTime(sec){
+  const ms = Math.max(0, Math.round((Number(sec) || 0) * 1000));
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const tail = ms % 1000;
+  const p = function (n, w) { return String(n).padStart(w, '0'); };
+  return p(h, 2) + ':' + p(m, 2) + ':' + p(s, 2) + ',' + p(tail, 3);
+}
+
+// 把讲稿切成字幕句：先按换行分段，超长段按标点就近切分，最后兜底硬切
+function splitCues(text, maxChars){
+  const max = Math.max(4, Number(maxChars) || 42);
+  const src = String(text == null ? '' : text).replace(/\r\n?/g, '\n').trim();
+  if (!src) return [];
+  const out = [];
+  const paras = src.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  for (const p of paras){
+    if (p.length <= max){ out.push(p); continue; }
+    let rest = p;
+    while (rest.length > max){
+      const win = rest.slice(0, max);
+      let cut = -1;
+      for (let i = win.length - 1; i >= Math.floor(max / 2); i--){
+        if (/[\s，。！？、；：,.!?;:]/.test(win[i])) { cut = i + 1; break; }
+      }
+      if (cut <= 0) cut = max;
+      const piece = rest.slice(0, cut).trim();
+      if (piece) out.push(piece);
+      rest = rest.slice(cut);
+    }
+    if (rest.trim()) out.push(rest.trim());
+  }
+  return out.filter(Boolean);
+}
+
+// 生成 SRT 文本：按语速（字/秒）估算每句时长
+function buildSrt(text, cps, maxChars){
+  const cues = splitCues(text, maxChars);
+  if (!cues.length) return '';
+  const rate = Math.max(0.1, Number(cps) || 4);
+  let t = 0;
+  const lines = [];
+  for (let i = 0; i < cues.length; i++){
+    const dur = Math.max(0.4, cues[i].length / rate);
+    lines.push(String(i + 1));
+    lines.push(fmtSrtTime(t) + ' --> ' + fmtSrtTime(t + dur));
+    lines.push(cues[i]);
+    lines.push('');
+    t += dur + 0.12; // 句间留 120ms 间隙，剪辑时更易对齐
+  }
+  return lines.join('\n');
+}
+
+// 生成纯文本（统一换行为 \n，去掉尾部空白）
+function buildTxt(text){
+  return String(text == null ? '' : text).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+}
+
+// 文件系统安全文件名（去掉路径/非法字符，限长）
+function safeFileName(name){
+  const base = String(name == null ? '' : name).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').trim();
+  return (base || 'script').slice(0, 60);
+}
+
+// 当前阅读速度（字/秒）：cpm 直接换算；px 模式用字符宽估算（canvas 不可用时按 0.55em 兜底）
+function readingCharsPerSec(cwOverride){
+  if (state.speedUnit === 'cpm') return Math.max(0.1, (Number(state.speedCpm) || 0) / 60);
+  let cw = Number(cwOverride);
+  if (!(cw > 0)) { try { cw = measureCharWidth(state.fontSize); } catch(e){ cw = 0; } }
+  if (!(cw > 0)) cw = Math.max(1, (Number(state.fontSize) || 44) * 0.55);
+  return Math.max(0.1, (Number(state.speedPx) || 0) / cw);
+}
+
+// 导出前置校验（纯逻辑，供 UI 与测试共用）
+function canExport(){
+  if (!isPro()) return false;
+  return String(getActiveContent() == null ? '' : getActiveContent()).trim().length > 0;
+}
+
+function doDownload(filename, content, mime){
+  const blob = new Blob([content], { type: (mime || 'text/plain') + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { try { URL.revokeObjectURL(url); } catch(e){} try { a.remove(); } catch(e){} }, 1000);
+}
+
+// kind: 'srt' | 'txt'
+function exportScript(kind){
+  if (!isPro()){
+    toast(t('exportNeedPro'));
+    const ps = document.getElementById('proSheet');
+    if (ps) ps.classList.remove('hidden');
+    return false;
+  }
+  const content = getActiveContent();
+  if (!String(content == null ? '' : content).trim()){ toast(t('exportEmpty')); return false; }
+  const s = activeScript();
+  const base = safeFileName(s && s.title ? s.title : t('scriptDefaultTitle'));
+  if (kind === 'srt'){
+    doDownload(base + '.srt', buildSrt(content, readingCharsPerSec(), 42), 'text/plain');
+    toast(t('exportDoneSrt'));
+  } else {
+    doDownload(base + '.txt', buildTxt(content), 'text/plain');
+    toast(t('exportDoneTxt'));
+  }
+  return true;
+}
+
 function generateCard(){
   const opt = cardExportOptions();
   const BASE_W = 1080, BASE_H = 1350;
@@ -1803,6 +1969,12 @@ btnShareCard.addEventListener('click', async function () {
   // 降级：Telegram 内分享深链与文案（不带图片）；浏览器内会提示需在 Telegram 打开
   telegramShare(text, url);
 });
+
+// 字幕 / 文本导出（Pro）：SRT 按当前语速生成时间码，TXT 为纯文本
+const btnExportSrt = document.getElementById('btnExportSrt');
+const btnExportTxt = document.getElementById('btnExportTxt');
+if (btnExportSrt) btnExportSrt.addEventListener('click', function(){ exportScript('srt'); });
+if (btnExportTxt) btnExportTxt.addEventListener('click', function(){ exportScript('txt'); });
 
 /* ---------- 举报 / 反馈（P7） ---------- */
 async function submitReport() {
