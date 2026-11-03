@@ -8,6 +8,28 @@
 
 ---
 
+## 2026-11-03 · feat — 双设备遥控（Pro 权益 #3 落地）+ 后端 Pro 门禁
+
+**改了什么**
+- 前端 `index.html`：控制栏新增 📡「远程控制」入口 → 双角色面板（播放端 / 控制端）。
+  - 播放端：创建会话（后端 `/remote/create`）→ 拿到 `sessionToken`，每 700ms 轮询 `/remote/state` 取最新指令并应用到提词器（play / pause / 调速倍率）。
+  - 控制端：输入/粘贴令牌（或经 Telegram 深链 `startapp=remote_<token>` 自动进入并预填）→ 连接后发送 play / pause / speed 指令。
+  - 速度指令以倍率（0.25×–4×）乘以 `pxPerSec`，停用时复位为 1×；面板含令牌复制 / 分享深链 / 停止 / 断开。
+- 后端 `p6-enhance/enhance-worker.js`：`/remote/create` 验签后加 **Pro 门禁**（`users_pro` 表，未订阅返回 `403 pro_required`）；`command`/`state` 仅凭 token，控制端无需 Pro（可借朋友手机操控）。
+- i18n：五语各新增 22 个遥控键（共 135 键一致）。
+
+**为什么**
+- 把"双设备遥控"从"后端就绪 / 无 UI"补全为真正可用；同时与云同步一致把托管会话限定为 Pro 权益，避免非付费占用后端资源。
+
+**怎么验证**
+- 后端 `node --test p6-enhance/test-remote.mjs`：创建（Pro→200 / 非Pro→403 / 坏initData→401）、发指令+轮询可见、非法 cmd→400、缺/错 token→401（7 项）。
+- 前端 `node test_i18n_real.mjs`：新增第 16/17/18/19 项（面板存在、令牌解析 start_param/URL/裸令牌/非法、深链生成、指令应用到全局播放状态）。
+- `npm test` 全绿（63/63）。
+
+**涉及文件**：`index.html`、`p6-enhance/enhance-worker.js`、`p6-enhance/test-remote.mjs`、`test_i18n_real.mjs`、功能清单 §1.2、本 CHANGELOG。
+
+---
+
 ## 2026-11-03 · feat — 多讲稿管理 + 云同步（Pro 权益 #2 落地）；澄清"云"的归属
 
 **改了什么**

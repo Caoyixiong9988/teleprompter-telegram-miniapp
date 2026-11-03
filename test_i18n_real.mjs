@@ -232,6 +232,34 @@ console.log('多讲稿(切换/新建/删除保底):', msA, '|', msB, '| 新建�
 console.log('reconcile:', 'merged', recObj.merged.length, 'cloudOnly', recObj.cloudOnly.length, '| 冲突重写', rec2Obj.merged[0].content);
 console.log('云同步门禁 无后端/非Pro/Pro+后端:', gNoBackend, gNoPro, gProBackend);
 
+// ---- 双设备遥控：面板存在 + 纯函数（令牌解析 / 深链 / 指令应用） ----
+const remoteBtn = !!doc.getElementById('btnRemote');
+const remoteSheetEl = !!doc.getElementById('remoteSheet');
+const p16 = remoteBtn && remoteSheetEl;
+
+const pt1 = window.eval('parseRemoteToken("remote_abc123")');
+const pt2 = window.eval('parseRemoteToken("https://x.test/?remote=tok_9")');
+const pt3 = window.eval('parseRemoteToken("bareToken_12345")');
+const pt4 = window.eval('parseRemoteToken("随便一段中文不是令牌")');
+const p17 = pt1 === 'abc123' && pt2 === 'tok_9' && pt3 === 'bareToken_12345' && pt4 === null;
+
+const dl = window.eval('state.botUser="mybot"; buildRemoteDeepLink("tokX")');
+const p18 = dl === 'https://t.me/mybot?startapp=remote_tokX';
+
+window.eval('playing=false; remoteSpeedMul=1; applyRemoteCommand({cmd:"play"});');
+const acPlay = window.eval('playing');
+window.eval('applyRemoteCommand({cmd:"pause"});');
+const acPause = window.eval('playing');
+window.eval('applyRemoteCommand({cmd:"speed", value:2});');
+const acSpeed = window.eval('remoteSpeedMul');
+window.eval('playing=false; remoteSpeedMul=1;');
+const p19 = acPlay === true && acPause === false && acSpeed === 2;
+
+console.log('--- 双设备遥控 ---');
+console.log('面板/按钮存在:', remoteBtn, remoteSheetEl);
+console.log('令牌解析 start_param/URL/裸令牌/非法:', pt1, pt2, pt3, pt4);
+console.log('深链:', dl, '| 指令应用 play/pause/speed:', acPlay, acPause, acSpeed);
+
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
 console.log('1) 设置面板输入框随语言切换 & 自定义稿保留:', p1 ? '✅' : '❌');
@@ -249,6 +277,10 @@ console.log('12) 本地预览按钮点击切换 isPro:', p12 ? '✅' : '❌');
 console.log('13) 多讲稿数据模型(切换/新建/删除保底):', p13 ? '✅' : '❌');
 console.log('14) reconcileScripts 合并/冲突/云端独有:', p14 ? '✅' : '❌');
 console.log('15) 云同步门禁(无后端/非Pro 不可，Pro+后端可):', p15 ? '✅' : '❌');
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15;
+console.log('16) 遥控面板与按钮存在:', p16 ? '✅' : '❌');
+console.log('17) 遥控令牌解析(start_param/URL/裸令牌/非法):', p17 ? '✅' : '❌');
+console.log('18) 遥控深链生成:', p18 ? '✅' : '❌');
+console.log('19) 遥控指令应用(play/pause/speed→全局):', p19 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15 && p16 && p17 && p18 && p19;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);

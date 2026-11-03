@@ -3,9 +3,9 @@
  * 运行：node --test p6-enhance/test-remote.mjs
  *
  * 覆盖：
- *   1) create 经验签铸造 session_token
- *   2) command 更新状态
- *   3) getState 返回最新指令
+ *   1) Pro 用户 create 经验签铸造 session_token
+ *   2) 非 Pro 用户 create 被拒(403 pro_required)
+ *   3) command 更新状态；getState 返回最新指令
  *   4) 缺失 / 无效 token → 401
  *   5) 非法 cmd → 400；未授权 create（坏 initData）→ 401
  */
@@ -25,7 +25,8 @@ function req(method, path, body, query) {
   return worker.fetch(new Request(url, init), ENV);
 }
 
-test('1) create 经验签铸造 session_token', async () => {
+test('1) Pro 用户 create 经验签铸造 session_token', async () => {
+  ENV.DB.grantPro('u_remote_1');
   const init = await signInitData(BOT_TOKEN, 'u_remote_1');
   const r = await req('POST', '/remote/create', { initData: init });
   assert.equal(r.status, 200);
@@ -34,7 +35,15 @@ test('1) create 经验签铸造 session_token', async () => {
   assert.equal(d.owner_user_id, 'u_remote_1');
 });
 
-test('2) command 更新状态；3) getState 返回最新指令', async () => {
+test('2) 非 Pro 用户 create 被拒(403 pro_required)', async () => {
+  const init = await signInitData(BOT_TOKEN, 'u_remote_free');
+  const r = await req('POST', '/remote/create', { initData: init });
+  assert.equal(r.status, 403);
+  assert.equal((await r.json()).error, 'pro_required');
+});
+
+test('3) command 更新状态；getState 返回最新指令', async () => {
+  ENV.DB.grantPro('u_remote_2');
   const init = await signInitData(BOT_TOKEN, 'u_remote_2');
   const { sessionToken: token } = (await req('POST', '/remote/create', { initData: init }).then((r) => r.json()));
 
@@ -70,6 +79,7 @@ test('4) 缺失 / 无效 token → 401', async () => {
 });
 
 test('5) 非法 cmd → 400；未授权 create → 401', async () => {
+  ENV.DB.grantPro('u_remote_3');
   const init = await signInitData(BOT_TOKEN, 'u_remote_3');
   const { sessionToken: token } = (await req('POST', '/remote/create', { initData: init }).then((r) => r.json()));
 

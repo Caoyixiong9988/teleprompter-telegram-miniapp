@@ -208,6 +208,8 @@ async function handle(request, env) {
     const a = await authUser(body.initData, env);
     if (!a.ok) return json({ error: a.error }, a.status);
     const store = new D1EnhanceStore(env.DB);
+    // 双设备遥控是 Pro 权益：仅 Pro 订阅者可创建（托管）遥控会话；控制端凭 token 操作，无需 Pro。
+    if (!(await store.getProStatus(a.userId))) return json({ error: 'pro_required' }, 403);
     const now = Date.now();
     const token = mintToken();
     await store.createSession({ ownerUserId: a.userId, sessionToken: token, createdAt: now });

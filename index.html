@@ -124,6 +124,15 @@
   .pro-list li{list-style:disc; margin:2px 0;}
   .pro-list-free{color:var(--muted);}
   #proStatusBadge.on{color:#1f9d55;}
+  /* 双设备遥控 */
+  .tab-row{display:flex;gap:8px;margin-bottom:12px;}
+  .tab-row .btn{flex:1;}
+  .tab-row .btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .token-box{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;word-break:break-all;font-family:monospace;font-size:13px;}
+  .remote-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  .remote-ctrl .btn{padding:16px 0;font-size:17px;}
+  .remote-ctrl .btn.speed{grid-column:1 / -1;}
+  .status-line{margin-top:8px;font-size:13px;color:var(--muted);min-height:18px;}
 
   /* 讲稿库（多讲稿管理） */
   .script-list{display:flex; flex-direction:column; gap:6px; margin-bottom:8px;}
@@ -176,6 +185,7 @@
     </div>
     <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
     <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>
+    <button class="btn icon" id="btnRemote" data-i18n-title="remoteTitle">📡</button>
   </div>
 
   <!-- Settings sheet -->
@@ -390,6 +400,63 @@
   <div id="toast"></div>
 </div>
 
+  <!-- Remote Control sheet (Pro) -->
+  <div class="sheet hidden" id="remoteSheet">
+    <div class="sheet-inner">
+      <h3 data-i18n="remoteTitle">远程控制</h3>
+
+      <div class="tab-row">
+        <button class="btn active" id="remotePlayerTab" data-i18n="remotePlayer">我是播放端（被控）</button>
+        <button class="btn" id="remoteControllerTab" data-i18n="remoteController">我是控制端（操控）</button>
+      </div>
+
+      <div class="hint" id="remoteNeed"></div>
+
+      <!-- 播放端：创建会话，被另一台设备遥控 -->
+      <div id="remotePlayerSection">
+        <button class="btn primary" id="btnRemoteCreate" data-i18n="remoteCreate" style="width:100%;">创建遥控会话</button>
+        <div id="remotePlayerBox" hidden>
+          <div class="field" style="margin-top:12px;">
+            <label data-i18n="remoteToken">会话令牌</label>
+            <div class="token-box" id="remoteTokenValue"></div>
+            <div class="row">
+              <button class="btn" id="btnRemoteCopyToken" data-i18n="remoteCopyToken">复制令牌</button>
+              <button class="btn" id="btnRemoteShare" data-i18n="remoteShare">分享给控制端</button>
+            </div>
+          </div>
+        </div>
+        <div class="status-line" id="remotePlayerStatus"></div>
+        <button class="btn" id="btnRemoteStop" data-i18n="remoteStop" style="width:100%;margin-top:8px;">停止遥控</button>
+        <div class="hint" id="remoteTokenHintText" data-i18n="remoteTokenHint" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- 控制端：输入令牌，遥控另一台设备 -->
+      <div id="remoteCtrlSection" hidden>
+        <div class="field">
+          <label data-i18n="remoteEnterToken">输入会话令牌</label>
+          <input type="text" id="remoteTokenInput" placeholder="remote_..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:15px;font-family:monospace;" />
+        </div>
+        <button class="btn primary" id="btnRemoteConnect" data-i18n="remoteConnect" style="width:100%;">连接</button>
+        <div class="status-line" id="remoteCtrlStatus"></div>
+
+        <div id="remoteCtrlPanel" hidden>
+          <div class="remote-ctrl">
+            <button class="btn primary" id="btnRemotePlay" data-i18n="remotePlay">播放</button>
+            <button class="btn" id="btnRemotePause" data-i18n="remotePause">暂停</button>
+            <div class="btn speed" style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
+              <label data-i18n="remoteSpeed" style="font-size:14px;">速度</label>
+              <input type="range" id="remoteSpeedRange" min="25" max="300" value="100" style="width:100%;" />
+              <button class="btn" id="btnRemoteSendSpeed" data-i18n="remoteSendSpeed">发送速度</button>
+            </div>
+          </div>
+          <button class="btn" id="btnRemoteDisconnect" data-i18n="remoteDisconnect" style="width:100%;margin-top:10px;">断开</button>
+        </div>
+        <div class="hint" id="remoteCtrlHintText" data-i18n="remoteCtrlHint" style="margin-top:8px;"></div>
+      </div>
+      <button class="btn primary" id="btnCloseRemote" data-i18n="close" style="width:100%;margin-top:14px;">关闭</button>
+    </div>
+  </div>
+
 <script>
 /* ============================================================
    ScriptDeck（提词器）Telegram Mini App — P1 核心提词器（零后台 MVP）
@@ -467,6 +534,28 @@ const I18N = {
   proStatusOn:"已解锁 Pro 会员",
   proDevOn:"本地预览 Pro 效果（测试用）",
   proDevOff:"关闭 Pro 预览",
+  remoteTitle:"远程控制",
+  remotePlayer:"我是播放端（被控）",
+  remoteController:"我是控制端（操控）",
+  remoteCreate:"创建遥控会话",
+  remoteToken:"会话令牌",
+  remoteCopyToken:"复制令牌",
+  remoteShare:"分享给控制端",
+  remoteActive:"遥控进行中 · 等待控制指令",
+  remoteStop:"停止遥控",
+  remoteTokenHint:"把令牌发给另一台设备，对方即可遥控本机提词。",
+  remoteConnect:"连接",
+  remoteDisconnect:"断开",
+  remoteEnterToken:"输入会话令牌",
+  remoteCtrlHint:"连接后遥控对方提稿：播放 / 暂停 / 调速。",
+  remotePlay:"播放",
+  remotePause:"暂停",
+  remoteSpeed:"速度",
+  remoteSendSpeed:"发送速度",
+  remoteConnected:"已连接，可发送指令",
+  remoteNoBackend:"远程控制需联网后端与 Pro 订阅；当前为本地模式。",
+  remoteNeedPro:"远程控制是 Pro 功能，请先开通 Pro。",
+  remoteFail:"操作失败：",
   scriptLibTitle:"讲稿库",
   scriptNew:"＋ 新建讲稿",
   scriptNewTitle:"新讲稿",
@@ -568,6 +657,28 @@ const I18N = {
   proStatusOn:"Pro membership unlocked",
   proDevOn:"Preview Pro locally (testing)",
   proDevOff:"Turn off Pro preview",
+  remoteTitle:"Remote Control",
+  remotePlayer:"I'm the Player (controlled)",
+  remoteController:"I'm the Controller",
+  remoteCreate:"Create Remote Session",
+  remoteToken:"Session Token",
+  remoteCopyToken:"Copy Token",
+  remoteShare:"Share with Controller",
+  remoteActive:"Remote active · waiting for commands",
+  remoteStop:"Stop Remote",
+  remoteTokenHint:"Send this token to another device; it can then control this prompter.",
+  remoteConnect:"Connect",
+  remoteDisconnect:"Disconnect",
+  remoteEnterToken:"Enter session token",
+  remoteCtrlHint:"After connecting, control the other prompter: play / pause / speed.",
+  remotePlay:"Play",
+  remotePause:"Pause",
+  remoteSpeed:"Speed",
+  remoteSendSpeed:"Send Speed",
+  remoteConnected:"Connected · ready to send commands",
+  remoteNoBackend:"Remote control needs an online backend and Pro. Currently in local mode.",
+  remoteNeedPro:"Remote control is a Pro feature. Please upgrade to Pro first.",
+  remoteFail:"Operation failed: ",
   scriptLibTitle:"Script library",
   scriptNew:"＋ New script",
   scriptNewTitle:"New script",
@@ -669,6 +780,28 @@ const I18N = {
   proStatusOn:"Pro 会員を利用中",
   proDevOn:"ローカルで Pro をプレビュー（テスト用）",
   proDevOff:"Pro プレビューを終了",
+  remoteTitle:"リモート操作",
+  remotePlayer:"再生側（操作される）",
+  remoteController:"操作側（コントローラー）",
+  remoteCreate:"リモートセッション作成",
+  remoteToken:"セッション・トークン",
+  remoteCopyToken:"トークンをコピー",
+  remoteShare:"操作側に共有",
+  remoteActive:"リモート稼働中・コマンド待ち",
+  remoteStop:"リモート停止",
+  remoteTokenHint:"このトークンを別の端末に送ると、そちらから本機の提詞を操作できます。",
+  remoteConnect:"接続",
+  remoteDisconnect:"切断",
+  remoteEnterToken:"セッション・トークンを入力",
+  remoteCtrlHint:"接続後、相手の提詞を操作：再生／一時停止／速度。",
+  remotePlay:"再生",
+  remotePause:"一時停止",
+  remoteSpeed:"速度",
+  remoteSendSpeed:"速度を送信",
+  remoteConnected:"接続済み・コマンド送信可",
+  remoteNoBackend:"リモート操作にはオンライン機能と Pro が必要です。現在はローカルモード。",
+  remoteNeedPro:"リモート操作は Pro 機能です。先に Pro をご利用ください。",
+  remoteFail:"操作に失敗：",
   scriptLibTitle:"原稿ライブラリ",
   scriptNew:"＋ 新しい原稿",
   scriptNewTitle:"新しい原稿",
@@ -770,6 +903,28 @@ const I18N = {
   proStatusOn:"Pro 멤버십 사용 중",
   proDevOn:"로컬에서 Pro 미리보기(테스트용)",
   proDevOff:"Pro 미리보기 끄기",
+  remoteTitle:"원격 제어",
+  remotePlayer:"재생 측（제어받음）",
+  remoteController:"제어 측（컨트롤러）",
+  remoteCreate:"원격 세션 만들기",
+  remoteToken:"세션 토큰",
+  remoteCopyToken:"토큰 복사",
+  remoteShare:"제어 측에 공유",
+  remoteActive:"원격 활성 · 명령 대기 중",
+  remoteStop:"원격 중지",
+  remoteTokenHint:"이 토큰을 다른 기기에 보내면 그 기기에서 본 기기의 스크립트를 조종할 수 있습니다.",
+  remoteConnect:"연결",
+  remoteDisconnect:"연결 해제",
+  remoteEnterToken:"세션 토큰 입력",
+  remoteCtrlHint:"연결 후 상대방의 스크립트를 조종：재생／일시정지／속도.",
+  remotePlay:"재생",
+  remotePause:"일시정지",
+  remoteSpeed:"속도",
+  remoteSendSpeed:"속도 전송",
+  remoteConnected:"연결됨 · 명령 전송 가능",
+  remoteNoBackend:"원격 제어는 온라인 백엔드와 Pro가 필요합니다. 현재 로컬 모드입니다.",
+  remoteNeedPro:"원격 제어는 Pro 기능입니다. 먼저 Pro를 이용해 주세요.",
+  remoteFail:"작업 실패：",
   scriptLibTitle:"대본 보관함",
   scriptNew:"＋ 새 대본",
   scriptNewTitle:"새 대본",
@@ -871,6 +1026,28 @@ const I18N = {
   proStatusOn:"Подписка Pro активна",
   proDevOn:"Предпросмотр Pro локально (тест)",
   proDevOff:"Выключить предпросмотр Pro",
+  remoteTitle:"Дистанционное управление",
+  remotePlayer:"Я — ведущий（управляемый）",
+  remoteController:"Я — пульт（управляю）",
+  remoteCreate:"Создать сеанс управления",
+  remoteToken:"Токен сеанса",
+  remoteCopyToken:"Копировать токен",
+  remoteShare:"Отправить пульту",
+  remoteActive:"Удалённое активно · ожидание команд",
+  remoteStop:"Остановить",
+  remoteTokenHint:"Отправьте этот токен другому устройству — оно сможет управлять подсказкой на этом устройстве.",
+  remoteConnect:"Подключить",
+  remoteDisconnect:"Отключить",
+  remoteEnterToken:"Введите токен сеанса",
+  remoteCtrlHint:"После подключения управляйте чужой подсказкой：воспроизведение／пауза／скорость.",
+  remotePlay:"Воспроизвести",
+  remotePause:"Пауза",
+  remoteSpeed:"Скорость",
+  remoteSendSpeed:"Отправить скорость",
+  remoteConnected:"Подключено · можно отправлять команды",
+  remoteNoBackend:"Дистанционное управление требует онлайн-бэкенда и Pro. Сейчас локальный режим.",
+  remoteNeedPro:"Дистанционное управление — функция Pro. Сначала оформите Pro.",
+  remoteFail:"Ошибка：",
   scriptLibTitle:"Библиотека сценариев",
   scriptNew:"＋ Новый сценарий",
   scriptNewTitle:"Новый сценарий",
@@ -1173,6 +1350,7 @@ function deepLink(){
 
 /* ---------- 滚动引擎 ---------- */
 let rafId = null, lastTs = null, offset = 0, playing = false;
+let remoteSpeedMul = 1; // 控制端发来的速度倍率（1 = 不调整；Pro 遥控时生效）
 let readCounted = false; // 本次滚动是否已计入"读完一次"，避免反复到底重复计数
 
 let _mcanvas = null, _mctx = null;
@@ -1185,9 +1363,9 @@ function measureCharWidth(fs){
   return w / s.length;
 }
 function pxPerSec(){
-  if (state.speedUnit === 'px') return state.speedPx;
+  if (state.speedUnit === 'px') return state.speedPx * remoteSpeedMul;
   const cw = measureCharWidth(state.fontSize);
-  return (state.speedCpm / 60) * cw;
+  return (state.speedCpm / 60) * cw * remoteSpeedMul;
 }
 function applyPrompterStyle(){
   scrollText.style.fontSize = state.fontSize + 'px';
@@ -1649,6 +1827,161 @@ async function submitReport() {
   }
 }
 
+/* ---------- 双设备远程控制（Pro 权益；本地模式自动降级） ---------- */
+// 纯函数：从 Telegram start_param（remote_<token>）或 URL ?remote=<token> 或裸令牌提取令牌
+function parseRemoteToken(raw){
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (s.startsWith('remote_')){ const t = s.slice('remote_'.length); return t || null; }
+  try { const q = new URL(s, 'https://x').searchParams.get('remote'); if (q) return q; } catch(e){}
+  if (/^[A-Za-z0-9_-]{8,}$/.test(s)) return s; // 直接粘贴的裸令牌
+  return null;
+}
+// 纯函数：生成"分享给控制端"的 Telegram 深链（对方打开即进入控制端并预填令牌）
+function buildRemoteDeepLink(token){
+  const bot = (state.botUser || CONFIG.BOT_USERNAME || 'your_bot');
+  return 'https://t.me/' + bot + '?startapp=remote_' + encodeURIComponent(token);
+}
+
+let remoteToken = null;        // 播放端持有的会话令牌
+let remotePollTimer = null;    // 播放端轮询定时器
+let remoteLastCmdAt = 0;       // 已应用指令的 updated_at，避免重复应用
+let remoteConnectToken = null; // 控制端已连接的令牌
+
+// 把一条指令应用到本机提词器（播放端调用）
+function applyRemoteCommand(cmdObj){
+  if (!cmdObj || !cmdObj.cmd) return;
+  if (cmdObj.cmd === 'play'){ playing = true; updatePlayBtn(); }
+  else if (cmdObj.cmd === 'pause'){ playing = false; updatePlayBtn(); }
+  else if (cmdObj.cmd === 'speed'){
+    const v = Number(cmdObj.value);
+    if (!isNaN(v)) remoteSpeedMul = Math.max(0.25, Math.min(4, v));
+  }
+}
+// 遥控需要：Pro 订阅 + 联网后端 + Telegram initData
+function canRemote(){
+  return isPro() && !!CONFIG.API_BASE && !!(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData);
+}
+function renderRemoteUI(){
+  const need = document.getElementById('remoteNeed');
+  if (need){
+    if (!CONFIG.API_BASE) need.textContent = t('remoteNoBackend');
+    else if (!isPro()) need.textContent = t('remoteNeedPro');
+    else need.textContent = '';
+  }
+}
+function switchRemoteTab(which){
+  const p = document.getElementById('remotePlayerSection');
+  const c = document.getElementById('remoteCtrlSection');
+  const pt = document.getElementById('remotePlayerTab');
+  const ct = document.getElementById('remoteControllerTab');
+  if (p) p.hidden = which !== 'player';
+  if (c) c.hidden = which !== 'controller';
+  if (pt) pt.classList.toggle('active', which === 'player');
+  if (ct) ct.classList.toggle('active', which === 'controller');
+}
+function startRemotePoll(){
+  stopRemotePoll();
+  remotePollTimer = setInterval(async function(){
+    if (!remoteToken) return;
+    try {
+      const r = await fetch(apiUrl('/remote/state') + '?token=' + encodeURIComponent(remoteToken));
+      if (!r.ok) return;
+      const j = await r.json();
+      if (j.command && j.updated_at && j.updated_at !== remoteLastCmdAt){
+        remoteLastCmdAt = j.updated_at;
+        applyRemoteCommand(j.command);
+      }
+    } catch(e){}
+  }, 700);
+}
+function stopRemotePoll(){ if (remotePollTimer){ clearInterval(remotePollTimer); remotePollTimer = null; } }
+async function createRemoteSession(){
+  const statusEl = document.getElementById('remotePlayerStatus');
+  if (!canRemote()){ statusEl.textContent = isPro() ? t('remoteNoBackend') : t('remoteNeedPro'); return; }
+  statusEl.textContent = '';
+  try {
+    const r = await fetch(apiUrl('/remote/create'), {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ initData: initDataStr() })
+    });
+    if (r.status === 403){ statusEl.textContent = t('remoteNeedPro'); return; }
+    if (!r.ok) throw new Error((await r.json().catch(function(){return{};})).error || ('http_' + r.status));
+    const j = await r.json();
+    remoteToken = j.sessionToken;
+    const box = document.getElementById('remotePlayerBox');
+    const val = document.getElementById('remoteTokenValue');
+    if (box) box.hidden = false;
+    if (val) val.textContent = remoteToken;
+    statusEl.textContent = t('remoteActive');
+    startRemotePoll();
+  } catch(e){ statusEl.textContent = t('remoteFail') + (e.message || ''); }
+}
+function stopRemoteSession(){
+  stopRemotePoll();
+  remoteToken = null; remoteLastCmdAt = 0; remoteSpeedMul = 1;
+  const box = document.getElementById('remotePlayerBox'); if (box) box.hidden = true;
+  const st = document.getElementById('remotePlayerStatus'); if (st) st.textContent = '';
+}
+function copyRemoteToken(){
+  if (!remoteToken) return;
+  try { navigator.clipboard.writeText(remoteToken); toast(t('remoteCopyToken') + ' ✓'); } catch(e){}
+}
+function shareRemoteToken(){
+  if (!remoteToken) return;
+  const url = buildRemoteDeepLink(remoteToken);
+  const text = t('remoteShare') + '：' + remoteToken;
+  telegramShare(text, url);
+}
+async function connectRemote(){
+  const input = document.getElementById('remoteTokenInput');
+  const statusEl = document.getElementById('remoteCtrlStatus');
+  const token = parseRemoteToken(input ? input.value : '');
+  if (!token){ statusEl.textContent = t('remoteFail') + t('remoteEnterToken'); return; }
+  if (!CONFIG.API_BASE){ statusEl.textContent = t('remoteNoBackend'); return; }
+  try {
+    const r = await fetch(apiUrl('/remote/state') + '?token=' + encodeURIComponent(token));
+    if (r.status === 401){ statusEl.textContent = t('remoteFail') + t('remoteToken'); return; }
+    if (!r.ok) throw new Error('http_' + r.status);
+    remoteConnectToken = token;
+    const panel = document.getElementById('remoteCtrlPanel'); if (panel) panel.hidden = false;
+    statusEl.textContent = t('remoteConnected');
+  } catch(e){ statusEl.textContent = t('remoteFail') + (e.message || ''); }
+}
+async function sendRemoteCmd(cmd, value){
+  if (!remoteConnectToken) return;
+  try {
+    const r = await fetch(apiUrl('/remote/command') + '?token=' + encodeURIComponent(remoteConnectToken), {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ cmd: cmd, value: value == null ? null : value })
+    });
+    if (!r.ok) throw new Error((await r.json().catch(function(){return{};})).error || ('http_' + r.status));
+  } catch(e){ toast(t('remoteFail') + (e.message || '')); }
+}
+function disconnectRemote(){
+  remoteConnectToken = null;
+  const p = document.getElementById('remoteCtrlPanel'); if (p) p.hidden = true;
+  const st = document.getElementById('remoteCtrlStatus'); if (st) st.textContent = '';
+}
+// 启动检测：若通过 Telegram 深链（startapp=remote_<token>）或 URL ?remote= 打开，自动进入控制端并预填
+function initRemoteStartup(){
+  let raw = null;
+  try {
+    const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe;
+    if (tg && tg.start_param) raw = tg.start_param;
+  } catch(e){}
+  if (!raw){
+    try { const q = new URLSearchParams(location.search).get('remote'); if (q) raw = q; } catch(e){}
+  }
+  if (!raw) return;
+  const token = parseRemoteToken(raw);
+  if (!token) return;
+  const sheet = document.getElementById('remoteSheet'); if (sheet) sheet.classList.remove('hidden');
+  switchRemoteTab('controller');
+  const input = document.getElementById('remoteTokenInput'); if (input) input.value = token;
+  connectRemote();
+}
+
 /* ---------- 初始化 ---------- */
 function init(){
   loadState();
@@ -1711,6 +2044,26 @@ function init(){
   });
   document.getElementById('btnReport').addEventListener('click', submitReport);
 
+  // 遥控（Pro）：打开/关闭/角色切换/创建/停止/复制/分享/连接/断开/播放/暂停/调速
+  const remoteSheet = document.getElementById('remoteSheet');
+  document.getElementById('btnRemote').addEventListener('click', function(){ remoteSheet.classList.remove('hidden'); renderRemoteUI(); });
+  document.getElementById('btnCloseRemote').addEventListener('click', function(){ remoteSheet.classList.add('hidden'); });
+  document.getElementById('remotePlayerTab').addEventListener('click', function(){ switchRemoteTab('player'); });
+  document.getElementById('remoteControllerTab').addEventListener('click', function(){ switchRemoteTab('controller'); });
+  document.getElementById('btnRemoteCreate').addEventListener('click', createRemoteSession);
+  document.getElementById('btnRemoteStop').addEventListener('click', stopRemoteSession);
+  document.getElementById('btnRemoteCopyToken').addEventListener('click', copyRemoteToken);
+  document.getElementById('btnRemoteShare').addEventListener('click', shareRemoteToken);
+  document.getElementById('btnRemoteConnect').addEventListener('click', connectRemote);
+  document.getElementById('btnRemoteDisconnect').addEventListener('click', disconnectRemote);
+  document.getElementById('btnRemotePlay').addEventListener('click', function(){ sendRemoteCmd('play'); });
+  document.getElementById('btnRemotePause').addEventListener('click', function(){ sendRemoteCmd('pause'); });
+  document.getElementById('btnRemoteSendSpeed').addEventListener('click', function(){ const r = document.getElementById('remoteSpeedRange'); sendRemoteCmd('speed', r ? (+r.value) / 100 : 1); });
+  const remoteSpeedRange = document.getElementById('remoteSpeedRange');
+  if (remoteSpeedRange) remoteSpeedRange.addEventListener('change', function(){ sendRemoteCmd('speed', (+remoteSpeedRange.value) / 100); });
+  renderRemoteUI();
+  initRemoteStartup();
+
   rafId = requestAnimationFrame(loop);
   verifyInitData();
   checkProStatus();
@@ -1718,5 +2071,6 @@ function init(){
 }
 init();
 </script>
+
 </body>
 </html>
