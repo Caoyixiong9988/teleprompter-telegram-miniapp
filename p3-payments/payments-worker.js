@@ -18,7 +18,7 @@
  */
 
 import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
-import { processSuccessfulPayment, STARS_PRODUCTS } from './payments-core.js';
+import { processSuccessfulPayment, STARS_PRODUCTS, getProduct } from './payments-core.js';
 
 // ── D1 Store 适配器（实现 payments-core 的 Store 接口 + ledger-core 的 Store 接口）──
 class D1PaymentsStore {
@@ -122,6 +122,43 @@ class D1PaymentsStore {
     const row = await this.db.prepare('SELECT COUNT(*) AS c FROM payments_stars').first();
     return row ? row.c : 0;
   }
+
+  /**
+   * 原子记录 Pro 订阅支付 + 写入/更新 users_pro（幂等；charge_id 唯一约束防重复）。
+   * Pro 不发放积分，仅写订阅行（到期前有效）。
+   */
+  async grantPro({ userId, chargeId, productId, stars, expiresAt }) {
+    const now = Date.now();
+    try {
+      await this.db.batch([
+        this.db.prepare(
+          'INSERT INTO payments_stars (user_id, tg_payment_charge_id, provider, stars, credits_granted, status, created_at) VALUES (?,?,?,?,?,?,?)'
+        ).bind(userId, chargeId, 'telegram_stars', stars, 0, 'completed', now),
+        this.db.prepare(
+          'INSERT INTO users_pro (user_id, product_id, stars, expires_at, created_at) VALUES (?,?,?,?,?) ' +
+          'ON CONFLICT(user_id) DO UPDATE SET product_id=excluded.product_id, stars=excluded.stars, expires_at=excluded.expires_at, created_at=excluded.created_at'
+        ).bind(userId, productId, stars, expiresAt, now),
+      ]);
+      return { inserted: true };
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (/UNIQUE|unique|constraint|tg_payment_charge_id/i.test(msg)) {
+        return { inserted: false, duplicate: true };
+      }
+      throw e;
+    }
+  }
+
+  async getProStatus(userId) {
+    const row = await this.db
+      .prepare('SELECT user_id, product_id, expires_at FROM users_pro WHERE user_id = ?')
+      .bind(userId)
+      .first();
+    if (!row) return { pro: false };
+    const now = Date.now();
+    if (row.expires_at && row.expires_at <= now) return { pro: false, expired: true };
+    return { pro: true, productId: row.product_id, expiresAt: row.expires_at };
+  }
 }
 
 // ── HTTP 工具 ──────────────────────────────────────────────
@@ -186,6 +223,15 @@ async function handleWebhook(request, env) {
     const productId = sp.invoice_payload;           // 我们下单时填的 productId
     const userId = String((msg.from && msg.from.id) || '');
     if (!chargeId) return json({ ok: false, error: 'missing_charge_id' }, 200);
+
+    // Pro 订阅商品：写 users_pro（到期前有效），不发放积分
+    const product = getProduct(productId);
+    if (product && product.kind === 'pro') {
+      const store = new D1PaymentsStore(env.DB);
+      const expiresAt = Date.now() + (productId === 'pro_year' ? 365 : 30) * 24 * 3600 * 1000;
+      const res = await store.grantPro({ userId, chargeId, productId, stars, expiresAt });
+      return json({ ok: true, pro: true, duplicate: !!res.duplicate, productId });
+    }
 
     const store = new D1PaymentsStore(env.DB);
     const res = await processSuccessfulPayment(store, { userId, chargeId, stars, productId });
@@ -362,6 +408,15 @@ async function handle(request, env) {
     if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
     const initData = url.searchParams.get('initData') || (await readJson(request)).initData || '';
     return handleHistory(initData, env);
+  }
+
+  if (path === '/payments/pro-status') {
+    if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
+    const initData = url.searchParams.get('initData') || (await readJson(request)).initData || '';
+    const a = await authUser(initData, env);
+    if (!a.ok) return json({ error: a.error }, a.status);
+    const store = new D1PaymentsStore(env.DB);
+    return json(await store.getProStatus(a.userId));
   }
 
   if (path === '/payments/verify') {

@@ -94,4 +94,29 @@ export class InMemoryPaymentsStore {
   async countPayments() {
     return this.payments.size;
   }
+
+  // ── Pro 订阅（内存实现，仅测试/dev 用）──────────────────
+  grantPro({ userId, chargeId, productId, stars, expiresAt }) {
+    if (this.payments.has(chargeId)) return { inserted: false, duplicate: true };
+    this.payments.set(chargeId, {
+      id: this.payments.size + 1,
+      user_id: userId,
+      tg_payment_charge_id: chargeId,
+      provider: 'telegram_stars',
+      stars,
+      credits_granted: 0,
+      status: 'completed',
+      created_at: Date.now(),
+    });
+    this.pro = this.pro || new Map();
+    this.pro.set(userId, { product_id: productId, stars, expires_at: expiresAt });
+    return { inserted: true };
+  }
+
+  getProStatus(userId) {
+    const r = this.pro && this.pro.get(userId);
+    if (!r) return { pro: false };
+    if (r.expires_at && r.expires_at <= Date.now()) return { pro: false, expired: true };
+    return { pro: true, productId: r.product_id, expiresAt: r.expires_at };
+  }
 }

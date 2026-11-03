@@ -5,7 +5,7 @@
   "type": "module",
   "description": "提词器 Telegram Mini App（单体后端：P0 验签 + P2 积分 + P3 支付 + P4 悬赏 + P5 增长 + P6 增强 + P7 合规），Cloudflare Workers + D1。",
   "scripts": {
-    "test": "node --test p2-credits/test-credits.mjs p3-payments/test-payments.mjs p4-bounty/test-bounty.mjs p5-growth/test-growth.mjs p6-enhance/test-helpers.mjs p6-enhance/test-remote.mjs p6-enhance/test-scripts.mjs p6-enhance/test-speech.mjs p6-enhance/test-templates.mjs p7-compliance/test-compliance.mjs"
+    "test": "node --test p2-credits/test-credits.mjs p3-payments/test-payments.mjs p3-payments/test-pro-status.mjs p4-bounty/test-bounty.mjs p5-growth/test-growth.mjs p6-enhance/test-helpers.mjs p6-enhance/test-remote.mjs p6-enhance/test-scripts.mjs p6-enhance/test-speech.mjs p6-enhance/test-templates.mjs p7-compliance/test-compliance.mjs"
   },
   "devDependencies": {
     "jsdom": "^24.1.3"

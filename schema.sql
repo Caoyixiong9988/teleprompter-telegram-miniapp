@@ -49,6 +49,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_payments_charge ON payments_stars(tg_paym
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments_stars(user_id, id DESC);
 
 -- ---------------------------------------------------------------------------
+-- P3（续）Pro 订阅（按 Telegram Stars 购买；月付 pro_month / 年付 pro_year；到期前有效）
+-- 与支付账本同库；webhook 在 successful_payment 收到 pro_* 商品时写此表，
+-- 前端 /payments/pro-status 据此返回 { pro: bool }，作为"去水印高清导出"等 Pro 权益的权威来源。
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users_pro (
+  user_id    TEXT    PRIMARY KEY,
+  product_id TEXT    NOT NULL,            -- pro_month | pro_year
+  stars      INTEGER NOT NULL,            -- 用户支付的 Telegram Stars 数量
+  expires_at INTEGER NOT NULL,            -- 到期时间戳(ms)；到期前 pro-status 返回 true
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_pro_expires ON users_pro(expires_at);
+
+-- ---------------------------------------------------------------------------
 -- P4 悬赏改稿（与 P2 同库，使 escrow 托管与积分发放同库原子）
 -- 合规红线：奖励平台托管（escrow），仅 award 释放给中标者；绝不 P2P 转账/提现/赌博。
 -- ---------------------------------------------------------------------------

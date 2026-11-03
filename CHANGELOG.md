@@ -8,6 +8,38 @@
 
 ---
 
+## 2026-11-03 · feat — 实现 Pro「去水印 + 高清导出」成片卡（首个真正可用的 Pro 权益）
+
+**改了什么**
+
+- **成片卡导出逻辑重构**（`index.html` 的 `generateCard()`）：抽离纯函数 `isPro()` 与 `cardExportOptions()`（不依赖 canvas，便于单测）。Pro 会员导出时**去除水印**（免费版的品牌信用 + 推荐码深链），画布由 1080×1350 **放大到 2160×2700（2× 高清）**；免费版维持原样（带水印、1×）。
+- **Pro 状态权威来源落到后端**（`p3-payments` + `schema.sql`）：新增 `users_pro` 表、`GET /payments/pro-status`（经 initData 验签）、webhook 收到 `pro_month`/`pro_year` 商品时写订阅（到期前有效）。前端 `checkProStatus()` 在配置后端时以服务端为准。新增 Pro 订阅商品（400⭐/月、4000⭐/年）与前端定价对齐。
+- **本地预览开关（仅开发用）**：未配置后端 `API_BASE` 时，Pro 面板显示「本地预览 Pro 效果」按钮可一键切换 `isPro` 看效果；**配置后端后该按钮自动隐藏**，防止生产被 URL 参数绕过付费。
+- **状态反馈**：成片卡页底部动态显示「免费版：带水印·标准分辨率」或「Pro：已去除水印·高清导出」；Pro 面板显示会员状态徽章。
+- 五语各新增 6 个键（共 96 键，五语一致）：`cardExportPro/Free`、`proStatusOn/Off`、`proDevOn/Off`。
+
+**为什么**
+
+- 用户要求先把 Pro 里"唯一能立刻交付"的权益做出来——去水印高清导出复用现有 canvas，改动最小、风险最低，且是付费的真实价值点。
+- Pro 门禁此前只有本地开关、无服务端真值，付费无法真正生效；本次把状态来源补成后端，使 Pro 后续真正可交付。
+
+**怎么验证**
+
+- `npm test` → 61/61 通过（含新增 `test-pro-status.mjs` 5 项：订阅写入/幂等/未知用户/过期/定价对齐）
+- 前端回归 `node test_i18n_real.mjs` → **12/12 通过**（新增第 10/11/12 项：Pro 导出策略、本地预览按钮可见与文案、点击切换 isPro）
+- 五语键集一致：zh=en=ja=ko=ru=**96 键**
+- 局限：jsdom 无 canvas，`generateCard()` 像素级水印/高清效果需在真机（或本地点开 index.html 用本地预览开关）肉眼确认。
+
+**涉及文件**
+
+`index.html`（generateCard、isPro、cardExportOptions、checkProStatus、renderProState、五语新键、Pro 面板/卡片页 UI）、`p3-payments/payments-core.js`（Pro 商品）、`p3-payments/payments-worker.js`（pro-status 路由 + webhook 分支）、`p3-payments/inmemory-payments-store.js`（grantPro/getProStatus）、`schema.sql`（users_pro 表）、`p3-payments/test-pro-status.mjs`、`test_i18n_real.mjs`、`package.json`、`【功能清单】…md`、`CHANGELOG.md`
+
+**遗留**
+
+Pro 其余五项（语音跟随、云同步前端、遥控器、无限讲稿、字幕导出）仍未达到用户可用，下一步继续逐项实现。
+
+---
+
 ## 2026-11-03 · feat/copy — 退款改 14 天无理由、云同步例外披露、新增免费阅读等级
 
 **改了什么**

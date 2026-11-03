@@ -44,6 +44,21 @@ export const STARS_PRODUCTS = {
     title: 'Ultra Pack',
     description: '6500 credits — heavy creator usage',
   },
+  // Pro 订阅（与前端 CONFIG.PRO_PRICE_*_STARS 对齐）：购买后写 users_pro，到期前解锁 Pro 权益（如去水印高清导出）。不发放积分。
+  pro_month: {
+    stars: 400,
+    credits: 0,
+    kind: 'pro',
+    title: 'Pro Monthly',
+    description: 'Pro membership — watermark-free high-res card export, voice-follow, cloud sync, remote control, unlimited scripts, caption export (30 days)',
+  },
+  pro_year: {
+    stars: 4000,
+    credits: 0,
+    kind: 'pro',
+    title: 'Pro Yearly',
+    description: 'Pro membership — watermark-free high-res card export, voice-follow, cloud sync, remote control, unlimited scripts, caption export (365 days)',
+  },
 };
 
 /**

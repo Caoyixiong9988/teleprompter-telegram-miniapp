@@ -160,6 +160,35 @@ const p8 = copyClean;
 const p9 = rk0.name === '起步' && rk0.icon === '🌱' && rk3.name === '星光' && rk3.icon === '⭐' && rk100.name === '皇冠' && rk100.bar === '100%'
   && rk3en.name === 'Star' && readsAfterShort === 0 && readsAfterLong === 3 && rankAfterLong === '星光' && toastAfterLong.includes('星光');
 
+// ---- Pro：去水印高清导出策略（纯函数，不依赖 canvas，jsdom 可测）----
+window.eval('state.isPro = false;');
+const optFree = JSON.parse(window.eval('JSON.stringify(cardExportOptions())'));
+window.eval('state.isPro = true;');
+const optPro = JSON.parse(window.eval('JSON.stringify(cardExportOptions())'));
+const isProFalse = window.eval('state.isPro = false; isPro()');
+const isProTrue = window.eval('state.isPro = true; isPro()');
+window.eval('state.isPro = false;'); // 还原，避免影响后续
+const p10 = optFree.scale === 1 && optFree.noWatermark === false
+  && optPro.scale === 2 && optPro.noWatermark === true
+  && isProFalse === false && isProTrue === true;
+
+// ---- 本地预览按钮（无后端 API_BASE 时可见，文案正确）----
+const devBtn = doc.getElementById('btnProDevPreview');
+const devVisible = !!(devBtn && devBtn.hidden === false);
+const devLabel = devBtn && devBtn.textContent;
+const p11 = devVisible && devLabel === '本地预览 Pro 效果（测试用）';
+
+// ---- 本地预览按钮点击可切换 isPro（仅本地；生产环境隐藏，无法绕过付费）----
+if (devBtn) devBtn.click();
+const afterClickPro = window.eval('isPro()');
+if (devBtn) devBtn.click();
+const afterClickBack = window.eval('isPro()');
+const p12 = afterClickPro === true && afterClickBack === false;
+
+console.log('--- Pro 去水印高清导出策略 ---');
+console.log('免费:', JSON.stringify(optFree), '| Pro:', JSON.stringify(optPro), '| isPro(false/true):', isProFalse, isProTrue);
+console.log('本地预览按钮可见:', devVisible, '| 文案:', devLabel, '| 点击切换:', afterClickPro, '->', afterClickBack);
+
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
 console.log('1) 设置面板输入框随语言切换 & 自定义稿保留:', p1 ? '✅' : '❌');
@@ -171,6 +200,9 @@ console.log('6) 五语键集一致:', p6 ? `✅ (各 ${keyCount} 键)` : '❌');
 console.log('7) 俄语环境自动识别:', p7 ? '✅' : '❌');
 console.log('8) 五语客户文案无占卜类字样:', p8 ? '✅' : '❌ ' + bannedHits.join(', '));
 console.log('9) 阅读等级(5 档/多语/短稿不计次/晋级提示):', p9 ? '✅' : '❌');
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9;
+console.log('10) Pro 去水印高清导出策略(免费1×带水印 / Pro2×去水印):', p10 ? '✅' : '❌');
+console.log('11) 本地预览按钮可见且文案正确:', p11 ? '✅' : '❌');
+console.log('12) 本地预览按钮点击切换 isPro:', p12 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);
