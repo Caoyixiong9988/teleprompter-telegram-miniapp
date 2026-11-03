@@ -117,6 +117,28 @@ console.log('--- 俄语 ---');
 console.log('langSelect:', pickRuOk, '| html lang:', htmlLangRu, '| speed(ru):', uiSpeedRu);
 console.log('setScript(ru):', JSON.stringify(taRu.slice(0, 40)));
 console.log('scroll(ru):', JSON.stringify(scrollRu.slice(0, 40)));
+console.log('--- 阅读等级（免费头衔）---');
+const selRank = doc.getElementById('langSelect');
+selRank.value = 'zh'; selRank.dispatchEvent(new window.Event('change')); // 前面的用例把语言切走了，这里先归位
+const rankAt = (n) => window.eval(`(function(){ state.reads=${n}; renderRank(); var b=document.getElementById('rankBarFill'); return { name: document.getElementById('rankName').textContent, icon: document.getElementById('rankIcon').textContent, prog: document.getElementById('rankProgress').textContent, bar: b.style.width }; })()`);
+const rk0 = rankAt(0);
+const rk3 = rankAt(3);
+const rk100 = rankAt(100);
+selRank.value = 'en'; selRank.dispatchEvent(new window.Event('change'));
+const rk3en = rankAt(3);
+selRank.value = 'zh'; selRank.dispatchEvent(new window.Event('change'));
+// 短稿不计次
+window.eval(`state.reads = 0; state.script = '短稿'; renderRank();`);
+window.eval('onReadComplete()');
+const readsAfterShort = window.eval('state.reads');
+// 长稿计次 + 跨门槛晋级提示
+window.eval(`state.reads = 2; state.script = '${'这是用来测试朗读计次的讲稿内容。'.repeat(8)}'; renderRank();`);
+window.eval('onReadComplete()');
+const readsAfterLong = window.eval('state.reads');
+const rankAfterLong = doc.getElementById('rankName').textContent;
+const toastAfterLong = doc.getElementById('toast').textContent;
+console.log('Lv1:', rk0.icon, rk0.name, '| Lv2(3次):', rk3.icon, rk3.name, '| Lv5(100次):', rk100.icon, rk100.name, rk100.bar);
+console.log('英文下等级名:', rk3en.name, '| 短稿后次数:', readsAfterShort, '| 长稿后次数:', readsAfterLong, '| 晋级:', rankAfterLong, '| 提示:', toastAfterLong);
 console.log('--- 五语键集 ---');
 console.log('各语言键数:', langList.map(l => `${l}=${keySets[l].size}`).join(', '));
 console.log('--- 自动语言识别 ---');
@@ -135,6 +157,8 @@ const p5 = pickRuOk && htmlLangRu && taRu.includes('Вставьте сцена�
 const p6 = keySetOk;
 const p7 = autoRu === 'ru' && autoJa === 'ja';
 const p8 = copyClean;
+const p9 = rk0.name === '起步' && rk0.icon === '🌱' && rk3.name === '星光' && rk3.icon === '⭐' && rk100.name === '皇冠' && rk100.bar === '100%'
+  && rk3en.name === 'Star' && readsAfterShort === 0 && readsAfterLong === 3 && rankAfterLong === '星光' && toastAfterLong.includes('星光');
 
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
@@ -146,6 +170,7 @@ console.log('5) 俄语(第 5 语言) 切换生效:', p5 ? '✅' : '❌');
 console.log('6) 五语键集一致:', p6 ? `✅ (各 ${keyCount} 键)` : '❌');
 console.log('7) 俄语环境自动识别:', p7 ? '✅' : '❌');
 console.log('8) 五语客户文案无占卜类字样:', p8 ? '✅' : '❌ ' + bannedHits.join(', '));
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8;
+console.log('9) 阅读等级(5 档/多语/短稿不计次/晋级提示):', p9 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);

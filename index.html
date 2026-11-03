@@ -123,6 +123,14 @@
   .pro-list{margin:8px 0 0; padding-left:18px; font-size:13px; line-height:1.85; color:var(--text);}
   .pro-list li{list-style:disc; margin:2px 0;}
   .pro-list-free{color:var(--muted);}
+
+  /* 阅读等级（免费头衔，纯荣誉） */
+  .rank-box{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:linear-gradient(135deg,#f7f9ff,#eef2fb);}
+  .rank-icon{font-size:26px; line-height:1; flex:0 0 auto;}
+  .rank-info{min-width:0;}
+  .rank-name{font-size:15px; font-weight:700; color:var(--text);}
+  .rank-bar{height:5px; border-radius:3px; background:#e3e8f4; margin-top:6px; overflow:hidden;}
+  .rank-bar i{display:block; height:100%; width:0; background:var(--primary); border-radius:3px; transition:width .3s;}
 </style>
 </head>
 <body>
@@ -221,6 +229,19 @@
         <label data-i18n="botUserLabel">Bot 用户名（用于分享深链，可留空）</label>
         <input type="text" id="setBotUser" data-i18n-ph="botUserPlaceholder" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
         <div class="hint" data-i18n="botUserHint">仅用于生成分享链接；不影响提词功能。留空时显示占位 <code>your_bot</code>。</div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="rankTitle">阅读等级</label>
+        <div class="rank-box">
+          <span class="rank-icon" id="rankIcon">🌱</span>
+          <div class="rank-info">
+            <div class="rank-name" id="rankName">起步</div>
+            <div class="hint" id="rankProgress" style="margin-top:2px;"></div>
+            <div class="rank-bar"><i id="rankBarFill"></i></div>
+          </div>
+        </div>
+        <div class="hint" data-i18n="rankHint">免费头衔，仅作纪念，不影响任何功能；读完一篇讲稿计 1 次。</div>
       </div>
 
       <div class="field">
@@ -325,6 +346,7 @@
         </ul>
       </div>
 
+      <div class="hint" data-i18n="proRefund" style="color:var(--primary); font-weight:600;">14 天无理由退款：购买后 14 天内可申请全额退还 Stars。</div>
       <div class="hint" data-i18n="proNote">价格以 Telegram Stars 结算；Pro 为功能解锁，非自动续费订阅。</div>
 
       <div class="sheet-actions" style="margin-top:12px;">
@@ -372,7 +394,7 @@ const LS_KEY = 'teleprompter_state_v1';
 
 /* ---------- 多语言（P7：zh 默认 + en/ja/ko/ru） ---------- */
 const I18N = {
-  zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中，我们不会读取、上传或备份；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁（月付／年付到期后不自动续费），属虚拟商品，解锁后不支持退款；支付由 Telegram 处理，我们不接触你的支付信息。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵犯他人权利，并遵守你所在地区的法律法规；违反平台规则的内容将被下架，相关奖励不予发放。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
+  zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵犯他人权利，并遵守你所在地区的法律法规；违反平台规则的内容将被下架，相关奖励不予发放。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
   playPause:"播放/暂停",
   reset:"重置",
   speed:"速度",
@@ -421,6 +443,12 @@ const I18N = {
   unitCpm:"字/分",
   proEntry:"升级 Pro / 查看权益",
   proEntryHint:"查看 Pro 权益与价格（Telegram Stars 结算）",
+  rankTitle:'阅读等级',
+  rankHint:'免费头衔，仅作纪念，不影响任何功能；完整读完一篇讲稿计 1 次。',
+  rankDone:'已完成 {n} 次',
+  rankNext:'再读 {m} 次升到 {next}',
+  rankMax:'已达最高等级，继续保持',
+  rankUp:'晋级！你现在是「{name}」',
   proTitle:"Pro 会员",
   proSubtitle:'解锁专业提词与创作能力',
   proMonth:"月付",
@@ -439,11 +467,12 @@ const I18N = {
   proF1:"基础提词滚动、字号 / 颜色 / 对齐",
   proF2:"镜像显示、本地 3 个讲稿",
   proF3:"带水印完成卡",
-  proNote:'价格以 Telegram Stars 结算；Pro 为一次性功能解锁，到期不自动续费，可随时手动续期。部分功能依赖设备能力（如语音跟随需 Android 或桌面浏览器）。',
+  proRefund:'14 天无理由退款：购买后 14 天内可申请全额退还 Stars。',
+  proNote:'价格以 Telegram Stars 结算；Pro 为按周期解锁，到期后不自动续费，可随时手动续期。云同步默认关闭，由你主动开启；开启后讲稿会保存到服务器，以便在其他设备取回。部分功能依赖设备能力（如语音跟随需 Android 或桌面浏览器）。',
   proCta:"升级 Pro",
   proCtaSoon:"Pro 即将上线，敬请期待"
  },
-  en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default — we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features (monthly or yearly, no auto-renewal) and is a virtual item, so no refund is available once unlocked. Payment is handled by Telegram; we never receive your payment details.', submitNotice:'You are about to submit content. Please make sure it is accurate, original, does not infringe the rights of others, and complies with the laws where you live; content that breaks the platform rules will be removed and no reward will be paid.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
+  en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', submitNotice:'You are about to submit content. Please make sure it is accurate, original, does not infringe the rights of others, and complies with the laws where you live; content that breaks the platform rules will be removed and no reward will be paid.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   playPause:"Play / Pause",
   reset:"Reset",
   speed:"Speed",
@@ -492,6 +521,12 @@ const I18N = {
   unitCpm:"char/min",
   proEntry:"Upgrade to Pro / View benefits",
   proEntryHint:"See Pro benefits and pricing (billed in Telegram Stars)",
+  rankTitle:'Reading rank',
+  rankHint:'A free badge for fun only — it unlocks nothing. One full read counts as one.',
+  rankDone:'{n} completed',
+  rankNext:'{m} more to reach {next}',
+  rankMax:'Top rank reached — keep going',
+  rankUp:'Level up! You are now {name}',
   proTitle:"Pro Membership",
   proSubtitle:'Unlock professional prompting and creation tools',
   proMonth:"Monthly",
@@ -510,11 +545,12 @@ const I18N = {
   proF1:"Basic scrolling, font / color / alignment",
   proF2:"Mirror mode, 3 local scripts",
   proF3:"Watermarked result card",
-  proNote:'Prices are settled in Telegram Stars. Pro is a one-time feature unlock with no auto-renewal; you can renew manually at any time. Some features depend on your device (voice-follow needs Android or a desktop browser).',
+  proRefund:'14-day refund: request a full Stars refund within 14 days of purchase, no reason needed.',
+  proNote:'Prices are settled in Telegram Stars. Pro unlocks features for the period you pay for; it does not auto-renew, and you can renew manually at any time. Cloud Sync is off by default and only turns on when you enable it; once on, scripts are stored on our servers so you can retrieve them on your other devices. Some features depend on your device (voice-follow needs Android or a desktop browser).',
   proCta:"Upgrade to Pro",
   proCtaSoon:"Pro is coming soon"
  },
-  ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存され、当方は読み取り・送信・バックアップを行いません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放（月払い／年払い、自動更新なし）で、仮想商品のため解放後の返金はできません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', submitNotice:'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、お住まいの地域の法令に従っていることを確認してください。規約に違反する内容は削除され、報酬は支払われません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
+  ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', submitNotice:'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、お住まいの地域の法令に従っていることを確認してください。規約に違反する内容は削除され、報酬は支払われません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   playPause:"再生/一時停止",
   reset:"リセット",
   speed:"速度",
@@ -563,6 +599,12 @@ const I18N = {
   unitCpm:"文字/分",
   proEntry:"Pro にアップグレード / 特典を見る",
   proEntryHint:"Pro の特典と価格を確認（Telegram Stars 決済）",
+  rankTitle:'リーディング等級',
+  rankHint:'無料の称号で、機能の解放はありません。原稿を最後まで読むと 1 回と数えます。',
+  rankDone:'{n} 回完了',
+  rankNext:'あと {m} 回で {next}',
+  rankMax:'最高等級に到達しました',
+  rankUp:'昇格！現在は「{name}」です',
   proTitle:"Pro メンバーシップ",
   proSubtitle:'プロ向けのテレプロンプトと制作機能を解放',
   proMonth:"月払い",
@@ -581,11 +623,12 @@ const I18N = {
   proF1:"基本スクロール、文字サイズ / 色 / 配置",
   proF2:"ミラー表示、ローカル原稿 3 件",
   proF3:"透かし入り結果カード",
-  proNote:'料金は Telegram Stars で決済されます。Pro は一度きりの機能解放で自動更新はなく、いつでも手動で更新できます。一部機能は端末に依存します（音声追従は Android またはデスクトップ版ブラウザが必要）。',
+  proRefund:'14 日間返金保証：購入から 14 日以内であれば理由を問わず全額返金を申請できます。',
+  proNote:'料金は Telegram Stars で決済されます。Pro は購入した期間のみ機能を解放し、自動更新はありません（いつでも手動で更新できます）。クラウド同期は初期状態でオフで、ご自身で有効にした場合のみ動作します。有効にすると原稿がサーバーに保存され、他の端末で取得できます。一部機能は端末に依存します（音声追従は Android またはデスクトップ版ブラウザが必要）。',
   proCta:"Pro にアップグレード",
   proCtaSoon:"Pro は近日公開予定です"
  },
-  ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 당사는 이를 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제(월간/연간, 자동 갱신 없음)이며 가상 상품으로, 해제 후에는 환불되지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
+  ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   playPause:"재생/일시정지",
   reset:"초기화",
   speed:"속도",
@@ -634,6 +677,12 @@ const I18N = {
   unitCpm:"자/분",
   proEntry:"Pro 업그레이드 / 혜택 보기",
   proEntryHint:"Pro 혜택과 가격 확인（Telegram Stars 결제）",
+  rankTitle:'읽기 등급',
+  rankHint:'무료 칭호로 기능 해제와는 무관합니다. 대본을 끝까지 읽으면 1회로 계산합니다.',
+  rankDone:'{n}회 완료',
+  rankNext:'{m}회 더 읽으면 {next}',
+  rankMax:'최고 등급에 도달했습니다',
+  rankUp:'승급! 이제 {name}입니다',
   proTitle:"Pro 멤버십",
   proSubtitle:'전문 프롬프팅과 제작 도구 잠금 해제',
   proMonth:"월간",
@@ -652,11 +701,12 @@ const I18N = {
   proF1:"기본 스크롤, 글자 크기 / 색상 / 정렬",
   proF2:"미러 모드, 로컬 대본 3개",
   proF3:"워터마크 포함 결과 카드",
-  proNote:'가격은 Telegram Stars로 결제됩니다. Pro는 1회성 기능 잠금 해제로 자동 갱신이 없으며 언제든 직접 갱신할 수 있습니다. 일부 기능은 기기에 따라 달라집니다(음성 추적은 Android 또는 데스크톱 브라우저 필요).',
+  proRefund:'14일 환불 보장: 구매 후 14일 이내에 이유 없이 전액 환불을 요청할 수 있습니다.',
+  proNote:'가격은 Telegram Stars로 결제됩니다. Pro는 결제한 기간 동안 기능을 열어 주며 자동 갱신되지 않습니다(언제든 직접 갱신 가능). 클라우드 동기화는 기본적으로 꺼져 있으며 사용자가 직접 켤 때만 작동합니다. 켜면 대본이 서버에 저장되어 다른 기기에서 불러올 수 있습니다. 일부 기능은 기기에 따라 달라집니다(음성 추적은 Android 또는 데스크톱 브라우저 필요).',
   proCta:"Pro 업그레이드",
   proCtaSoon:"Pro 곧 출시 예정"
  },
-  ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства: мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro — это разблокировка функций (месяц или год, без автопродления); это виртуальный товар, возврат после разблокировки не предусмотрен. Платежи обрабатывает Telegram, мы не получаем ваши платёжные данные.', submitNotice:'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, будет удалён, а вознаграждение не выплачивается.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
+  ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', submitNotice:'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, будет удалён, а вознаграждение не выплачивается.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
   playPause:"Пуск / Пауза",
   reset:"Сброс",
   speed:"Скорость",
@@ -705,6 +755,12 @@ const I18N = {
   unitCpm:"симв/мин",
   proEntry:"Перейти на Pro / Посмотреть возможности",
   proEntryHint:"Возможности и цены Pro (оплата в Telegram Stars)",
+  rankTitle:'Ранг чтения',
+  rankHint:'Бесплатное звание, оно ничего не открывает. Одно полное прочтение считается за один раз.',
+  rankDone:'Прочитано раз: {n}',
+  rankNext:'Ещё {m} до звания {next}',
+  rankMax:'Достигнут высший ранг',
+  rankUp:'Новый ранг: {name}',
   proTitle:"Pro-подписка",
   proSubtitle:'Профессиональный суфлёр и инструменты для контента',
   proMonth:"Месяц",
@@ -723,7 +779,8 @@ const I18N = {
   proF1:"Базовая прокрутка, размер шрифта / цвет / выравнивание",
   proF2:"Зеркальный режим, до 3 сценариев локально",
   proF3:"Итоговая карточка с водяным знаком",
-  proNote:'Цены рассчитываются в Telegram Stars. Pro — разовая разблокировка функций без автопродления; продлить можно вручную в любой момент. Некоторые функции зависят от устройства (для прокрутки за голосом нужен Android или браузер на компьютере).',
+  proRefund:'Возврат в течение 14 дней: полный возврат Stars по запросу, без объяснения причин.',
+  proNote:'Цены рассчитываются в Telegram Stars. Pro открывает функции на оплаченный период, автопродления нет — продлить можно вручную в любой момент. Облачная синхронизация по умолчанию выключена и работает только после того, как вы включите её сами. После включения сценарии сохраняются на сервере, чтобы их можно было открыть на других устройствах. Некоторые функции зависят от устройства (для прокрутки за голосом нужен Android или браузер на компьютере).',
   proCta:"Перейти на Pro",
   proCtaSoon:"Pro скоро появится"
  },
@@ -787,6 +844,7 @@ function applyI18n() {
     if (sc) sc.value = t('defaultScript');
   }
   if (typeof renderSpeedUI === 'function') renderSpeedUI();
+  if (typeof renderRank === 'function') renderRank();
 }
 
 const defaultState = {
@@ -799,7 +857,8 @@ const defaultState = {
   speedCpm: 220,
   speedUnit: 'px', // 'px' | 'cpm'
   referralCode: '',
-  botUser: ''
+  botUser: '',
+  reads: 0 // 完整读完讲稿的次数（驱动免费头衔；本地保存，不上传）
 };
 
 let state = Object.assign({}, defaultState);
@@ -881,6 +940,7 @@ function deepLink(){
 
 /* ---------- 滚动引擎 ---------- */
 let rafId = null, lastTs = null, offset = 0, playing = false;
+let readCounted = false; // 本次滚动是否已计入"读完一次"，避免反复到底重复计数
 
 let _mcanvas = null, _mctx = null;
 function measureCharWidth(fs){
@@ -910,7 +970,10 @@ function loop(ts){
   if (playing){
     const max = Math.max(0, scrollText.offsetHeight - viewport.clientHeight);
     offset += pxPerSec() * dt;
-    if (offset >= max){ offset = max; playing = false; updatePlayBtn(); }
+    if (offset >= max){
+      offset = max; playing = false; updatePlayBtn();
+      if (max > 0 && !readCounted){ readCounted = true; onReadComplete(); }
+    }
     const scale = state.mirror ? -1 : 1;
     scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';
   }
@@ -918,7 +981,66 @@ function loop(ts){
 }
 function updatePlayBtn(){ btnPlay.textContent = playing ? '⏸' : '▶'; }
 function togglePlay(){ playing = !playing; if (playing) lastTs = null; updatePlayBtn(); }
-function resetScroll(){ offset = 0; playing = false; updatePlayBtn(); applyPrompterStyle(); }
+function resetScroll(){ offset = 0; playing = false; readCounted = false; updatePlayBtn(); applyPrompterStyle(); }
+
+/* ---------- 阅读等级（免费头衔，纯荣誉，不影响任何功能权限） ---------- */
+// 门槛为"完整读完讲稿"的累计次数。仅本地记录，不上传、不参与付费判断。
+const RANKS = [
+  { icon:'🌱', need:0,   name:{ zh:'起步', en:'Starter', ja:'スターター', ko:'스타터', ru:'Старт' } },
+  { icon:'⭐', need:3,   name:{ zh:'星光', en:'Star',    ja:'スター',     ko:'별빛',  ru:'Звезда' } },
+  { icon:'🌙', need:10,  name:{ zh:'月光', en:'Moon',    ja:'ムーン',     ko:'달빛',  ru:'Луна' } },
+  { icon:'☀️', need:30,  name:{ zh:'日光', en:'Sun',     ja:'サン',       ko:'햇빛',  ru:'Солнце' } },
+  { icon:'👑', need:100, name:{ zh:'皇冠', en:'Crown',   ja:'クラウン',   ko:'크라운', ru:'Корона' } },
+];
+// 太短的稿子不计次（防止空稿/一句话反复刷等级）
+const MIN_CHARS_FOR_READ = 40;
+
+function fmt(s, vars){
+  return String(s == null ? '' : s).replace(/\{(\w+)\}/g, function(_, k){
+    return (vars && vars[k] !== undefined) ? vars[k] : '{' + k + '}';
+  });
+}
+function rankIndexOf(reads){
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) if (reads >= RANKS[i].need) idx = i;
+  return idx;
+}
+function rankNameOf(r){ return (r.name && (r.name[curLang] || r.name.zh)) || ''; }
+
+function renderRank(){
+  const reads = state.reads || 0;
+  const i = rankIndexOf(reads);
+  const cur = RANKS[i], next = RANKS[i + 1];
+  const elIcon = document.getElementById('rankIcon');
+  const elName = document.getElementById('rankName');
+  const elProg = document.getElementById('rankProgress');
+  const elBar = document.getElementById('rankBarFill');
+  if (!elIcon || !elName || !elProg || !elBar) return;
+  elIcon.textContent = cur.icon;
+  elName.textContent = rankNameOf(cur);
+  const doneTxt = fmt(t('rankDone'), { n: reads });
+  if (next){
+    const span = next.need - cur.need;
+    const done = reads - cur.need;
+    elBar.style.width = (span > 0 ? Math.min(100, Math.round(done / span * 100)) : 100) + '%';
+    elProg.textContent = doneTxt + ' · ' + fmt(t('rankNext'), { m: Math.max(0, next.need - reads), next: rankNameOf(next) });
+  } else {
+    elBar.style.width = '100%';
+    elProg.textContent = doneTxt + ' · ' + t('rankMax');
+  }
+}
+
+/** 滚动到讲稿末尾时调用：累加已完成次数，晋级则提示 */
+function onReadComplete(){
+  const len = String(state.script || '').replace(/\s+/g, '').length;
+  if (len < MIN_CHARS_FOR_READ) return;
+  const before = rankIndexOf(state.reads || 0);
+  state.reads = (state.reads || 0) + 1;
+  saveState();
+  const after = rankIndexOf(state.reads);
+  renderRank();
+  if (after > before) toast(fmt(t('rankUp'), { name: rankNameOf(RANKS[after]) }));
+}
 
 /* ---------- 速度 UI 同步 ---------- */
 function renderSpeedUI(){

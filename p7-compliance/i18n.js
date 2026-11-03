@@ -26,12 +26,13 @@ export const UI_STRINGS = {
     disclaimerTitle: '免责声明',
     disclaimerBody:
       'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，' +
-      '不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中，我们不会读取、上传或备份；' +
+      '不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；' +
       '清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。' +
       '本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。',
     paidNotice:
-      '你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁（月付／年付到期后不自动续费），' +
-      '属虚拟商品，解锁后不支持退款；支付由 Telegram 处理，我们不接触你的支付信息。',
+      '你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。' +
+      '购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。' +
+      '本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。',
     submitNotice:
       '你即将提交内容。请确认内容真实、原创、不侵犯他人权利，并遵守你所在地区的法律法规；' +
       '违反平台规则的内容将被下架，相关奖励不予发放。',
@@ -49,14 +50,16 @@ export const UI_STRINGS = {
     disclaimerBody:
       'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, ' +
       'on your own device. It does not write, publish, or judge your content. Scripts are stored in ' +
-      'your device browser by default — we do not read, upload, or back them up, and they may be lost ' +
+      'your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost ' +
       'if you clear browser data, uninstall, or change devices, so please keep your own copies of ' +
       'anything important. The app is provided as is; scroll speed and character estimates are aids ' +
       'only, and no guarantee is made about recording results or any outcome of use.',
     paidNotice:
-      'You are about to buy Pro with Telegram Stars. Pro unlocks features (monthly or yearly, ' +
-      'no auto-renewal) and is a virtual item, so no refund is available once unlocked. ' +
-      'Payment is handled by Telegram; we never receive your payment details.',
+      'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew ' +
+      'at the end of the period. Within 14 days of purchase you can request a full refund via ' +
+      '/paysupport, no reason required; repeated requests from the same account may be declined. ' +
+      'This does not affect your statutory rights. Payment is handled by Telegram; we never receive ' +
+      'your payment details.',
     submitNotice:
       'You are about to submit content. Please make sure it is accurate, original, does not infringe ' +
       'the rights of others, and complies with the laws where you live; content that breaks the ' +
@@ -75,13 +78,15 @@ export const UI_STRINGS = {
     disclaimerBody:
       'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で' +
       '表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末の' +
-      'ブラウザ内に保存され、当方は読み取り・送信・バックアップを行いません。ブラウザデータの削除、' +
+      'ブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が読み取り・送信・バックアップすることはありません。ブラウザデータの削除、' +
       'アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。' +
       '本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、' +
       '収録結果や利用の結果について保証しません。',
     paidNotice:
-      'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放（月払い／年払い、自動更新なし）で、' +
-      '仮想商品のため解放後の返金はできません。決済は Telegram が処理し、' +
+      'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。' +
+      '購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます' +
+      '（同一アカウントでの繰り返しの申請はお受けできない場合があります）。' +
+      '本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、' +
       '当方が支払い情報を取得することはありません。',
     submitNotice:
       'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、' +
@@ -101,12 +106,14 @@ export const UI_STRINGS = {
     disclaimerBody:
       'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 ' +
       '스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, ' +
-      '당사는 이를 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 ' +
+      '사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 이를 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 ' +
       '복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, ' +
       '스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.',
     paidNotice:
-      '곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제(월간/연간, 자동 갱신 없음)이며 ' +
-      '가상 상품으로, 해제 후에는 환불되지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.',
+      '곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. ' +
+      '구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다' +
+      '(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. ' +
+      '결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.',
     submitNotice:
       '곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 ' +
       '준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.',
@@ -124,15 +131,17 @@ export const UI_STRINGS = {
     disclaimerBody:
       'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем ' +
       'устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию ' +
-      'хранятся в браузере устройства: мы не читаем, не загружаем и не создаём их резервные копии. ' +
+      'хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. ' +
       'При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, ' +
       'поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки ' +
       'и оценка числа символов носят справочный характер, а результат записи и последствия использования ' +
       'не гарантируются.',
     paidNotice:
-      'Вы собираетесь приобрести Pro за Telegram Stars. Pro — это разблокировка функций (месяц или год, ' +
-      'без автопродления); это виртуальный товар, возврат после разблокировки не предусмотрен. ' +
-      'Платежи обрабатывает Telegram, мы не получаем ваши платёжные данные.',
+      'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается ' +
+      'автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный ' +
+      'возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта ' +
+      'может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, ' +
+      'мы не получаем ваши платёжные данные.',
     submitNotice:
       'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права ' +
       'третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, ' +
