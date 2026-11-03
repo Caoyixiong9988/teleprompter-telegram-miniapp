@@ -103,6 +103,26 @@
 
   #verifyStatus{font-size:12px; color:var(--muted); margin-top:4px;}
   .footer-note{font-size:11px; color:var(--muted); text-align:center; margin-top:10px;}
+
+  /* 预留广告位：默认隐藏；由 CONFIG.AD_SLOTS_ENABLED 控制是否展示占位，实际素材由后续 ads SDK 注入 */
+  .ad-slot{
+    margin-top:12px; min-height:56px; display:flex; align-items:center; justify-content:center;
+    border:1px dashed var(--line); border-radius:10px; background:#fafbfd;
+    color:var(--muted); font-size:11px; letter-spacing:1px;
+  }
+  .ad-slot[hidden]{display:none;}
+
+  /* Pro 权益页 */
+  .pro-plans{display:flex; gap:10px; margin:16px 0 6px;}
+  .pro-plan{flex:1; border:1px solid var(--line); border-radius:12px; padding:12px 10px; text-align:center; position:relative; background:#fff;}
+  .pro-plan.featured{border-color:var(--primary); background:#f2f6ff;}
+  .pro-plan-name{font-size:12px; color:var(--muted); margin-bottom:6px;}
+  .pro-plan-price{font-size:20px; font-weight:800; color:var(--text);}
+  .pro-plan-price span{font-size:12px; font-weight:600; color:var(--muted);}
+  .pro-plan-badge{position:absolute; top:-9px; right:10px; background:var(--primary); color:#fff; font-size:10px; padding:2px 8px; border-radius:10px;}
+  .pro-list{margin:8px 0 0; padding-left:18px; font-size:13px; line-height:1.85; color:var(--text);}
+  .pro-list li{list-style:disc; margin:2px 0;}
+  .pro-list-free{color:var(--muted);}
 </style>
 </head>
 <body>
@@ -203,6 +223,11 @@
       </div>
 
       <div class="field">
+        <button class="btn primary" id="btnOpenPro" data-i18n="proEntry" style="width:100%;">升级 Pro / 查看权益</button>
+        <div class="hint" data-i18n="proEntryHint">查看 Pro 权益与价格（Telegram Stars 结算）</div>
+      </div>
+
+      <div class="field">
         <label data-i18n="disclaimerTitle">免责声明</label>
         <div class="hint" id="disclaimerBlock" style="line-height:1.6;"></div>
         <button class="btn" id="btnOpenAbout" data-i18n="aboutTitle">关于</button>
@@ -213,6 +238,9 @@
         <button class="btn" id="btnReport" data-i18n="reportSubmit">提交</button>
         <div class="hint" id="reportStatus"></div>
       </div>
+
+      <!-- 广告位 A（预留，默认隐藏）：设置面板底部低频横幅。接入 TMA 广告网络后由 SDK 填充 #adSlotSettings -->
+      <div class="ad-slot" id="adSlotSettings" data-ad-slot="settings-bottom" hidden>AD</div>
 
       <div class="sheet-actions">
         <button class="btn primary" id="btnCloseSettings" data-i18n="done">完成</button>
@@ -231,6 +259,8 @@
         <button class="btn" id="btnDownloadCard" data-i18n="saveAlbum">保存到相册</button>
         <button class="btn primary" id="btnShareCard" data-i18n="shareChat">分享到聊天</button>
       </div>
+      <!-- 广告位 B（预留，默认隐藏）：成片卡页底部（用户已完成任务，非打断）。接入后由 SDK 填充 #adSlotCard -->
+      <div class="ad-slot" id="adSlotCard" data-ad-slot="card-bottom" hidden>AD</div>
       <div class="sheet-actions" style="margin-top:10px;">
         <button class="btn" id="btnCloseCard" data-i18n="close">关闭</button>
       </div>
@@ -255,6 +285,54 @@
     </div>
   </div>
 
+  <!-- Pro 会员权益页（价格以 Telegram Stars 结算） -->
+  <div class="sheet hidden" id="proSheet">
+    <div class="sheet-inner">
+      <h3 data-i18n="proTitle">Pro 会员</h3>
+      <div class="hint" data-i18n="proSubtitle" style="margin-top:-6px;">解锁专业提词与创作能力</div>
+
+      <div class="pro-plans">
+        <div class="pro-plan">
+          <div class="pro-plan-name" data-i18n="proMonth">月付</div>
+          <div class="pro-plan-price"><b id="proPriceMonth">400</b> ⭐<span data-i18n="proPerMonth">/月</span></div>
+        </div>
+        <div class="pro-plan featured">
+          <div class="pro-plan-badge" data-i18n="proYearSave">省 2 个月</div>
+          <div class="pro-plan-name" data-i18n="proYear">年付</div>
+          <div class="pro-plan-price"><b id="proPriceYear">4000</b> ⭐<span data-i18n="proPerYear">/年</span></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="proBenefitsTitle">Pro 权益</label>
+        <ul class="pro-list">
+          <li data-i18n="proB1">语音跟随滚动（Android / 桌面）</li>
+          <li data-i18n="proB2">去水印 · 高清导出完成卡</li>
+          <li data-i18n="proB3">跨设备云同步讲稿</li>
+          <li data-i18n="proB4">遥控器 / 远程预览</li>
+          <li data-i18n="proB5">无限讲稿数量</li>
+          <li data-i18n="proB6">字幕导出</li>
+        </ul>
+      </div>
+
+      <div class="field">
+        <label data-i18n="proFreeTitle">免费版包含</label>
+        <ul class="pro-list pro-list-free">
+          <li data-i18n="proF1">基础提词滚动、字号 / 颜色 / 对齐</li>
+          <li data-i18n="proF2">镜像显示、本地 3 个讲稿</li>
+          <li data-i18n="proF3">带水印完成卡</li>
+        </ul>
+      </div>
+
+      <div class="hint" data-i18n="proNote">价格以 Telegram Stars 结算；Pro 为功能解锁，非自动续费订阅。</div>
+
+      <div class="sheet-actions" style="margin-top:12px;">
+        <button class="btn primary" id="btnProCta" data-i18n="proCta">升级 Pro</button>
+        <button class="btn" id="btnClosePro" data-i18n="close">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 </div>
 
@@ -271,7 +349,14 @@ const CONFIG = {
   // 只填这一个 URL；下方端点由它派生，避免多处重复填 URL 导致日后漂移 / clash。
   API_BASE: '',
   // Bot 用户名（用于分享深链）；留空时显示占位 your_bot
-  BOT_USERNAME: ''
+  BOT_USERNAME: '',
+  // 广告位预留开关：默认 false（完全不展示，体验纯净）。
+  // 接入 TMA 广告网络（TMAds / Adexium / Monetag 等）后置为 true，
+  // 并用对应 SDK 把素材注入 #adSlotSettings（设置面板底部）/ #adSlotCard（成片卡页底部）。
+  AD_SLOTS_ENABLED: false,
+  // Pro 定价（Telegram Stars，2026-11 定档）：400⭐/月、4000⭐/年（约合省 2 个月）。
+  PRO_PRICE_MONTH_STARS: 400,
+  PRO_PRICE_YEAR_STARS: 4000
 };
 
 // 由 API_BASE 派生任意后端路径；留空时返回相对路径（本地/浏览器测试用）
@@ -332,7 +417,30 @@ const I18N = {
   reportFailRetry:"提交失败，请稍后再试",
   reportFailNet:"提交失败（网络）",
   unitPx:"像素/秒",
-  unitCpm:"字/分"
+  unitCpm:"字/分",
+  proEntry:"升级 Pro / 查看权益",
+  proEntryHint:"查看 Pro 权益与价格（Telegram Stars 结算）",
+  proTitle:"Pro 会员",
+  proSubtitle:"解锁专业提词与创作能力",
+  proMonth:"月付",
+  proYear:"年付",
+  proPerMonth:"/月",
+  proPerYear:"/年",
+  proYearSave:"省 2 个月",
+  proBenefitsTitle:"Pro 权益",
+  proB1:"语音跟随滚动（Android / 桌面）",
+  proB2:"去水印 · 高清导出完成卡",
+  proB3:"跨设备云同步讲稿",
+  proB4:"遥控器 / 远程预览",
+  proB5:"无限讲稿数量",
+  proB6:"字幕导出",
+  proFreeTitle:"免费版包含",
+  proF1:"基础提词滚动、字号 / 颜色 / 对齐",
+  proF2:"镜像显示、本地 3 个讲稿",
+  proF3:"带水印完成卡",
+  proNote:"价格以 Telegram Stars 结算；Pro 为功能解锁，非自动续费订阅。",
+  proCta:"升级 Pro",
+  proCtaSoon:"Pro 即将上线，敬请期待"
  },
   en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'This app is a pure utility teleprompter tool. It contains no fortune-telling, prediction, astrology, or horoscope features. All features only help you read scripts more smoothly. In-app “credits” are internal virtual points issued by the platform — they are NOT Telegram Stars, NOT any fiat currency or cryptocurrency, and cannot be withdrawn, transferred, or traded.', paidNotice:'You are about to purchase internal credits with Telegram Stars. Credits are for in-app use only — not real money, non-refundable, non-withdrawable.', submitNotice:'You are about to submit content. Ensure it is authentic, original, and non-infringing; violating content will be removed and rewards revoked.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   playPause:"Play / Pause",
@@ -380,7 +488,30 @@ const I18N = {
   reportFailRetry:"Submission failed, please try again later",
   reportFailNet:"Submission failed (network)",
   unitPx:"px/s",
-  unitCpm:"char/min"
+  unitCpm:"char/min",
+  proEntry:"Upgrade to Pro / View benefits",
+  proEntryHint:"See Pro benefits and pricing (billed in Telegram Stars)",
+  proTitle:"Pro Membership",
+  proSubtitle:"Unlock professional prompting and creation tools",
+  proMonth:"Monthly",
+  proYear:"Yearly",
+  proPerMonth:"/mo",
+  proPerYear:"/yr",
+  proYearSave:"2 months free",
+  proBenefitsTitle:"Pro benefits",
+  proB1:"Voice-follow scrolling (Android / desktop)",
+  proB2:"Watermark-free · HD result card export",
+  proB3:"Cross-device script sync",
+  proB4:"Remote control / preview",
+  proB5:"Unlimited scripts",
+  proB6:"Subtitle export",
+  proFreeTitle:"Free plan includes",
+  proF1:"Basic scrolling, font / color / alignment",
+  proF2:"Mirror mode, 3 local scripts",
+  proF3:"Watermarked result card",
+  proNote:"Priced in Telegram Stars; Pro unlocks features (no auto-renew subscription).",
+  proCta:"Upgrade to Pro",
+  proCtaSoon:"Pro is coming soon"
  },
   ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'本アプリは純粋なユーティリティ型の原稿読み上げ支援ツールであり、占い・予測・星占い・運勢などの機能は一切含みません。すべての機能は原稿をよりスムーズに読むためのものです。アプリ内の「クレジット」はプラットフォームが発行する内部的な仮想ポイントであり、Telegram Stars でも法定通貨・暗号資産でもなく、出金・送金・取引はできません。', paidNotice:'まもなく Telegram Stars で内部クレジットを購入します。クレジットはアプリ内でのみ利用可能で、現金ではなく、返金・出金はできません。', submitNotice:'まもなくコンテンツを投稿します。真正性・独創性・権利侵害がないことを確認してください。違反コンテンツは削除され、報酬は没収されます。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   playPause:"再生/一時停止",
@@ -428,7 +559,30 @@ const I18N = {
   reportFailRetry:"送信に失敗しました。後ほどお試しください",
   reportFailNet:"送信に失敗しました（ネットワーク）",
   unitPx:"ピクセル/秒",
-  unitCpm:"文字/分"
+  unitCpm:"文字/分",
+  proEntry:"Pro にアップグレード / 特典を見る",
+  proEntryHint:"Pro の特典と価格を確認（Telegram Stars 決済）",
+  proTitle:"Pro メンバーシップ",
+  proSubtitle:"プロ向けのプロンプター・制作機能を解放",
+  proMonth:"月払い",
+  proYear:"年払い",
+  proPerMonth:"/月",
+  proPerYear:"/年",
+  proYearSave:"2 か月分お得",
+  proBenefitsTitle:"Pro の特典",
+  proB1:"音声追従スクロール（Android / デスクトップ）",
+  proB2:"透かしなし・高画質カード書き出し",
+  proB3:"端末間の原稿クラウド同期",
+  proB4:"リモコン / リモートプレビュー",
+  proB5:"原稿数無制限",
+  proB6:"字幕の書き出し",
+  proFreeTitle:"無料プランに含まれるもの",
+  proF1:"基本スクロール、文字サイズ / 色 / 配置",
+  proF2:"ミラー表示、ローカル原稿 3 件",
+  proF3:"透かし入り結果カード",
+  proNote:"価格は Telegram Stars 決済です。Pro は機能解放であり、自動更新のサブスクリプションではありません。",
+  proCta:"Pro にアップグレード",
+  proCtaSoon:"Pro は近日公開予定です"
  },
   ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'이 앱은 순수 유틸리티형 대본 낭독 보조 도구로, 점술·예측·운세 등의 기능은 일절 포함하지 않습니다. 모든 기능은 대본을 더 부드럽게 읽기 위한 것입니다. 앱 내 “크레딧”은 플랫폼이 발행하는 내부 가상 포인트로, Telegram Stars도 아니며 법정 화폐·암호화폐도 아니며 출금·송금·거래할 수 없습니다.', paidNotice:'곧 Telegram Stars로 내부 크레딧을 구매합니다. 크레딧은 앱 내에서만 사용 가능하며 현금이 아니고 환불·출금할 수 없습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 진정성·독창성·권리 침해가 없음을 확인하세요. 위반 콘텐츠는 삭제되고 보상이 회수됩니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   playPause:"재생/일시정지",
@@ -476,7 +630,30 @@ const I18N = {
   reportFailRetry:"제출에 실패했습니다. 나중에 다시 시도하세요",
   reportFailNet:"제출에 실패했습니다（네트워크）",
   unitPx:"픽셀/초",
-  unitCpm:"자/분"
+  unitCpm:"자/분",
+  proEntry:"Pro 업그레이드 / 혜택 보기",
+  proEntryHint:"Pro 혜택과 가격 확인（Telegram Stars 결제）",
+  proTitle:"Pro 멤버십",
+  proSubtitle:"전문 텔레프롬프터·제작 기능 잠금 해제",
+  proMonth:"월간",
+  proYear:"연간",
+  proPerMonth:"/월",
+  proPerYear:"/년",
+  proYearSave:"2개월 무료",
+  proBenefitsTitle:"Pro 혜택",
+  proB1:"음성 추적 스크롤（Android / 데스크톱）",
+  proB2:"워터마크 없음 · 고화질 카드 내보내기",
+  proB3:"기기 간 대본 클라우드 동기화",
+  proB4:"리모컨 / 원격 미리보기",
+  proB5:"무제한 대본",
+  proB6:"자막 내보내기",
+  proFreeTitle:"무료 플랜 포함",
+  proF1:"기본 스크롤, 글자 크기 / 색상 / 정렬",
+  proF2:"미러 모드, 로컬 대본 3개",
+  proF3:"워터마크 포함 결과 카드",
+  proNote:"가격은 Telegram Stars로 결제됩니다. Pro는 기능 잠금 해제이며 자동 갱신 구독이 아닙니다.",
+  proCta:"Pro 업그레이드",
+  proCtaSoon:"Pro 곧 출시 예정"
  },
 };
 const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko'];
@@ -514,8 +691,12 @@ function applyI18n() {
   const ad = document.getElementById('aboutDisclaimer'); if (ad) ad.textContent = t('disclaimerBody');
   const pn = document.getElementById('aboutPaidNotice'); if (pn) pn.textContent = t('paidNotice');
   const rp = document.getElementById('reportDetail'); if (rp) rp.placeholder = t('reportPlaceholder');
-  // 默认示例稿随语言切换；用户已自定义讲稿（dataset.isDefault !== '1'）则不覆盖
-  if (scrollText.dataset.isDefault === '1') scrollText.textContent = t('defaultScript');
+  // 默认示例稿随语言切换（提词区 + 设置面板输入框同步）；用户已自定义讲稿则不覆盖
+  if (scrollText.dataset.isDefault === '1') {
+    scrollText.textContent = t('defaultScript');
+    const sc = document.getElementById('setScript');
+    if (sc) sc.value = t('defaultScript');
+  }
   if (typeof renderSpeedUI === 'function') renderSpeedUI();
 }
 
@@ -759,6 +940,18 @@ async function verifyInitData(){
 }
 
 /* ---------- 事件绑定 ---------- */
+// 底部抽屉退出：点遮罩空白处 或 按 ESC 均可关闭，不必强制点「完成」
+document.querySelectorAll('.sheet').forEach(function (sheet) {
+  sheet.addEventListener('click', function (e) {
+    if (e.target === sheet) sheet.classList.add('hidden');
+  });
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    document.querySelectorAll('.sheet:not(.hidden)').forEach(function (s) { s.classList.add('hidden'); });
+  }
+});
+
 btnPlay.addEventListener('click', togglePlay);
 btnReset.addEventListener('click', resetScroll);
 btnSettings.addEventListener('click', function(){ settingsSheet.classList.remove('hidden'); });
@@ -797,9 +990,27 @@ btnDownloadCard.addEventListener('click', function(){
   a.href = cardDataUrl; a.download = 'scriptdeck-card.png';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 });
-btnShareCard.addEventListener('click', function(){
+btnShareCard.addEventListener('click', async function () {
   const url = deepLink();
   const text = t('shareText');
+
+  // 优先：用 Web Share API 把「完成卡」PNG 图片本身分享出去（Android Chrome / iOS Safari 支持）
+  if (cardDataUrl && navigator.share && window.File) {
+    try {
+      const blob = await (await fetch(cardDataUrl)).blob();
+      const file = new File([blob], 'scriptdeck-card.png', { type: 'image/png' });
+      const canShareFiles = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
+      if (canShareFiles) {
+        await navigator.share({ files: [file], text: text, url: url });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // 用户主动取消，不降级
+      // 其他失败（API 不支持 / 权限）→ 走下方降级
+    }
+  }
+
+  // 降级：Telegram 内分享深链与文案（不带图片）；浏览器内会提示需在 Telegram 打开
   telegramShare(text, url);
 });
 
@@ -851,11 +1062,30 @@ function init(){
 
   // P7：多语言 + 关于/举报入口
   applyI18n();
+  // 广告位：默认隐藏；开关打开时展示预留容器（实际素材由后续 ads SDK 注入）
+  if (CONFIG.AD_SLOTS_ENABLED) {
+    var s1 = document.getElementById('adSlotSettings'); if (s1) s1.hidden = false;
+    var s2 = document.getElementById('adSlotCard'); if (s2) s2.hidden = false;
+  }
   const langSel = document.getElementById('langSelect');
   if (langSel) {
     langSel.value = curLang;
     langSel.addEventListener('change', function (e) { setLang(e.target.value); });
   }
+  // Pro 权益页：渲染价格 + 打开/关闭/CTA
+  document.getElementById('proPriceMonth').textContent = CONFIG.PRO_PRICE_MONTH_STARS;
+  document.getElementById('proPriceYear').textContent = CONFIG.PRO_PRICE_YEAR_STARS;
+  document.getElementById('btnOpenPro').addEventListener('click', function () {
+    document.getElementById('proSheet').classList.remove('hidden');
+  });
+  document.getElementById('btnClosePro').addEventListener('click', function () {
+    document.getElementById('proSheet').classList.add('hidden');
+  });
+  document.getElementById('btnProCta').addEventListener('click', function () {
+    // 尚未上架真实 Stars 商品：先提示；P3 商品就绪后在此改为发起 invoice 支付
+    toast(t('proCtaSoon'));
+  });
+
   document.getElementById('btnOpenAbout').addEventListener('click', function () {
     document.getElementById('aboutSheet').classList.remove('hidden');
   });
