@@ -311,6 +311,44 @@ console.log('SRT 首行:', JSON.stringify(srtLines.slice(0, 4).join(' | ')));
 console.log('TXT:', JSON.stringify(txtOut), '| 文件名:', fn1, fn2);
 console.log('门禁 非Pro/空稿/Pro有内容:', can1, canEmpty, canOk);
 
+// ---- 语音跟随（Pro 权益 #5）----
+const voiceBtn = !!doc.getElementById('btnVoice');
+const voiceSheet = !!doc.getElementById('voiceSheet');
+const voiceToggle = !!doc.getElementById('btnVoiceToggle');
+const p27 = voiceBtn && voiceSheet && voiceToggle;
+
+const p28 = window.eval('["startVoiceFollow","stopVoiceFollow","speechSupported","isIOS","voiceMapSpeed","renderVoiceUI","pxPerSec"].every(function(n){return typeof eval(n)==="function";})');
+
+// voiceMapSpeed 行为（与 speech-follow.js 同源）：匀速→不变，说快→翻倍，说慢→减半，钳制边界
+const vm1 = window.eval('voiceMapSpeed(150,150,60)');
+const vm2 = window.eval('voiceMapSpeed(300,150,60)');
+const vm3 = window.eval('voiceMapSpeed(75,150,60)');
+const vmMax = window.eval('voiceMapSpeed(100000,150,400)');
+const vmMin = window.eval('voiceMapSpeed(1,150,400)');
+const p29 = vm1 === 60 && vm2 === 120 && vm3 === 30 && vmMax === 400 && vmMin === 5;
+
+// pxPerSec 语音分支：voiceFollowing 时直接用 voiceScrollPx（不依赖 canvas）
+window.eval('voiceFollowing=true; voiceScrollPx=120; remoteSpeedMul=1;');
+const pxv = window.eval('pxPerSec()');
+window.eval('voiceFollowing=false; voiceScrollPx=null;');
+const p30 = pxv === 120;
+
+// Pro 门禁：canVoiceFollow 与 isPro 一致
+window.eval('state.isPro=false;');
+const vf1 = window.eval('canVoiceFollow()');
+window.eval('state.isPro=true;');
+const vf2 = window.eval('canVoiceFollow()');
+window.eval('state.isPro=false;');
+const p31 = vf1 === false && vf2 === true;
+
+// 不支持环境（jsdom 无 SpeechRecognition）：speechSupported 为 false；开启 Pro 后面板显示"不支持"提示（非 iOS 走通用提示框）
+const sup = window.eval('speechSupported()');
+window.eval('state.isPro=true; renderVoiceUI();');
+const vneed = (doc.getElementById('voiceNeed') || {}).textContent;
+const vuns = (doc.getElementById('voiceUnsupportedBox') || {}).hidden;
+window.eval('state.isPro=false; renderVoiceUI();');
+const p32 = sup === false && vneed === window.eval('t("voiceStatusUnsupported")') && vuns === false;
+
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
 console.log('1) 设置面板输入框随语言切换 & 自定义稿保留:', p1 ? '✅' : '❌');
@@ -339,6 +377,12 @@ console.log('23) SRT 结构(序号/时间轴/递增):', p23 ? '✅' : '❌ ' + J
 console.log('24) TXT 纯文本去尾空白:', p24 ? '✅' : '❌ ' + JSON.stringify(txtOut));
 console.log('25) 导出文件名安全化:', p25 ? '✅' : '❌');
 console.log('26) 导出门禁(非Pro/空稿不可，Pro有内容可):', p26 ? '✅' : '❌');
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15 && p16 && p17 && p18 && p19 && p20 && p21 && p22 && p23 && p24 && p25 && p26;
+console.log('27) 语音跟随按钮/面板/开关存在:', p27 ? '✅' : '❌');
+console.log('28) 语音跟随核心函数已定义:', p28 ? '✅' : '❌');
+console.log('29) voiceMapSpeed 映射(匀速/翻倍/减半/钳制):', p29 ? '✅' : '❌ ' + [vm1, vm2, vm3, vmMax, vmMin].join(','));
+console.log('30) pxPerSec 语音分支使用 voiceScrollPx:', p30 ? '✅' : '❌ ' + pxv);
+console.log('31) 语音跟随 Pro 门禁(canVoiceFollow=isPro):', p31 ? '✅' : '❌');
+console.log('32) 不支持环境提示(speechSupported=false→面板提示):', p32 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15 && p16 && p17 && p18 && p19 && p20 && p21 && p22 && p23 && p24 && p25 && p26 && p27 && p28 && p29 && p30 && p31 && p32;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);

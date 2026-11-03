@@ -83,6 +83,7 @@
   .switch input::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.2s;}
   .switch input:checked::after{left:23px;}
   .hint{font-size:12px; color:var(--muted); line-height:1.5; margin-top:6px;}
+  .voice-hint{font-size:13px; color:var(--text); line-height:1.6; margin:10px 0 4px;}
   .sheet-actions{display:flex; gap:10px; margin-top:6px;}
   .sheet-actions .btn{flex:1;}
 
@@ -188,6 +189,7 @@
     <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
     <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>
     <button class="btn icon" id="btnRemote" data-i18n-title="remoteTitle">📡</button>
+    <button class="btn icon" id="btnVoice" data-i18n-title="voiceTitle">🎤</button>
   </div>
 
   <!-- Settings sheet -->
@@ -468,6 +470,28 @@
     </div>
   </div>
 
+  <!-- Voice Follow sheet (Pro) -->
+  <div class="sheet hidden" id="voiceSheet">
+    <div class="sheet-inner">
+      <h3 data-i18n="voiceTitle">语音跟随</h3>
+
+      <div class="hint" id="voiceNeed"></div>
+      <div class="hint" id="voiceIosBox" hidden style="color:var(--warn,#b5860b);"></div>
+      <div class="hint" id="voiceUnsupportedBox" hidden style="color:var(--warn,#b5860b);"></div>
+
+      <p class="voice-hint" id="voiceHintText" data-i18n="voiceHint"></p>
+
+      <div class="field">
+        <label data-i18n="voiceStatusLabel">状态</label>
+        <div class="status-line" id="voiceStatus">—</div>
+      </div>
+
+      <button class="btn primary" id="btnVoiceToggle" data-i18n="voiceStart" style="width:100%;">开始语音跟随</button>
+      <div class="hint" id="voiceTip" style="margin-top:8px;"></div>
+      <button class="btn primary" id="btnCloseVoice" data-i18n="close" style="width:100%;margin-top:14px;">关闭</button>
+    </div>
+  </div>
+
 <script>
 /* ============================================================
    ScriptDeck（提词器）Telegram Mini App — P1 核心提词器（零后台 MVP）
@@ -632,7 +656,19 @@ const I18N = {
   exportNeedPro:"字幕与文本导出为 Pro 权益，请先开通 Pro。",
   exportEmpty:"讲稿为空，先写点内容再导出",
   exportDoneSrt:"SRT 已导出",
-  exportDoneTxt:"TXT 已导出"
+  exportDoneTxt:"TXT 已导出",
+  voiceTitle:"语音跟随",
+  voiceHint:"开启后用你的声音控制滚动：说话时文字随语速推进，停顿即暂停。",
+  voiceNeedPro:"语音跟随为 Pro 权益，请先开通 Pro。",
+  voiceStart:"开始语音跟随",
+  voiceStop:"停止语音跟随",
+  voiceStatusIdle:"未开始",
+  voiceStatusListening:"监听中 · 正在跟随你的语速",
+  voiceStatusPaused:"已暂停（检测到停顿）",
+  voiceStatusUnsupported:"当前环境不支持语音识别",
+  voiceIosHint:"提示：iOS（iPhone / iPad）的 Telegram 内置浏览器不支持语音识别，语音跟随暂不可用。请改用 Android 手机或桌面 Chrome 体验；其余功能不受影响。",
+  voiceUnsupportedHint:"你的浏览器不支持语音识别（Web Speech API）。请改用 Android Chrome 或桌面 Chrome；其余功能不受影响。",
+  voiceStatusLabel:"状态"
  },
   en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', submitNotice:'You are about to submit content. Please make sure it is accurate, original, does not infringe the rights of others, and complies with the laws where you live; content that breaks the platform rules will be removed and no reward will be paid.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   playPause:"Play / Pause",
@@ -763,7 +799,19 @@ const I18N = {
   exportNeedPro:"Subtitle and text export is a Pro benefit. Please unlock Pro first.",
   exportEmpty:"Script is empty — write something before exporting",
   exportDoneSrt:"SRT exported",
-  exportDoneTxt:"TXT exported"
+  exportDoneTxt:"TXT exported",
+  voiceTitle:"Voice Follow",
+  voiceHint:"When on, your voice controls the scroll: text advances with your speaking pace and pauses when you stop.",
+  voiceNeedPro:"Voice Follow is a Pro benefit. Please unlock Pro first.",
+  voiceStart:"Start Voice Follow",
+  voiceStop:"Stop Voice Follow",
+  voiceStatusIdle:"Not started",
+  voiceStatusListening:"Listening · following your pace",
+  voiceStatusPaused:"Paused (silence detected)",
+  voiceStatusUnsupported:"Speech recognition not supported here",
+  voiceIosHint:"Note: iOS (iPhone / iPad) Telegram's built-in browser does not support speech recognition, so Voice Follow is unavailable here. Use an Android phone or desktop Chrome instead; all other features are unaffected.",
+  voiceUnsupportedHint:"Your browser does not support speech recognition (Web Speech API). Use Android Chrome or desktop Chrome instead; all other features are unaffected.",
+  voiceStatusLabel:"Status"
  },
   ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', submitNotice:'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、お住まいの地域の法令に従っていることを確認してください。規約に違反する内容は削除され、報酬は支払われません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   playPause:"再生/一時停止",
@@ -894,7 +942,19 @@ const I18N = {
   exportNeedPro:"字幕・テキスト書き出しは Pro 特典です。先に Pro を開通してください。",
   exportEmpty:"原稿が空です。書き出前に入力してください",
   exportDoneSrt:"SRT を書き出しました",
-  exportDoneTxt:"TXT を書き出しました"
+  exportDoneTxt:"TXT を書き出しました",
+  voiceTitle:"音声追従",
+  voiceHint:"オンにすると声でスクロールを制御します。話す速さに合わせて進み、止めれば止まります。",
+  voiceNeedPro:"音声追従は Pro の機能です。先に Pro をご利用ください。",
+  voiceStart:"音声追従を開始",
+  voiceStop:"音声追従を停止",
+  voiceStatusIdle:"未開始",
+  voiceStatusListening:"認識中 · あなたのペースに合わせています",
+  voiceStatusPaused:"一時停止（無音を検出）",
+  voiceStatusUnsupported:"この環境では音声認識に対応していません",
+  voiceIosHint:"注意：iOS（iPhone / iPad）の Telegram 内蔵ブラウザは音声認識に対応していないため、音声追従は使えません。代わりに Android スマホかデスクトップ Chrome をお使いください。他の機能はそのまま使えます。",
+  voiceUnsupportedHint:"お使いのブラウザは音声認識（Web Speech API）に対応していません。Android Chrome かデスクトップ Chrome をお使いください。他の機能は影響を受けません。",
+  voiceStatusLabel:"状態"
  },
   ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   playPause:"재생/일시정지",
@@ -1025,7 +1085,19 @@ const I18N = {
   exportNeedPro:"자막·텍스트 내보내기는 Pro 혜택입니다. 먼저 Pro를 이용해 주세요.",
   exportEmpty:"원고가 비어 있습니다. 내용을 입력한 뒤 내보내세요",
   exportDoneSrt:"SRT 내보내기 완료",
-  exportDoneTxt:"TXT 내보내기 완료"
+  exportDoneTxt:"TXT 내보내기 완료",
+  voiceTitle:"음성 추적",
+  voiceHint:"켜면 목소리로 스크롤을 제어합니다. 말하는 속도에 맞춰 진행되고 멈추면 멈춥니다.",
+  voiceNeedPro:"음성 추적은 Pro 혜택입니다. 먼저 Pro를 이용해 주세요.",
+  voiceStart:"음성 추적 시작",
+  voiceStop:"음성 추적 정지",
+  voiceStatusIdle:"시작 안 됨",
+  voiceStatusListening:"듣는 중 · 당신의 속도에 맞추는 중",
+  voiceStatusPaused:"일시정지(침묵 감지)",
+  voiceStatusUnsupported:"현재 환경에서 음성 인식을 지원하지 않습니다",
+  voiceIosHint:"참고: iOS(iPhone / iPad)의 Telegram 내장 브라우저는 음성 인식을 지원하지 않아 음성 추적을 사용할 수 없습니다. 대신 Android 폰이나 데스크톱 Chrome을 사용해 주세요. 다른 기능은 영향을 받지 않습니다.",
+  voiceUnsupportedHint:"브라우저가 음성 인식(Web Speech API)을 지원하지 않습니다. Android Chrome이나 데스크톱 Chrome을 사용해 주세요. 다른 기능은 영향을 받지 않습니다.",
+  voiceStatusLabel:"상태"
  },
   ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', submitNotice:'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, будет удалён, а вознаграждение не выплачивается.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
   playPause:"Пуск / Пауза",
@@ -1156,7 +1228,19 @@ const I18N = {
   exportNeedPro:"Экспорт субтитров и текста — преимущество Pro. Сначала оформите Pro.",
   exportEmpty:"Сценарий пуст — напишите текст перед экспортом",
   exportDoneSrt:"SRT экспортирован",
-  exportDoneTxt:"TXT экспортирован"
+  exportDoneTxt:"TXT экспортирован",
+  voiceTitle:"Прокрутка за голосом",
+  voiceHint:"Когда включено, голос управляет прокруткой: текст идёт в темпе вашей речи и останавливается, когда вы молчите.",
+  voiceNeedPro:"Прокрутка за голосом — функция Pro. Сначала оформите Pro.",
+  voiceStart:"Запустить прокрутку за голосом",
+  voiceStop:"Остановить прокрутку за голосом",
+  voiceStatusIdle:"Не запущено",
+  voiceStatusListening:"Слушаю · подстраиваюсь под ваш темп",
+  voiceStatusPaused:"Пауза (обнаружена тишина)",
+  voiceStatusUnsupported:"Распознавание речи здесь не поддерживается",
+  voiceIosHint:"Внимание: встроенный браузер Telegram в iOS (iPhone / iPad) не поддерживает распознавание речи, поэтому прокрутка за голосом здесь недоступна. Используйте Android-телефон или Chrome на компьютере; остальные функции работают.",
+  voiceUnsupportedHint:"Ваш браузер не поддерживает распознавание речи (Web Speech API). Используйте Android Chrome или Chrome на компьютере; остальные функции работают.",
+  voiceStatusLabel:"Статус"
  },
 };
 const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko', 'ru'];
@@ -1226,6 +1310,7 @@ function applyI18n() {
   if (typeof renderSpeedUI === 'function') renderSpeedUI();
   if (typeof renderRank === 'function') renderRank();
   if (typeof renderProState === 'function') renderProState();
+  if (typeof renderVoiceUI === 'function') renderVoiceUI();
 }
 
 const defaultState = {
@@ -1404,6 +1489,18 @@ let rafId = null, lastTs = null, offset = 0, playing = false;
 let remoteSpeedMul = 1; // 控制端发来的速度倍率（1 = 不调整；Pro 遥控时生效）
 let readCounted = false; // 本次滚动是否已计入"读完一次"，避免反复到底重复计数
 
+/* ---------- 语音跟随（Pro 权益；依赖 Web Speech API，iOS Telegram 内置浏览器不支持） ---------- */
+let voiceFollowing = false;     // 是否正在语音跟随
+let voiceScrollPx = null;       // 语音推导出的目标滚动速度（px/sec），null 时回落手动速度
+let voiceLastSpeechAt = 0;      // 最近一次识别到语音的时间戳（用于停顿检测）
+let voiceRecog = null;          // createSpeechRecognition 返回的控制器
+let voiceSilenceTimer = null;   // 停顿检测定时器
+let voiceWindow = [];           // 滑动窗口：{ t, units } 用于估算瞬时语速
+const VOICE_BASE_WPM = 150;     // 基准语速（en/ko/ru 按词计）；zh/ja 按字计，基准另算
+const VOICE_SILENCE_MS = 1200;  // 静音超过该值即暂停滚动（"停顿即暂停"）
+const VOICE_MIN_PX = 5, VOICE_MAX_PX = 400; // 与 speech-follow.js 一致的边界
+
+
 let _mcanvas = null, _mctx = null;
 function measureCharWidth(fs){
   if (!_mcanvas){ _mcanvas = document.createElement('canvas'); _mctx = _mcanvas.getContext('2d'); }
@@ -1414,6 +1511,9 @@ function measureCharWidth(fs){
   return w / s.length;
 }
 function pxPerSec(){
+  if (voiceFollowing && Number.isFinite(voiceScrollPx) && voiceScrollPx > 0){
+    return voiceScrollPx * remoteSpeedMul; // 语音主导速度；遥控倍率仍可叠加
+  }
   if (state.speedUnit === 'px') return state.speedPx * remoteSpeedMul;
   const cw = measureCharWidth(state.fontSize);
   return (state.speedCpm / 60) * cw * remoteSpeedMul;
@@ -1442,8 +1542,158 @@ function loop(ts){
   rafId = requestAnimationFrame(loop);
 }
 function updatePlayBtn(){ btnPlay.textContent = playing ? '⏸' : '▶'; }
-function togglePlay(){ playing = !playing; if (playing) lastTs = null; updatePlayBtn(); }
+function togglePlay(){ if (voiceFollowing){ stopVoiceFollow(); return; } playing = !playing; if (playing) lastTs = null; updatePlayBtn(); }
 function resetScroll(){ offset = 0; playing = false; readCounted = false; updatePlayBtn(); applyPrompterStyle(); }
+
+/* ---------- 语音跟随：纯逻辑（与 p6-enhance/speech-follow.js 同源，已单测） ---------- */
+function voiceClamp(n, min, max){
+  if (!Number.isFinite(n)) return min;
+  if (n === Infinity) return max;
+  if (n === -Infinity) return min;
+  if (n > max) return max;
+  if (n < min) return min;
+  return n;
+}
+// 由"实测语速"映射到"滚动速度"：说快→滚快，说慢→滚慢，匀速→不变（baseRate 为基准）
+function voiceMapSpeed(currentRate, baseRate, currentPx){
+  if (!Number.isFinite(currentRate) || !Number.isFinite(currentPx)) return 0;
+  if (!Number.isFinite(baseRate) || baseRate <= 0) return 0;
+  const ratio = currentRate / baseRate;
+  return voiceClamp(currentPx * ratio, VOICE_MIN_PX, VOICE_MAX_PX);
+}
+function voiceBaseRate(){
+  // zh/ja 无空格分词 → 按"字"计，基准取较高的字/分；其余按"词"计
+  return (curLang === 'zh' || curLang === 'ja') ? 240 : VOICE_BASE_WPM;
+}
+function voiceCountUnits(text){
+  const s = String(text || '');
+  if (curLang === 'zh' || curLang === 'ja') return (s.match(/\S/g) || []).length; // 按字符
+  return (s.match(/\S+/g) || []).length; // 按词（空格分隔）
+}
+function speechSupported(){
+  // Web Speech API 的连续识别仅在部分浏览器可用：Chrome/Edge 桌面与 Android Chrome 支持；
+  // iOS 的 Safari / WKWebView（含 Telegram iOS 内置浏览器）均不提供 → 返回 false。
+  return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+function isIOS(){
+  const ua = (navigator.userAgent || '');
+  return /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function voiceLangCode(){
+  return ({ zh:'zh-CN', en:'en-US', ja:'ja-JP', ko:'ko-KR', ru:'ru-RU' })[curLang] || 'en-US';
+}
+function canVoiceFollow(){ return isPro(); } // 纯前端能力，Pro 门禁（与导出一致）
+// 浏览器专属：绑定 Web Speech API 连续识别；非浏览器 / 不支持时返回 null（与 speech-follow.js 同源）
+function createSpeechRecognition(opts){
+  if (typeof window === 'undefined') return null;
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (typeof Ctor === 'undefined') return null;
+  let recognition;
+  try { recognition = new Ctor(); } catch(e){ return null; }
+  recognition.lang = (opts && opts.lang) || 'zh-CN';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  if (typeof (opts && opts.onResult) === 'function'){
+    recognition.onresult = function(event){
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++){
+        transcript += event.results[i][0].transcript;
+      }
+      opts.onResult({ transcript: transcript, event: event });
+    };
+  }
+  if (typeof (opts && opts.onError) === 'function') recognition.onerror = opts.onError;
+  if (typeof (opts && opts.onEnd) === 'function') recognition.onend = opts.onEnd;
+  return {
+    start(){ try { recognition.start(); } catch(e){} },
+    stop(){ try { recognition.stop(); } catch(e){} },
+    native: recognition
+  };
+}
+function setVoiceStatus(text){ const el = document.getElementById('voiceStatus'); if (el) el.textContent = text; }
+function openProSheetSafe(){ const el = document.getElementById('proSheet'); if (el) el.classList.remove('hidden'); }
+function renderVoiceUI(){
+  const need = document.getElementById('voiceNeed');
+  const iosBox = document.getElementById('voiceIosBox');
+  const unsBox = document.getElementById('voiceUnsupportedBox');
+  const toggle = document.getElementById('btnVoiceToggle');
+  const hint = document.getElementById('voiceHintText');
+  if (hint && hint.dataset.i18n === 'voiceHint') hint.textContent = t('voiceHint');
+  if (iosBox) iosBox.hidden = true;
+  if (unsBox) unsBox.hidden = true;
+  if (need){
+    if (!isPro()) need.textContent = t('voiceNeedPro');
+    else if (!speechSupported()){
+      need.textContent = t('voiceStatusUnsupported');
+      if (isIOS() && iosBox){ iosBox.hidden = false; iosBox.textContent = t('voiceIosHint'); }
+      else if (unsBox){ unsBox.hidden = false; unsBox.textContent = t('voiceUnsupportedHint'); }
+    } else need.textContent = '';
+  }
+  if (toggle) toggle.textContent = voiceFollowing ? t('voiceStop') : t('voiceStart');
+  if (!voiceFollowing) setVoiceStatus(t('voiceStatusIdle'));
+}
+function voiceOnResult(res){
+  const now = Date.now();
+  const units = voiceCountUnits(res && res.transcript);
+  if (units <= 0) return;
+  voiceWindow.push({ t: now, units: units });
+  voiceLastSpeechAt = now;
+  const cutoff = now - 3000;
+  voiceWindow = voiceWindow.filter(function(w){ return w.t >= cutoff; });
+  const span = (now - voiceWindow[0].t) / 1000;
+  if (span <= 0.3) return; // 窗口太短，等待更多样本
+  const totalUnits = voiceWindow.reduce(function(a, w){ return a + w.units; }, 0);
+  const ratePerMin = (totalUnits / span) * 60; // 瞬时语速（字/分 或 词/分）
+  const manualPx = state.speedUnit === 'px' ? state.speedPx
+    : (state.speedCpm / 60) * measureCharWidth(state.fontSize);
+  voiceScrollPx = voiceMapSpeed(ratePerMin, voiceBaseRate(), manualPx);
+  if (!playing){ playing = true; lastTs = null; updatePlayBtn(); }
+  setVoiceStatus(t('voiceStatusListening'));
+}
+function voiceSilenceCheck(){
+  if (!voiceFollowing) return;
+  const now = Date.now();
+  if (playing && (now - voiceLastSpeechAt) > VOICE_SILENCE_MS){
+    playing = false; updatePlayBtn();
+    setVoiceStatus(t('voiceStatusPaused'));
+  }
+}
+function startVoiceFollow(){
+  if (!isPro()){ renderVoiceUI(); openProSheetSafe(); return; }
+  if (!speechSupported()){
+    renderVoiceUI();
+    const iosBox = document.getElementById('voiceIosBox');
+    const unsBox = document.getElementById('voiceUnsupportedBox');
+    if (isIOS() && iosBox){ iosBox.hidden = false; iosBox.textContent = t('voiceIosHint'); }
+    else if (unsBox){ unsBox.hidden = false; unsBox.textContent = t('voiceUnsupportedHint'); }
+    return;
+  }
+  voiceFollowing = true;
+  voiceScrollPx = null;
+  voiceWindow = [];
+  voiceLastSpeechAt = Date.now();
+  playing = true; lastTs = null; updatePlayBtn();
+  voiceRecog = createSpeechRecognition({
+    lang: voiceLangCode(),
+    onResult: voiceOnResult,
+    onError: function(){ if (voiceFollowing && voiceRecog) try { voiceRecog.start(); } catch(e){} },
+    onEnd: function(){ if (voiceFollowing && voiceRecog) try { voiceRecog.start(); } catch(e){} }
+  });
+  if (voiceRecog) voiceRecog.start();
+  if (voiceSilenceTimer) clearInterval(voiceSilenceTimer);
+  voiceSilenceTimer = setInterval(voiceSilenceCheck, 250);
+  renderVoiceUI();
+}
+function stopVoiceFollow(){
+  if (!voiceFollowing && !voiceRecog) return;
+  voiceFollowing = false;
+  if (voiceSilenceTimer){ clearInterval(voiceSilenceTimer); voiceSilenceTimer = null; }
+  if (voiceRecog){ try { voiceRecog.stop(); } catch(e){} voiceRecog = null; }
+  voiceScrollPx = null; voiceWindow = [];
+  playing = false; updatePlayBtn();
+  setVoiceStatus(t('voiceStatusIdle'));
+  renderVoiceUI();
+}
 
 /* ---------- 阅读等级（免费头衔，纯荣誉，不影响任何功能权限） ---------- */
 // 门槛为"完整读完讲稿"的累计次数。仅本地记录，不上传、不参与付费判断。
@@ -2235,6 +2485,13 @@ function init(){
   if (remoteSpeedRange) remoteSpeedRange.addEventListener('change', function(){ sendRemoteCmd('speed', (+remoteSpeedRange.value) / 100); });
   renderRemoteUI();
   initRemoteStartup();
+
+  // 语音跟随（Pro）：打开/关闭面板 + 开始/停止
+  const voiceSheet = document.getElementById('voiceSheet');
+  document.getElementById('btnVoice').addEventListener('click', function(){ voiceSheet.classList.remove('hidden'); renderVoiceUI(); });
+  document.getElementById('btnCloseVoice').addEventListener('click', function(){ voiceSheet.classList.add('hidden'); });
+  document.getElementById('btnVoiceToggle').addEventListener('click', function(){ if (voiceFollowing) stopVoiceFollow(); else startVoiceFollow(); });
+  renderVoiceUI();
 
   rafId = requestAnimationFrame(loop);
   verifyInitData();

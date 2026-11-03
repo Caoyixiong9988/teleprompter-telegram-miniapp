@@ -8,6 +8,29 @@
 
 ---
 
+## 2026-11-04 · feat — 语音跟随滚动（Pro 权益 #5 · 六项全部落地）
+
+**改了什么**
+- 前端 `index.html`：
+  - 控制栏新增 🎤 按钮 → 打开「语音跟随」面板（标题 / 提示 / 状态行 / 开始·停止 / 关闭）。
+  - 语音跟随逻辑：用 Web Speech API 连续识别，**说话时文字随语速推进、停顿即暂停**；基于 3s 滑动窗口估算瞬时语速，复用 `mapSpeechRateToScrollSpeed`（与 `p6-enhance/speech-follow.js` 同源、已单测）映射到滚动速度；静音 > 1.2s 自动暂停。
+  - **iOS 端提示**：iOS（iPhone/iPad）的 Telegram 内置浏览器（WKWebView）不提供 `webkitSpeechRecognition`，`speechSupported()` 返回 false；面板明确提示"iOS 暂不可用，请改用 Android 手机或桌面 Chrome；其余功能不受影响"。非 iOS 但不支持识别的浏览器走通用提示。
+  - 纯逻辑内联复用 `speech-follow.js` 的 `clamp` / 速度映射 / `createSpeechRecognition`（保证单文件可独立运行）；新增 `voiceClamp / voiceMapSpeed / voiceBaseRate / voiceCountUnits / speechSupported / isIOS / voiceLangCode / canVoiceFollow / createSpeechRecognition / startVoiceFollow / stopVoiceFollow / renderVoiceUI` 等。
+  - `pxPerSec()` 增加语音分支（voiceFollowing 时直接用 `voiceScrollPx`，不依赖 canvas）；`togglePlay()` 在语音跟随进行中改为"停止语音跟随"，避免与语音控制冲突。
+  - **Pro 门禁**：`canVoiceFollow()` = `isPro()`（纯前端能力，与导出一致；生产以 `/payments/pro-status` 为准）。非 Pro 点击开始会提示并自动打开 Pro 权益页。
+  - 五语各新增 **12 个键**（voiceTitle/voiceHint/voiceNeedPro/voiceStart/voiceStop/voiceStatusIdle/voiceStatusListening/voiceStatusPaused/voiceStatusUnsupported/voiceIosHint/voiceUnsupportedHint/voiceStatusLabel），键集各 **155 键**一致。
+- 测试 `test_i18n_real.mjs` 新增第 27–32 项（按钮/面板存在、核心函数已定义、速度映射、pxPerSec 语音分支、Pro 门禁、不支持环境提示）。
+
+**为什么**
+- Pro 六项权益中「语音跟随」是最后一个未达用户可用的项（此前仅 `speech-follow.js` 纯逻辑 + 绑定，无前端 UI）。
+- iOS 不支持是硬限制（WKWebView 无 Web Speech 识别），产品上必须显式告知用户，否则会被误认为 bug；Android / 桌面 Chrome 可正常体验。
+
+**怎么验证**
+- `npm test` → **63/63**（后端无改动，仅前端 + 前端测试）；前端回归 `node test_i18n_real.mjs` → **32/32**。
+- ⚠️ 局限：jsdom 无麦克风 / 无真实 Web Speech，无法在此跑真实识别；**真机识别、iOS 提示框显隐、语速跟手效果需 `wrangler deploy` 后在 Telegram 真机（Android / 桌面）验证**；iOS 端预期为显示提示而非可用。用户计划 11-06 回北京后再研究线上部署。
+
+---
+
 ## 2026-11-03 · feat — 字幕 / 文本导出 SRT·TXT（Pro 权益 #4 落地）
 
 **改了什么**
