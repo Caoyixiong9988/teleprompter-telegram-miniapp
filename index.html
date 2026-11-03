@@ -128,15 +128,15 @@
   </div>
 
   <div id="controlBar">
-    <button class="btn primary icon" id="btnPlay" title="播放/暂停">▶</button>
-    <button class="btn icon" id="btnReset" title="重置">↺</button>
+    <button class="btn primary icon" id="btnPlay" data-i18n-title="playPause">▶</button>
+    <button class="btn icon" id="btnReset" data-i18n-title="reset">↺</button>
     <div id="speedWrap">
-      <label>速度</label>
+      <label data-i18n="speed">速度</label>
       <input type="range" id="speedBar" min="20" max="400" value="90" />
       <span id="speedBarLabel">90像素/秒</span>
     </div>
-    <button class="btn icon" id="btnSettings" title="设置">⚙</button>
-    <button class="btn icon" id="btnCard" title="生成卡片">🎴</button>
+    <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
+    <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>
   </div>
 
   <!-- Settings sheet -->
@@ -145,13 +145,13 @@
       <h3 data-i18n="settings">设置</h3>
 
       <div class="field">
-        <label>脚本（粘贴或编辑你的讲稿，自动保存到本机）</label>
-        <textarea id="setScript" placeholder="在这里粘贴或输入讲稿……&#10;支持多段、换行。"></textarea>
-        <div class="hint">内容仅保存在你当前设备浏览器中（localStorage），不上传服务器。</div>
+        <label data-i18n="scriptLabel">脚本（粘贴或编辑你的讲稿，自动保存到本机）</label>
+        <textarea id="setScript" data-i18n-ph="scriptPlaceholder"></textarea>
+        <div class="hint" data-i18n="saveHint">内容仅保存在你当前设备浏览器中（localStorage），不上传服务器。</div>
       </div>
 
       <div class="field">
-        <label>字号</label>
+        <label data-i18n="fontSize">字号</label>
         <div class="row">
           <input type="range" id="setFontSize" min="24" max="96" value="44" />
           <span class="val" id="setFontSizeLabel">44px</span>
@@ -159,47 +159,47 @@
       </div>
 
       <div class="field">
-        <label>文字颜色</label>
+        <label data-i18n="colorLabel">文字颜色</label>
         <div class="row">
           <input type="color" id="setColor" value="#1f2430" />
-          <span class="hint" style="margin:0;">用于提词显示与成片卡。</span>
+          <span class="hint" style="margin:0;" data-i18n="colorHint">用于提词显示与成片卡。</span>
         </div>
       </div>
 
       <div class="field">
-        <label>对齐方式</label>
+        <label data-i18n="alignLabel">对齐方式</label>
         <select id="setAlign">
-          <option value="left">左对齐</option>
-          <option value="center" selected>居中</option>
-          <option value="right">右对齐</option>
+          <option value="left" data-i18n="alignLeft">左对齐</option>
+          <option value="center" selected data-i18n="alignCenter">居中</option>
+          <option value="right" data-i18n="alignRight">右对齐</option>
         </select>
       </div>
 
       <div class="field switch">
-        <label style="margin:0;">镜像模式（接物理提词支架时开启）</label>
+        <label style="margin:0;" data-i18n="mirrorLabel">镜像模式（接物理提词支架时开启）</label>
         <input type="checkbox" id="setMirror" />
       </div>
 
       <div class="field">
-        <label>滚动速度</label>
+        <label data-i18n="scrollSpeed">滚动速度</label>
         <div class="row">
           <input type="range" id="setSpeed" min="20" max="400" value="90" />
           <span class="val" id="setSpeedLabel">90像素/秒</span>
-          <button class="btn" id="btnSpeedUnit" style="min-width:auto; padding:8px 12px;">切换单位</button>
+          <button class="btn" id="btnSpeedUnit" style="min-width:auto; padding:8px 12px;" data-i18n="switchUnit">切换单位</button>
         </div>
-        <div class="hint">单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。</div>
+        <div class="hint" data-i18n="speedHint">单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。</div>
       </div>
 
       <div class="field">
-        <label>推荐码（用于成片卡分享深链，可自定义）</label>
-        <input type="text" id="setReferral" placeholder="例如 my2026" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
-        <div class="hint">分享卡片会带上 <code>?startapp=推荐码</code> 深链；在 BotFather 配置好用户名后于下方填写 bot 用户名即可生效。</div>
+        <label data-i18n="refCodeLabel">推荐码（用于成片卡分享深链，可自定义）</label>
+        <input type="text" id="setReferral" data-i18n-ph="refCodePlaceholder" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+        <div class="hint" data-i18n="refHint">分享卡片会带上 <code>?startapp=推荐码</code> 深链；在 BotFather 配置好用户名后于下方填写 bot 用户名即可生效。</div>
       </div>
 
       <div class="field">
-        <label>Bot 用户名（用于分享深链，可留空）</label>
-        <input type="text" id="setBotUser" placeholder="例如 your_bot" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
-        <div class="hint">仅用于生成分享链接；不影响提词功能。留空时显示占位 <code>your_bot</code>。</div>
+        <label data-i18n="botUserLabel">Bot 用户名（用于分享深链，可留空）</label>
+        <input type="text" id="setBotUser" data-i18n-ph="botUserPlaceholder" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+        <div class="hint" data-i18n="botUserHint">仅用于生成分享链接；不影响提词功能。留空时显示占位 <code>your_bot</code>。</div>
       </div>
 
       <div class="field">
@@ -215,7 +215,7 @@
       </div>
 
       <div class="sheet-actions">
-        <button class="btn primary" id="btnCloseSettings">完成</button>
+        <button class="btn primary" id="btnCloseSettings" data-i18n="done">完成</button>
       </div>
       <div class="footer-note" id="verifyStatus2"></div>
     </div>
@@ -224,15 +224,15 @@
   <!-- Card overlay -->
   <div class="sheet hidden" id="cardOverlay">
     <div class="sheet-inner">
-      <h3>成片卡 / 脚本卡</h3>
+      <h3 data-i18n="cardTitle">成片卡 / 脚本卡</h3>
       <img id="cardPreview" alt="成片卡预览" />
-      <div class="hint">卡片含讲稿片段、应用水印与你的推荐码深链，可保存到相册或分享到聊天。</div>
+      <div class="hint" data-i18n="cardHint">卡片含讲稿片段、应用水印与你的推荐码深链，可保存到相册或分享到聊天。</div>
       <div class="card-actions">
-        <button class="btn" id="btnDownloadCard">保存到相册</button>
-        <button class="btn primary" id="btnShareCard">分享到聊天</button>
+        <button class="btn" id="btnDownloadCard" data-i18n="saveAlbum">保存到相册</button>
+        <button class="btn primary" id="btnShareCard" data-i18n="shareChat">分享到聊天</button>
       </div>
       <div class="sheet-actions" style="margin-top:10px;">
-        <button class="btn" id="btnCloseCard">关闭</button>
+        <button class="btn" id="btnCloseCard" data-i18n="close">关闭</button>
       </div>
     </div>
   </div>
@@ -246,7 +246,7 @@
         <div class="hint" id="aboutDisclaimer" style="line-height:1.6;"></div>
       </div>
       <div class="field">
-        <label>积分与购买须知</label>
+        <label data-i18n="creditsNotice">积分与购买须知</label>
         <div class="hint" id="aboutPaidNotice" style="line-height:1.6;"></div>
       </div>
       <div class="sheet-actions">
@@ -284,10 +284,198 @@ const LS_KEY = 'teleprompter_state_v1';
 
 /* ---------- 多语言（P7：zh 默认 + en/ja/ko） ---------- */
 const I18N = {
-  zh: { appTitle:'提词器', appSubtitle:'流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'本应用为纯工具类提词辅助软件，不含任何占卜、预测、算命或运势类功能。所有功能仅用于帮助您更流畅地朗读讲稿。应用内“积分”为平台发放的内部虚拟点数，不等于 Telegram Stars、不等于任何法定货币或加密货币，不可提现、不可转账、不可交易。', paidNotice:'你即将使用 Telegram Stars 购买内部积分。积分仅限本应用内消耗，非真钱、不可退款、不可提现。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵权；违规内容将被下架并收回奖励。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭' },
-  en: { appTitle:'Teleprompter', appSubtitle:'Smooth scrolling, free your eyes', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'This app is a pure utility teleprompter tool. It contains no fortune-telling, prediction, astrology, or horoscope features. All features only help you read scripts more smoothly. In-app “credits” are internal virtual points issued by the platform — they are NOT Telegram Stars, NOT any fiat currency or cryptocurrency, and cannot be withdrawn, transferred, or traded.', paidNotice:'You are about to purchase internal credits with Telegram Stars. Credits are for in-app use only — not real money, non-refundable, non-withdrawable.', submitNotice:'You are about to submit content. Ensure it is authentic, original, and non-infringing; violating content will be removed and rewards revoked.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close' },
-  ja: { appTitle:'テレプロンプター', appSubtitle:'スムーズなスクロールで目を解放', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'本アプリは純粋なユーティリティ型の原稿読み上げ支援ツールであり、占い・予測・星占い・運勢などの機能は一切含みません。すべての機能は原稿をよりスムーズに読むためのものです。アプリ内の「クレジット」はプラットフォームが発行する内部的な仮想ポイントであり、Telegram Stars でも法定通貨・暗号資産でもなく、出金・送金・取引はできません。', paidNotice:'まもなく Telegram Stars で内部クレジットを購入します。クレジットはアプリ内でのみ利用可能で、現金ではなく、返金・出金はできません。', submitNotice:'まもなくコンテンツを投稿します。真正性・独創性・権利侵害がないことを確認してください。違反コンテンツは削除され、報酬は没収されます。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる' },
-  ko: { appTitle:'텔레프로마터', appSubtitle:'부드러운 스크롤로 눈을 자유롭게', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'이 앱은 순수 유틸리티형 대본 낭독 보조 도구로, 점술·예측·운세 등의 기능은 일절 포함하지 않습니다. 모든 기능은 대본을 더 부드럽게 읽기 위한 것입니다. 앱 내 “크레딧”은 플랫폼이 발행하는 내부 가상 포인트로, Telegram Stars도 아니며 법정 화폐·암호화폐도 아니며 출금·송금·거래할 수 없습니다.', paidNotice:'곧 Telegram Stars로 내부 크레딧을 구매합니다. 크레딧은 앱 내에서만 사용 가능하며 현금이 아니고 환불·출금할 수 없습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 진정성·독창성·권리 침해가 없음을 확인하세요. 위반 콘텐츠는 삭제되고 보상이 회수됩니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기' },
+  zh: { appTitle:'提词器', appSubtitle:'流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'本应用为纯工具类提词辅助软件，不含任何占卜、预测、算命或运势类功能。所有功能仅用于帮助您更流畅地朗读讲稿。应用内“积分”为平台发放的内部虚拟点数，不等于 Telegram Stars、不等于任何法定货币或加密货币，不可提现、不可转账、不可交易。', paidNotice:'你即将使用 Telegram Stars 购买内部积分。积分仅限本应用内消耗，非真钱、不可退款、不可提现。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵权；违规内容将被下架并收回奖励。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
+  playPause:"播放/暂停",
+  reset:"重置",
+  speed:"速度",
+  genCard:"生成卡片",
+  scriptLabel:"脚本（粘贴或编辑你的讲稿，自动保存到本机）",
+  scriptPlaceholder:"在这里粘贴或输入讲稿……\n支持多段、换行。",
+  saveHint:"内容仅保存在你当前设备浏览器中（localStorage），不上传服务器。",
+  fontSize:"字号",
+  colorLabel:"文字颜色",
+  colorHint:"用于提词显示与成片卡。",
+  alignLabel:"对齐方式",
+  alignLeft:"左对齐",
+  alignCenter:"居中",
+  alignRight:"右对齐",
+  mirrorLabel:"镜像模式（接物理提词支架时开启）",
+  scrollSpeed:"滚动速度",
+  switchUnit:"切换单位",
+  speedHint:"单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。",
+  refCodeLabel:"推荐码（用于成片卡分享深链，可自定义）",
+  refHint:"分享卡片会带上 ?startapp=推荐码 深链；在 BotFather 配置好用户名后于下方填写 bot 用户名即可生效。",
+  botUserLabel:"Bot 用户名（用于分享深链，可留空）",
+  botUserHint:"仅用于生成分享链接；不影响提词功能。留空时显示占位 your_bot。",
+  refCodePlaceholder:"例如 my2026",
+  botUserPlaceholder:"例如 your_bot",
+  done:"完成",
+  cardTitle:"成片卡 / 脚本卡",
+  cardHint:"卡片含讲稿片段、应用水印与你的推荐码深链，可保存到相册或分享到聊天。",
+  saveAlbum:"保存到相册",
+  shareChat:"分享到聊天",
+  creditsNotice:"积分与购买须知",
+  defaultScript:"在这里粘贴你的讲稿……\n\n点击右下角 ⚙ 打开设置，编辑脚本、调整字号与速度。\n\n准备好后点左上角 ▶ 开始滚动提词。",
+  cardBrand:"提词器 · Teleprompter",
+  cardTagline:"流畅提词 · 解放双眼",
+  cardGeneratedBy:"由「提词器」生成",
+  cardMore:"……（更多内容见 App）",
+  shareToast:"需在 Telegram 内打开才能分享",
+  shareText:"我用「提词器」顺滑录完了稿子 🎬 你也来试试：",
+  verifyOk:"身份已验证 ✓",
+  verifyFail:"验签未通过",
+  verifyErr:"验签请求失败",
+  reportEmpty:"请先填写内容",
+  reportSending:"提交中…",
+  reportFailRetry:"提交失败，请稍后再试",
+  reportFailNet:"提交失败（网络）",
+  unitPx:"像素/秒",
+  unitCpm:"字/分"
+ },
+  en: { appTitle:'Teleprompter', appSubtitle:'Smooth scrolling, free your eyes', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'This app is a pure utility teleprompter tool. It contains no fortune-telling, prediction, astrology, or horoscope features. All features only help you read scripts more smoothly. In-app “credits” are internal virtual points issued by the platform — they are NOT Telegram Stars, NOT any fiat currency or cryptocurrency, and cannot be withdrawn, transferred, or traded.', paidNotice:'You are about to purchase internal credits with Telegram Stars. Credits are for in-app use only — not real money, non-refundable, non-withdrawable.', submitNotice:'You are about to submit content. Ensure it is authentic, original, and non-infringing; violating content will be removed and rewards revoked.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
+  playPause:"Play / Pause",
+  reset:"Reset",
+  speed:"Speed",
+  genCard:"Generate Card",
+  scriptLabel:"Script (paste or edit your speech; auto-saved to this device)",
+  scriptPlaceholder:"Paste or type your script here…\nSupports multiple paragraphs and line breaks.",
+  saveHint:"Content is saved only in this device’s browser (localStorage); nothing is uploaded to any server.",
+  fontSize:"Font Size",
+  colorLabel:"Text Color",
+  colorHint:"Used for the prompter display and the result card.",
+  alignLabel:"Alignment",
+  alignLeft:"Left",
+  alignCenter:"Center",
+  alignRight:"Right",
+  mirrorLabel:"Mirror mode (enable when using a physical teleprompter rig)",
+  scrollSpeed:"Scroll Speed",
+  switchUnit:"Switch Unit",
+  speedHint:"Units: pixels/second (px/s) or characters/minute (CPM, estimated from current font size).",
+  refCodeLabel:"Referral code (used in the result-card share deep link; customizable)",
+  refHint:"The share card carries a ?startapp=referral-code deep link; fill in your bot username below (configured in BotFather) to activate it.",
+  botUserLabel:"Bot username (for share deep link; optional)",
+  botUserHint:"Used only to build the share link; does not affect prompting. Shows placeholder your_bot when empty.",
+  refCodePlaceholder:"e.g. my2026",
+  botUserPlaceholder:"e.g. your_bot",
+  done:"Done",
+  cardTitle:"Result Card / Script Card",
+  cardHint:"The card contains a script excerpt, the app watermark, and your referral-code deep link. Save it to your album or share it in a chat.",
+  saveAlbum:"Save to Album",
+  shareChat:"Share to Chat",
+  creditsNotice:"Credits & Purchase Notice",
+  defaultScript:"Paste your script here…\n\nTap ⚙ at the bottom right to open settings and edit the script, font size, and speed.\n\nWhen ready, tap ▶ at the top left to start scrolling.",
+  cardBrand:"Teleprompter",
+  cardTagline:"Smooth scrolling, free your eyes",
+  cardGeneratedBy:"Generated by Teleprompter",
+  cardMore:"…(more in the app)",
+  shareToast:"Please open inside Telegram to share",
+  shareText:"I just recorded my script smoothly with Teleprompter 🎬 Give it a try:",
+  verifyOk:"Identity verified ✓",
+  verifyFail:"Verification failed",
+  verifyErr:"Verification request failed",
+  reportEmpty:"Please enter something first",
+  reportSending:"Submitting…",
+  reportFailRetry:"Submission failed, please try again later",
+  reportFailNet:"Submission failed (network)",
+  unitPx:"px/s",
+  unitCpm:"char/min"
+ },
+  ja: { appTitle:'テレプロンプター', appSubtitle:'スムーズなスクロールで目を解放', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'本アプリは純粋なユーティリティ型の原稿読み上げ支援ツールであり、占い・予測・星占い・運勢などの機能は一切含みません。すべての機能は原稿をよりスムーズに読むためのものです。アプリ内の「クレジット」はプラットフォームが発行する内部的な仮想ポイントであり、Telegram Stars でも法定通貨・暗号資産でもなく、出金・送金・取引はできません。', paidNotice:'まもなく Telegram Stars で内部クレジットを購入します。クレジットはアプリ内でのみ利用可能で、現金ではなく、返金・出金はできません。', submitNotice:'まもなくコンテンツを投稿します。真正性・独創性・権利侵害がないことを確認してください。違反コンテンツは削除され、報酬は没収されます。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
+  playPause:"再生/一時停止",
+  reset:"リセット",
+  speed:"速度",
+  genCard:"カード生成",
+  scriptLabel:"原稿（台本を貼り付け・編集。この端末に自動保存）",
+  scriptPlaceholder:"ここに原稿を貼り付けまたは入力……\n段落や改行に対応。",
+  saveHint:"内容はこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。",
+  fontSize:"文字サイズ",
+  colorLabel:"文字色",
+  colorHint:"提词表示と結果カードに使用します。",
+  alignLabel:"配置",
+  alignLeft:"左揃え",
+  alignCenter:"中央",
+  alignRight:"右揃え",
+  mirrorLabel:"ミラーモード（物理提词台を使う場合はオン）",
+  scrollSpeed:"スクロール速度",
+  switchUnit:"単位切替",
+  speedHint:"単位：ピクセル/秒（px/s）または 文字/分（CPM、現在の文字サイズから算出）。",
+  refCodeLabel:"紹介コード（結果カードの共有ディープリンク用、任意設定）",
+  refHint:"共有カードには ?startapp=紹介コード のディープリンクが付きます。BotFather で設定した Bot ユーザー名を下に入力すると有効になります。",
+  botUserLabel:"Bot ユーザー名（共有ディープリンク用、任意）",
+  botUserHint:"共有リンクの生成のみに使用。提词機能には影響しません。空の場合は your_bot と表示。",
+  refCodePlaceholder:"例: my2026",
+  botUserPlaceholder:"例: your_bot",
+  done:"完了",
+  cardTitle:"結果カード / 原稿カード",
+  cardHint:"カードには原稿の抜粋、アプリの透かし、紹介コードのディープリンクが含まれます。アルバムに保存するかチャットで共有できます。",
+  saveAlbum:"アルバムに保存",
+  shareChat:"チャットで共有",
+  creditsNotice:"クレジットと購入について",
+  defaultScript:"ここに原稿を貼り付け……\n\n右下の ⚙ で設定を開き、原稿・文字サイズ・速度を編集できます。\n\n準備ができたら左上の ▶ でスクロールを開始。",
+  cardBrand:"テレプロンプター",
+  cardTagline:"スムーズなスクロールで目を解放",
+  cardGeneratedBy:"テレプロンプターで生成",
+  cardMore:"……（続きはアプリで）",
+  shareToast:"共有するには Telegram 内で開いてください",
+  shareText:"テレプロンプターで原稿をスムーズに読み上げました 🎬 ぜひお試しを：",
+  verifyOk:"本人確認済み ✓",
+  verifyFail:"確認に失敗しました",
+  verifyErr:"確認リクエストに失敗",
+  reportEmpty:"まず内容を入力してください",
+  reportSending:"送信中…",
+  reportFailRetry:"送信に失敗しました。後ほどお試しください",
+  reportFailNet:"送信に失敗しました（ネットワーク）",
+  unitPx:"ピクセル/秒",
+  unitCpm:"文字/分"
+ },
+  ko: { appTitle:'텔레프로마터', appSubtitle:'부드러운 스크롤로 눈을 자유롭게', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'이 앱은 순수 유틸리티형 대본 낭독 보조 도구로, 점술·예측·운세 등의 기능은 일절 포함하지 않습니다. 모든 기능은 대본을 더 부드럽게 읽기 위한 것입니다. 앱 내 “크레딧”은 플랫폼이 발행하는 내부 가상 포인트로, Telegram Stars도 아니며 법정 화폐·암호화폐도 아니며 출금·송금·거래할 수 없습니다.', paidNotice:'곧 Telegram Stars로 내부 크레딧을 구매합니다. 크레딧은 앱 내에서만 사용 가능하며 현금이 아니고 환불·출금할 수 없습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 진정성·독창성·권리 침해가 없음을 확인하세요. 위반 콘텐츠는 삭제되고 보상이 회수됩니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
+  playPause:"재생/일시정지",
+  reset:"초기화",
+  speed:"속도",
+  genCard:"카드 생성",
+  scriptLabel:"대본（대본을 붙여넣거나 편집하세요. 이 기기에 자동 저장）",
+  scriptPlaceholder:"여기에 대본을 붙여넣거나 입력하세요……\n문단 및 줄바꿈 지원.",
+  saveHint:"내용은 이 기기의 브라우저（localStorage）에만 저장되며 서버로 전송되지 않습니다.",
+  fontSize:"글자 크기",
+  colorLabel:"글자 색상",
+  colorHint:"提词 표시와 결과 카드에 사용됩니다.",
+  alignLabel:"정렬",
+  alignLeft:"왼쪽",
+  alignCenter:"가운데",
+  alignRight:"오른쪽",
+  mirrorLabel:"미러 모드（물리적提词 거치대 사용 시 켜기）",
+  scrollSpeed:"스크롤 속도",
+  switchUnit:"단위 전환",
+  speedHint:"단위: 픽셀/초（px/s） 또는 자/분（CPM, 현재 글자 크기 기준 추정）.",
+  refCodeLabel:"추천 코드（결과 카드 공유 딥링크용, 임의 설정）",
+  refHint:"공유 카드에는 ?startapp=추천코드 딥링크가 포함됩니다. BotFather에서 설정한 Bot 사용자명을 아래에 입력하면 활성화됩니다.",
+  botUserLabel:"Bot 사용자명（공유 딥링크용, 선택）",
+  botUserHint:"공유 링크 생성에만 사용되며提词 기능에 영향하지 않습니다. 비어 있으면 your_bot 표시.",
+  refCodePlaceholder:"예: my2026",
+  botUserPlaceholder:"예: your_bot",
+  done:"완료",
+  cardTitle:"결과 카드 / 대본 카드",
+  cardHint:"카드에는 대본 발췌, 앱 워터마크, 추천 코드 딥링크가 포함됩니다. 앨범에 저장하거나 채팅으로 공유하세요.",
+  saveAlbum:"앨범에 저장",
+  shareChat:"채팅으로 공유",
+  creditsNotice:"크레딧 및 구매 안내",
+  defaultScript:"여기에 대본을 붙여넣으세요……\n\n오른쪽 아래 ⚙를 눌러 설정에서 대본·글자 크기·속도를 편집하세요.\n\n준비되면 왼쪽 위 ▶를 눌러 스크롤을 시작하세요.",
+  cardBrand:"텔레프로마터",
+  cardTagline:"부드러운 스크롤로 눈을 자유롭게",
+  cardGeneratedBy:"텔레프로마터로 생성됨",
+  cardMore:"……（앱에서 더 보기）",
+  shareToast:"공유하려면 Telegram 내에서 열어주세요",
+  shareText:"텔레프로마터로 대본을 부드럽게 읽었습니다 🎬 한번 써보세요:",
+  verifyOk:"신원 확인됨 ✓",
+  verifyFail:"확인 실패",
+  verifyErr:"확인 요청 실패",
+  reportEmpty:"먼저 내용을 입력하세요",
+  reportSending:"제출 중…",
+  reportFailRetry:"제출에 실패했습니다. 나중에 다시 시도하세요",
+  reportFailNet:"제출에 실패했습니다（네트워크）",
+  unitPx:"픽셀/초",
+  unitCpm:"자/분"
+ },
 };
 const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko'];
 function detectLang() {
@@ -307,18 +495,28 @@ function setLang(l) {
   applyI18n();
 }
 function applyI18n() {
+  document.documentElement.lang = curLang;
   document.querySelectorAll('[data-i18n]').forEach(function (el) {
     const k = el.getAttribute('data-i18n');
     if (k) el.textContent = t(k);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(function (el) {
+    const k = el.getAttribute('data-i18n-title');
+    if (k) el.title = t(k);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function (el) {
+    const k = el.getAttribute('data-i18n-ph');
+    if (k) el.placeholder = t(k);
   });
   const dp = document.getElementById('disclaimerBlock'); if (dp) dp.textContent = t('disclaimerBody');
   const ad = document.getElementById('aboutDisclaimer'); if (ad) ad.textContent = t('disclaimerBody');
   const pn = document.getElementById('aboutPaidNotice'); if (pn) pn.textContent = t('paidNotice');
   const rp = document.getElementById('reportDetail'); if (rp) rp.placeholder = t('reportPlaceholder');
+  if (typeof renderSpeedUI === 'function') renderSpeedUI();
 }
 
 const defaultState = {
-  script: '在这里粘贴你的讲稿……\n\n点击右下角 ⚙ 打开设置，编辑脚本、调整字号与速度。\n\n准备好后点左上角 ▶ 开始滚动提词。',
+  script: t('defaultScript'),
   fontSize: 44,
   color: '#1f2430',
   align: 'center',
@@ -398,7 +596,7 @@ function telegramShare(text, url){
     } catch(e){}
   }
   // 浏览器环境：优雅失败，给出提示并尽力打开系统分享
-  toast('需在 Telegram 内打开才能分享');
+  toast(t('shareToast'));
   try { window.open(shareUrl, '_blank'); } catch(e){}
 }
 function deepLink(){
@@ -456,7 +654,7 @@ function renderSpeedUI(){
   const val = isPx ? state.speedPx : state.speedCpm;
   speedBar.min = min; speedBar.max = max; speedBar.value = val;
   setSpeed.min = min; setSpeed.max = max; setSpeed.value = val;
-  const unitLabel = isPx ? '像素/秒' : '字/分';
+  const unitLabel = isPx ? t('unitPx') : t('unitCpm');
   speedBarLabel.textContent = val + unitLabel;
   setSpeedLabel.textContent = val + unitLabel;
 }
@@ -492,24 +690,24 @@ function generateCard(){
   ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1350);
   // 标题
   ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 64px sans-serif'; ctx.textAlign = 'left';
-  ctx.fillText('提词器 · Teleprompter', 80, 120);
+  ctx.fillText(t('cardBrand'), 80, 120);
   ctx.fillStyle = '#79808c'; ctx.font = '32px sans-serif';
-  ctx.fillText('流畅提词 · 解放双眼', 80, 175);
+  ctx.fillText(t('cardTagline'), 80, 175);
   // 分隔线
   ctx.strokeStyle = '#e3e6ec'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(80, 210); ctx.lineTo(1000, 210); ctx.stroke();
   // 讲稿片段
-  const raw = (state.script || '在这里粘贴你的讲稿……').replace(/\s+$/,'');
+  const raw = (state.script || t('defaultScript')).replace(/\s+$/,'');
   const snippet = raw.slice(0, 240);
   ctx.fillStyle = '#1f2430'; ctx.font = '40px sans-serif'; ctx.textAlign = 'left';
   const lines = wrapText(ctx, snippet, 920);
   const maxLines = 14;
   let y = 295;
   for (let i = 0; i < Math.min(lines.length, maxLines); i++){ ctx.fillText(lines[i], 80, y); y += 62; }
-  if (lines.length > maxLines){ ctx.fillStyle = '#79808c'; ctx.fillText('……（更多内容见 App）', 80, y); }
+  if (lines.length > maxLines){ ctx.fillStyle = '#79808c'; ctx.fillText(t('cardMore'), 80, y); }
   // 水印 + 深链
   ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 34px sans-serif';
-  ctx.fillText('由「提词器」生成', 80, 1230);
+  ctx.fillText(t('cardGeneratedBy'), 80, 1230);
   ctx.fillStyle = '#79808c'; ctx.font = '30px sans-serif';
   const dl = deepLink();
   const dlines = wrapText(ctx, dl, 920);
@@ -549,9 +747,9 @@ async function verifyInitData(){
       body: JSON.stringify({ initData: initData })
     });
     const j = await r.json();
-    verifyStatus = j.valid ? '身份已验证 ✓' : ('验签未通过: ' + (j.reason || ''));
+    verifyStatus = j.valid ? t('verifyOk') : (t('verifyFail') + ': ' + (j.reason || ''));
   } catch(e){
-    verifyStatus = '验签请求失败';
+    verifyStatus = t('verifyErr');
   }
   renderVerifyStatus();
 }
@@ -596,7 +794,7 @@ btnDownloadCard.addEventListener('click', function(){
 });
 btnShareCard.addEventListener('click', function(){
   const url = deepLink();
-  const text = '我用「提词器」顺滑录完了稿子 🎬 你也来试试：';
+  const text = t('shareText');
   telegramShare(text, url);
 });
 
@@ -605,8 +803,8 @@ async function submitReport() {
   const detailEl = document.getElementById('reportDetail');
   const statusEl = document.getElementById('reportStatus');
   const detail = (detailEl.value || '').trim();
-  if (!detail) { statusEl.textContent = '请先填写内容'; return; }
-  statusEl.textContent = '提交中…';
+  if (!detail) { statusEl.textContent = t('reportEmpty'); return; }
+  statusEl.textContent = t('reportSending');
   try {
     if (!CONFIG.API_BASE) { statusEl.textContent = t('reportThanks'); detailEl.value = ''; return; }
     const url = apiUrl('/compliance/report');
@@ -617,9 +815,9 @@ async function submitReport() {
     });
     const j = await r.json();
     if (j && j.ok) { statusEl.textContent = t('reportThanks'); detailEl.value = ''; }
-    else statusEl.textContent = '提交失败，请稍后再试';
+    else statusEl.textContent = t('reportFailRetry');
   } catch (e) {
-    statusEl.textContent = '提交失败（网络）';
+    statusEl.textContent = t('reportFailNet');
   }
 }
 
