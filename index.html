@@ -125,6 +125,15 @@
   .pro-list-free{color:var(--muted);}
   #proStatusBadge.on{color:#1f9d55;}
 
+  /* 讲稿库（多讲稿管理） */
+  .script-list{display:flex; flex-direction:column; gap:6px; margin-bottom:8px;}
+  .script-row{display:flex; align-items:center; gap:8px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:#fff;}
+  .script-row.active{border-color:var(--primary); background:#eef3ff;}
+  .script-row-title{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; cursor:pointer;}
+  .script-row.active .script-row-title{font-weight:600;}
+  .script-row-del{flex:0 0 auto; border:none; background:transparent; color:#c0392b; font-size:15px; cursor:pointer; padding:2px 6px; border-radius:6px;}
+  .script-row-del:hover{background:#fdecea;}
+
   /* 阅读等级（免费头衔，纯荣誉） */
   .rank-box{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:linear-gradient(135deg,#f7f9ff,#eef2fb);}
   .rank-icon{font-size:26px; line-height:1; flex:0 0 auto;}
@@ -175,9 +184,27 @@
       <h3 data-i18n="settings">设置</h3>
 
       <div class="field">
-        <label data-i18n="scriptLabel">脚本（粘贴或编辑你的讲稿，自动保存到本机）</label>
+        <label data-i18n="scriptLibTitle">讲稿库（多讲稿管理）</label>
+        <div id="scriptList" class="script-list"></div>
+        <button class="btn" id="btnNewScript" data-i18n="scriptNew" style="width:100%;margin-bottom:6px;">＋ 新建讲稿</button>
+        <div class="hint" id="scriptCount"></div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="scriptTitleLabel">讲稿标题</label>
+        <input type="text" id="setScriptTitle" data-i18n-ph="scriptNewTitle" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+      </div>
+
+      <div class="field">
+        <label data-i18n="scriptContentLabel">讲稿内容</label>
         <textarea id="setScript" data-i18n-ph="scriptPlaceholder"></textarea>
-        <div class="hint" data-i18n="saveHint">内容仅保存在你当前设备浏览器中（localStorage），不上传服务器。</div>
+        <div class="hint" data-i18n="saveHint">内容保存在你当前设备浏览器中（localStorage）；开通 Pro 云同步后可跨设备访问。</div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="cloudSyncTitle">云同步（Pro）</label>
+        <div class="hint" id="scriptSyncStatus" data-i18n="cloudSyncLocal">本地模式：讲稿仅保存在本设备，不会上传服务器。</div>
+        <button class="btn" id="btnSyncNow" data-i18n="cloudSyncNow">立即同步</button>
       </div>
 
       <div class="field">
@@ -440,6 +467,23 @@ const I18N = {
   proStatusOn:"已解锁 Pro 会员",
   proDevOn:"本地预览 Pro 效果（测试用）",
   proDevOff:"关闭 Pro 预览",
+  scriptLibTitle:"讲稿库",
+  scriptNew:"＋ 新建讲稿",
+  scriptNewTitle:"新讲稿",
+  scriptDefaultTitle:"默认讲稿",
+  scriptTitleLabel:"讲稿标题",
+  scriptDelete:"删除",
+  scriptSelect:"选用",
+  scriptDeleteLast:"至少保留一篇讲稿",
+  scriptContentLabel:"讲稿内容",
+  cloudSyncTitle:"云同步 · Pro",
+  cloudSyncLocal:"本地模式：讲稿仅保存在本设备，不会上传服务器。",
+  cloudSyncNow:"立即同步",
+  cloudSyncPro:"云同步为 Pro 权益，升级后可跨设备访问你的讲稿。",
+  cloudSyncOn:"云同步已开启：你的讲稿会保存到云端，可在任意设备访问。",
+  cloudSyncDone:"已同步",
+  cloudSyncErr:"同步失败，请稍后重试",
+  cloudSyncPending:"同步中…",
   shareToast:"需在 Telegram 内打开才能分享",
   shareText:"我用 ScriptDeck 顺滑录完了稿子 🎬 你也来试试：",
   verifyOk:"身份已验证 ✓",
@@ -524,6 +568,23 @@ const I18N = {
   proStatusOn:"Pro membership unlocked",
   proDevOn:"Preview Pro locally (testing)",
   proDevOff:"Turn off Pro preview",
+  scriptLibTitle:"Script library",
+  scriptNew:"＋ New script",
+  scriptNewTitle:"New script",
+  scriptDefaultTitle:"Default script",
+  scriptTitleLabel:"Script title",
+  scriptDelete:"Delete",
+  scriptSelect:"Use",
+  scriptDeleteLast:"Keep at least one script",
+  scriptContentLabel:"Script content",
+  cloudSyncTitle:"Cloud sync · Pro",
+  cloudSyncLocal:"Local mode: scripts are saved only on this device and are not uploaded.",
+  cloudSyncNow:"Sync now",
+  cloudSyncPro:"Cloud sync is a Pro benefit. Upgrade to access your scripts across devices.",
+  cloudSyncOn:"Cloud sync on: your scripts are saved to the cloud and available on any device.",
+  cloudSyncDone:"Synced",
+  cloudSyncErr:"Sync failed, please retry",
+  cloudSyncPending:"Syncing…",
   shareToast:"Please open inside Telegram to share",
   shareText:"I just recorded my script smoothly with ScriptDeck 🎬 Give it a try:",
   verifyOk:"Identity verified ✓",
@@ -608,6 +669,23 @@ const I18N = {
   proStatusOn:"Pro 会員を利用中",
   proDevOn:"ローカルで Pro をプレビュー（テスト用）",
   proDevOff:"Pro プレビューを終了",
+  scriptLibTitle:"原稿ライブラリ",
+  scriptNew:"＋ 新しい原稿",
+  scriptNewTitle:"新しい原稿",
+  scriptDefaultTitle:"既定の原稿",
+  scriptTitleLabel:"原稿タイトル",
+  scriptDelete:"削除",
+  scriptSelect:"選択",
+  scriptDeleteLast:"原稿は最低 1 件残してください",
+  scriptContentLabel:"原稿の内容",
+  cloudSyncTitle:"クラウド同期 · Pro",
+  cloudSyncLocal:"ローカルモード：原稿はこの端末のみに保存され、アップロードされません。",
+  cloudSyncNow:"今すぐ同期",
+  cloudSyncPro:"クラウド同期は Pro 特典です。アップグレードで端末間で原稿を利用できます。",
+  cloudSyncOn:"クラウド同期オン：原稿はクラウドに保存され、どの端末からでも利用できます。",
+  cloudSyncDone:"同期完了",
+  cloudSyncErr:"同期失敗、後でもう一度",
+  cloudSyncPending:"同期中…",
   shareToast:"共有するには Telegram 内で開いてください",
   shareText:"ScriptDeck で原稿をスムーズに読み上げました 🎬 ぜひお試しを：",
   verifyOk:"本人確認済み ✓",
@@ -692,6 +770,23 @@ const I18N = {
   proStatusOn:"Pro 멤버십 사용 중",
   proDevOn:"로컬에서 Pro 미리보기(테스트용)",
   proDevOff:"Pro 미리보기 끄기",
+  scriptLibTitle:"대본 보관함",
+  scriptNew:"＋ 새 대본",
+  scriptNewTitle:"새 대본",
+  scriptDefaultTitle:"기본 대본",
+  scriptTitleLabel:"대본 제목",
+  scriptDelete:"삭제",
+  scriptSelect:"선택",
+  scriptDeleteLast:"대본은 최소 1개 유지하세요",
+  scriptContentLabel:"대본 내용",
+  cloudSyncTitle:"클라우드 동기화 · Pro",
+  cloudSyncLocal:"로컬 모드: 대본은 이 기기에만 저장되며 업로드되지 않습니다.",
+  cloudSyncNow:"지금 동기화",
+  cloudSyncPro:"클라우드 동기화는 Pro 혜택입니다. 업그레이드하면 기기 간 대본을 이용할 수 있어요.",
+  cloudSyncOn:"클라우드 동기화 켜짐: 대본이 클라우드에 저장되어 어떤 기기에서든 이용할 수 있어요.",
+  cloudSyncDone:"동기화됨",
+  cloudSyncErr:"동기화 실패, 다시 시도하세요",
+  cloudSyncPending:"동기화 중…",
   shareToast:"공유하려면 Telegram 내에서 열어주세요",
   shareText:"ScriptDeck으로 대본을 부드럽게 읽었습니다 🎬 한번 써보세요:",
   verifyOk:"신원 확인됨 ✓",
@@ -776,6 +871,23 @@ const I18N = {
   proStatusOn:"Подписка Pro активна",
   proDevOn:"Предпросмотр Pro локально (тест)",
   proDevOff:"Выключить предпросмотр Pro",
+  scriptLibTitle:"Библиотека сценариев",
+  scriptNew:"＋ Новый сценарий",
+  scriptNewTitle:"Новый сценарий",
+  scriptDefaultTitle:"Сценарий по умолчанию",
+  scriptTitleLabel:"Название сценария",
+  scriptDelete:"Удалить",
+  scriptSelect:"Выбрать",
+  scriptDeleteLast:"Оставьте хотя бы один сценарий",
+  scriptContentLabel:"Текст сценария",
+  cloudSyncTitle:"Облачная синхронизация · Pro",
+  cloudSyncLocal:"Локальный режим: сценарии хранятся только на этом устройстве и не загружаются.",
+  cloudSyncNow:"Синхронизировать",
+  cloudSyncPro:"Облачная синхронизация — преимущество Pro. Обновите, чтобы открывать сценарии на любом устройстве.",
+  cloudSyncOn:"Облачная синхронизация включена: сценарии сохраняются в облаке и доступны на любом устройстве.",
+  cloudSyncDone:"Синхронизировано",
+  cloudSyncErr:"Ошибка синхронизации, повторите позже",
+  cloudSyncPending:"Синхронизация…",
   shareToast:"Откройте в Telegram, чтобы поделиться",
   shareText:"Я записал видео по сценарию со ScriptDeck 🎬 Попробуйте и вы:",
   verifyOk:"Личность подтверждена ✓",
@@ -873,9 +985,15 @@ function applyI18n() {
   const rp = document.getElementById('reportDetail'); if (rp) rp.placeholder = t('reportPlaceholder');
   // 默认示例稿随语言切换（提词区 + 设置面板输入框同步）；用户已自定义讲稿则不覆盖
   if (scrollText.dataset.isDefault === '1') {
-    scrollText.textContent = t('defaultScript');
+    const def = t('defaultScript');
+    scrollText.textContent = def;
     const sc = document.getElementById('setScript');
-    if (sc) sc.value = t('defaultScript');
+    if (sc) sc.value = def;
+    // 默认示例稿随语言刷新，同步进当前讲稿对象（标题也复位为「默认讲稿」）
+    const s = activeScript();
+    if (s) { s.content = def; s.updatedAt = 0; }
+    const st = document.getElementById('setScriptTitle');
+    if (st && s) st.value = t('scriptDefaultTitle');
   }
   if (typeof renderSpeedUI === 'function') renderSpeedUI();
   if (typeof renderRank === 'function') renderRank();
@@ -883,7 +1001,10 @@ function applyI18n() {
 }
 
 const defaultState = {
-  script: t('defaultScript'),
+  scripts: [
+    { id: 'default', title: t('scriptDefaultTitle'), content: t('defaultScript'), updatedAt: 0, cloudId: null }
+  ],
+  activeScriptId: 'default',
   fontSize: 44,
   color: '#1f2430',
   align: 'center',
@@ -896,6 +1017,69 @@ const defaultState = {
   reads: 0, // 完整读完讲稿的次数（驱动免费头衔；本地保存，不上传）
   isPro: false // Pro 会员状态（本地缓存；生产以 /payments/pro-status 为准）
 };
+
+// ── 多讲稿助手（数据模型：state.scripts = [{id,title,content,updatedAt,cloudId}]）──
+function uid(){ return 's_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function activeScript(){
+  const arr = state.scripts || [];
+  let s = arr.find(function (x) { return x.id === state.activeScriptId; });
+  if (!s && arr.length) { s = arr[0]; state.activeScriptId = s.id; }
+  return s || null;
+}
+function getActiveContent(){ const s = activeScript(); return s ? s.content : ''; }
+function setActiveContent(v){ const s = activeScript(); if (s) { s.content = v; s.updatedAt = Date.now(); } }
+function setActiveTitle(v){ const s = activeScript(); if (s) { s.title = v; s.updatedAt = Date.now(); } }
+function addScript(){
+  const s = { id: uid(), title: t('scriptNewTitle'), content: '', updatedAt: Date.now(), cloudId: null };
+  state.scripts.push(s); state.activeScriptId = s.id;
+  saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
+}
+function deleteScript(id){
+  if (!state.scripts || state.scripts.length <= 1) { toast(t('scriptDeleteLast')); return; }
+  const s = state.scripts.find(function (x) { return x.id === id; });
+  state.scripts = state.scripts.filter(function (x) { return x.id !== id; });
+  if (state.activeScriptId === id) state.activeScriptId = (state.scripts[0] || {}).id;
+  saveState(); renderScriptList(); loadActiveIntoEditor();
+  // 云端已有该稿 → 一并删除（Pro 已校验走云端）
+  if (s && s.cloudId != null) cloudDelete(s.cloudId);
+  maybeSync();
+}
+function selectScript(id){ state.activeScriptId = id; saveState(); loadActiveIntoEditor(); }
+
+// 把当前讲稿载入编辑器（textarea + 标题 + 提词区 + 默认稿标记）
+function loadActiveIntoEditor(){
+  const s = activeScript();
+  const content = s ? s.content : '';
+  if (setScript) setScript.value = content;
+  if (scrollText) scrollText.textContent = content;
+  const st = document.getElementById('setScriptTitle');
+  if (st) st.value = s ? s.title : '';
+  const isDefault = Object.values(I18N).some(function (d) { return d.defaultScript === content; });
+  if (scrollText) scrollText.dataset.isDefault = isDefault ? '1' : '0';
+}
+// 渲染讲稿库列表（高亮当前、可切换/删除）
+function renderScriptList(){
+  const listEl = document.getElementById('scriptList');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  (state.scripts || []).forEach(function (s) {
+    const row = document.createElement('div');
+    row.className = 'script-row' + (s.id === state.activeScriptId ? ' active' : '');
+    const title = document.createElement('span');
+    title.className = 'script-row-title';
+    title.textContent = s.title || t('scriptNewTitle');
+    title.addEventListener('click', function () { selectScript(s.id); });
+    const del = document.createElement('button');
+    del.className = 'script-row-del';
+    del.textContent = '✕';
+    del.title = t('scriptDelete');
+    del.addEventListener('click', function (e) { e.stopPropagation(); deleteScript(s.id); });
+    row.appendChild(title); row.appendChild(del);
+    listEl.appendChild(row);
+  });
+  const cnt = document.getElementById('scriptCount');
+  if (cnt) cnt.textContent = (state.scripts || []).length + ' · ' + t('scriptSelect');
+}
 
 let state = Object.assign({}, defaultState);
 let cardDataUrl = '';
@@ -938,6 +1122,19 @@ function loadState(){
     const raw = localStorage.getItem(LS_KEY);
     if (raw) { const s = JSON.parse(raw); if (s && typeof s === 'object') state = Object.assign({}, defaultState, s); }
   } catch(e){}
+  // 向后兼容：旧版单篇 state.script → 多讲稿模型（不丢老用户讲稿）
+  if (typeof state.script === 'string' && (!Array.isArray(state.scripts) || state.scripts.length === 0)) {
+    state.scripts = [{ id: 'default', title: t('scriptDefaultTitle'), content: state.script, updatedAt: 0, cloudId: null }];
+    state.activeScriptId = 'default';
+  }
+  delete state.script;
+  if (!Array.isArray(state.scripts) || state.scripts.length === 0) {
+    state.scripts = [{ id: 'default', title: t('scriptDefaultTitle'), content: t('defaultScript'), updatedAt: 0, cloudId: null }];
+    state.activeScriptId = 'default';
+  }
+  if (!state.activeScriptId || !state.scripts.some(function (x) { return x.id === state.activeScriptId; })) {
+    state.activeScriptId = state.scripts[0].id;
+  }
 }
 let saveTimer = null;
 function debounceSave(){
@@ -1068,7 +1265,7 @@ function renderRank(){
 
 /** 滚动到讲稿末尾时调用：累加已完成次数，晋级则提示 */
 function onReadComplete(){
-  const len = String(state.script || '').replace(/\s+/g, '').length;
+  const len = String(getActiveContent() || '').replace(/\s+/g, '').length;
   if (len < MIN_CHARS_FOR_READ) return;
   const before = rankIndexOf(state.reads || 0);
   state.reads = (state.reads || 0) + 1;
@@ -1150,7 +1347,7 @@ function generateCard(){
   ctx.fillText(rkBadge.icon + ' ' + rankNameOf(rkBadge), 1000, 120);
   ctx.textAlign = 'left';
   // 讲稿片段
-  const raw = (state.script || t('defaultScript')).replace(/\s+$/,'');
+  const raw = (getActiveContent() || t('defaultScript')).replace(/\s+$/,'');
   const snippet = raw.slice(0, 240);
   ctx.fillStyle = '#1f2430'; ctx.font = '40px sans-serif'; ctx.textAlign = 'left';
   const lines = wrapText(ctx, snippet, 920);
@@ -1245,6 +1442,105 @@ async function checkProStatus(){
   } catch(e){ renderProState(); }
 }
 
+/* ---------- 云同步（Pro 权益；本地模式自动降级） ---------- */
+function canCloudSync(){
+  return isPro() && !!CONFIG.API_BASE && !!(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData);
+}
+function initDataStr(){ return (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || ''; }
+function enc(s){ return encodeURIComponent(s); }
+
+// 纯函数：把本地讲稿与云端讲稿合并（双向，本地优先解决冲突）。便于单测，不依赖网络。
+// local: [{id,title,content,updatedAt,cloudId}]  cloud: [{id,title,content,updated_at}]
+// 返回 { merged, cloudOnly } —— merged 为合并后本地数组；cloudOnly 为仅云端存在、需回写本地的条目
+function reconcileScripts(local, cloud){
+  const map = {};
+  (local || []).forEach(function (s) { map[s.id] = Object.assign({}, s); });
+  const cloudOnly = [];
+  (cloud || []).forEach(function (c) {
+    const localMatch = (local || []).find(function (s) { return s.cloudId === c.id; });
+    if (localMatch) {
+      // 冲突：本地 newer 保持；云端 newer 覆盖（极少，因我们编辑即上传）
+      if ((localMatch.updatedAt || 0) >= (c.updated_at || 0)) return;
+      map[localMatch.id].title = c.title; map[localMatch.id].content = c.content; map[localMatch.id].updatedAt = c.updated_at;
+    } else {
+      cloudOnly.push(c); // 仅云端：稍后作为新本地条目加入
+    }
+  });
+  return { merged: Object.keys(map).map(function (k) { return map[k]; }), cloudOnly: cloudOnly };
+}
+
+async function cloudList(){
+  const r = await fetch(apiUrl('/scripts') + '?initData=' + enc(initDataStr()));
+  if (!r.ok) throw new Error((await r.json().catch(function(){return{};})).error || ('http_' + r.status));
+  const j = await r.json();
+  return j.scripts || [];
+}
+async function cloudSave(script){
+  const r = await fetch(apiUrl('/scripts'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ initData: initDataStr(), id: script.cloudId != null ? script.cloudId : undefined, title: script.title, content: script.content })
+  });
+  if (!r.ok) throw new Error((await r.json().catch(function(){return{};})).error || ('http_' + r.status));
+  const j = await r.json();
+  return j.script ? j.script.id : null; // 云端返回的 id（新增时）
+}
+async function cloudDelete(cloudId){
+  if (cloudId == null) return;
+  try {
+    await fetch(apiUrl('/scripts'), {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: initDataStr(), id: cloudId })
+    });
+  } catch(e){ /* 删除失败不影响本地 */ }
+}
+
+async function syncScripts(){
+  if (!canCloudSync()) { renderSyncStatus(); return; }
+  renderSyncStatus('pending');
+  try {
+    const cloud = await cloudList();
+    const { merged, cloudOnly } = reconcileScripts(state.scripts, cloud);
+    // 仅云端条目 → 作为本地新讲稿加入（带 cloudId）
+    cloudOnly.forEach(function (c) {
+      merged.push({ id: uid(), title: c.title, content: c.content, updatedAt: c.updated_at, cloudId: c.id });
+    });
+    state.scripts = merged;
+    // 回写本地（新增/更新）→ 拿到 cloudId
+    for (const s of state.scripts) {
+      if (s.cloudId == null || (s.updatedAt || 0) >= (cloud.find(function (c){ return c.id === s.cloudId; }) || {}).updated_at) {
+        const cid = await cloudSave(s);
+        if (cid != null) s.cloudId = cid;
+      }
+    }
+    saveState(); renderScriptList(); loadActiveIntoEditor();
+    renderSyncStatus('done');
+  } catch(e){ renderSyncStatus('err'); }
+}
+
+function renderSyncStatus(stateOpt){
+  const el = document.getElementById('scriptSyncStatus');
+  if (!el) return;
+  if (!CONFIG.API_BASE) { el.textContent = t('cloudSyncLocal'); return; }
+  if (!isPro()) { el.textContent = t('cloudSyncPro'); return; }
+  if (stateOpt === 'pending') { el.textContent = t('cloudSyncPending'); return; }
+  if (stateOpt === 'done') { el.textContent = t('cloudSyncDone'); return; }
+  if (stateOpt === 'err') { el.textContent = t('cloudSyncErr'); return; }
+  el.textContent = t('cloudSyncOn');
+}
+
+let syncTimer = null;
+function maybeSyncDebounced(){
+  if (!canCloudSync()) return;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncScripts, 800);
+}
+function maybeSync(){
+  if (!canCloudSync()) return;
+  syncScripts();
+}
+
 /* ---------- 事件绑定 ---------- */
 // 底部抽屉退出：点遮罩空白处 或 按 ESC 均可关闭，不必强制点「完成」
 document.querySelectorAll('.sheet').forEach(function (sheet) {
@@ -1273,12 +1569,22 @@ btnSpeedUnit.addEventListener('click', function(){
 });
 
 setScript.addEventListener('input', function(e){
-  state.script = e.target.value;
-  scrollText.textContent = state.script;
+  setActiveContent(e.target.value);
+  scrollText.textContent = getActiveContent();
   scrollText.dataset.isDefault = '0'; // 用户已编辑，视为自定义内容，不再随语言切换示例稿
   offset = 0; applyPrompterStyle();
   debounceSave();
+  maybeSyncDebounced();
 });
+const setScriptTitle = document.getElementById('setScriptTitle');
+if (setScriptTitle) setScriptTitle.addEventListener('input', function(e){
+  setActiveTitle(e.target.value);
+  renderScriptList(); debounceSave(); maybeSyncDebounced();
+});
+const btnNewScript = document.getElementById('btnNewScript');
+if (btnNewScript) btnNewScript.addEventListener('click', function(){ addScript(); });
+const btnSyncNow = document.getElementById('btnSyncNow');
+if (btnSyncNow) btnSyncNow.addEventListener('click', function(){ syncScripts(); });
 setFontSize.addEventListener('input', function(e){
   state.fontSize = +e.target.value;
   setFontSizeLabel.textContent = state.fontSize + 'px';
@@ -1348,12 +1654,8 @@ function init(){
   loadState();
   initTelegram();
 
-  // 还原 DOM
-  setScript.value = state.script;
-  scrollText.textContent = state.script;
-  // 标记提词区是否为默认示例稿：是则语言切换时跟随语言刷新示例（用户自定义内容不覆盖）
-  const isDefaultScript = Object.values(I18N).some(function (d) { return d.defaultScript === state.script; });
-  scrollText.dataset.isDefault = isDefaultScript ? '1' : '0';
+  // 还原 DOM（多讲稿：载入当前讲稿进编辑器）
+  loadActiveIntoEditor();
   setFontSize.value = state.fontSize;
   setFontSizeLabel.textContent = state.fontSize + 'px';
   setColor.value = state.color;
@@ -1368,6 +1670,9 @@ function init(){
 
   // P7：多语言 + 关于/举报入口
   applyI18n();
+  // 多讲稿：渲染讲稿库列表 + 云同步状态
+  renderScriptList();
+  renderSyncStatus();
   // 广告位：默认隐藏；开关打开时展示预留容器（实际素材由后续 ads SDK 注入）
   if (CONFIG.AD_SLOTS_ENABLED) {
     var s1 = document.getElementById('adSlotSettings'); if (s1) s1.hidden = false;

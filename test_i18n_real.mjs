@@ -128,11 +128,11 @@ selRank.value = 'en'; selRank.dispatchEvent(new window.Event('change'));
 const rk3en = rankAt(3);
 selRank.value = 'zh'; selRank.dispatchEvent(new window.Event('change'));
 // 短稿不计次
-window.eval(`state.reads = 0; state.script = '短稿'; renderRank();`);
+window.eval(`state.reads = 0; activeScript().content = '短稿'; renderRank();`);
 window.eval('onReadComplete()');
 const readsAfterShort = window.eval('state.reads');
 // 长稿计次 + 跨门槛晋级提示
-window.eval(`state.reads = 2; state.script = '${'这是用来测试朗读计次的讲稿内容。'.repeat(8)}'; renderRank();`);
+window.eval(`state.reads = 2; activeScript().content = '${'这是用来测试朗读计次的讲稿内容。'.repeat(8)}'; renderRank();`);
 window.eval('onReadComplete()');
 const readsAfterLong = window.eval('state.reads');
 const rankAfterLong = doc.getElementById('rankName').textContent;
@@ -189,6 +189,49 @@ console.log('--- Pro 去水印高清导出策略 ---');
 console.log('免费:', JSON.stringify(optFree), '| Pro:', JSON.stringify(optPro), '| isPro(false/true):', isProFalse, isProTrue);
 console.log('本地预览按钮可见:', devVisible, '| 文案:', devLabel, '| 点击切换:', afterClickPro, '->', afterClickBack);
 
+// ---- 多讲稿数据模型（state.scripts + 切换/新建/删除，至少保留 1 篇）----
+window.eval(`state.scripts=[{id:'a',title:'稿一',content:'内容一',updatedAt:1,cloudId:null},{id:'b',title:'稿二',content:'内容二',updatedAt:2,cloudId:null}]; state.activeScriptId='a'; saveState(); loadActiveIntoEditor();`);
+const msA = doc.getElementById('setScript').value;
+const msATitle = doc.getElementById('setScriptTitle').value;
+window.eval(`selectScript('b');`);
+const msB = doc.getElementById('setScript').value;
+window.eval(`addScript();`);
+const msAdd = window.eval('state.scripts.length');
+const msNewTitle = window.eval('activeScript().title');
+window.eval(`deleteScript(activeScript().id);`);
+const msDel = window.eval('state.scripts.length');
+window.eval(`state.scripts.slice().forEach(function(s){ if(state.scripts.length>1) deleteScript(s.id); });`);
+const msFinal = window.eval('state.scripts.length');
+const p13 = msA === '内容一' && msATitle === '稿一' && msB === '内容二' && msAdd === 3 && msNewTitle === window.eval('t("scriptNewTitle")') && msDel === 2 && msFinal === 1;
+
+// ---- reconcileScripts 纯函数：本地+云端合并、冲突本地优先、云端独有回写 ----
+const rec = window.eval(`JSON.stringify(reconcileScripts(
+  [{id:'a',title:'本地A',content:'cA',updatedAt:10,cloudId:null},{id:'b',title:'本地B',content:'cB',updatedAt:5,cloudId:1}],
+  [{id:1,title:'云B',content:'云cB',updated_at:3},{id:2,title:'云C',content:'云cC',updated_at:9}]
+))`);
+const recObj = JSON.parse(rec);
+const rec2 = window.eval(`JSON.stringify(reconcileScripts(
+  [{id:'b',title:'本地B',content:'cB',updatedAt:2,cloudId:1}],
+  [{id:1,title:'云B新',content:'云cB新',updated_at:99}]
+))`);
+const rec2Obj = JSON.parse(rec2);
+const p14 = recObj.merged.length === 2 && recObj.cloudOnly.length === 1 && recObj.cloudOnly[0].id === 2
+  && rec2Obj.merged.length === 1 && rec2Obj.merged[0].content === '云cB新' && rec2Obj.cloudOnly.length === 0;
+
+// ---- 云同步门禁：未接后端 / 非 Pro 均不可同步；Pro+后端+Telegram 才可 ----
+const gNoBackend = window.eval('CONFIG.API_BASE=""; state.isPro=true; isPro() && !!CONFIG.API_BASE');
+const gNoPro = window.eval('CONFIG.API_BASE="https://x.test"; state.isPro=false; isPro() && !!CONFIG.API_BASE');
+window.Telegram = { WebApp: { initData: 'x' } };
+const gProBackend = window.eval('CONFIG.API_BASE="https://x.test"; state.isPro=true; isPro() && !!CONFIG.API_BASE && !!(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData)');
+delete window.Telegram;
+window.eval('CONFIG.API_BASE=""; state.isPro=false;');
+const p15 = gNoBackend === false && gNoPro === false && gProBackend === true;
+
+console.log('--- 多讲稿 / 云同步 ---');
+console.log('多讲稿(切换/新建/删除保底):', msA, '|', msB, '| 新建后', msAdd, '| 删后', msDel, '| 终', msFinal);
+console.log('reconcile:', 'merged', recObj.merged.length, 'cloudOnly', recObj.cloudOnly.length, '| 冲突重写', rec2Obj.merged[0].content);
+console.log('云同步门禁 无后端/非Pro/Pro+后端:', gNoBackend, gNoPro, gProBackend);
+
 console.log('\n=== 结论 ===');
 console.log('0) 脚本无运行时错误:', p0 ? '✅' : '❌ ' + errors.join('; '));
 console.log('1) 设置面板输入框随语言切换 & 自定义稿保留:', p1 ? '✅' : '❌');
@@ -203,6 +246,9 @@ console.log('9) 阅读等级(5 档/多语/短稿不计次/晋级提示):', p9 ? 
 console.log('10) Pro 去水印高清导出策略(免费1×带水印 / Pro2×去水印):', p10 ? '✅' : '❌');
 console.log('11) 本地预览按钮可见且文案正确:', p11 ? '✅' : '❌');
 console.log('12) 本地预览按钮点击切换 isPro:', p12 ? '✅' : '❌');
-const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12;
+console.log('13) 多讲稿数据模型(切换/新建/删除保底):', p13 ? '✅' : '❌');
+console.log('14) reconcileScripts 合并/冲突/云端独有:', p14 ? '✅' : '❌');
+console.log('15) 云同步门禁(无后端/非Pro 不可，Pro+后端可):', p15 ? '✅' : '❌');
+const allOk = p0 && p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && p9 && p10 && p11 && p12 && p13 && p14 && p15;
 console.log('总体:', allOk ? '✅ 全部通过' : '❌ 存在失败项');
 process.exit(allOk ? 0 : 1);

@@ -30,6 +30,7 @@ export async function signInitData(botToken, userId) {
 // ── mock D1（prepare/bind/run/first/all + autoincrement lastRowId）──
 export function makeMockDB() {
   const scripts = [];        // {id,user_id,title,content,updated_at}
+  const pro = [];            // {user_id, expires_at}
   const remote = [];         // {id,owner_user_id,session_token,last_command,created_at,updated_at}
   let sid = 0, rid = 0;
 
@@ -56,6 +57,16 @@ export function makeMockDB() {
       const [title, content, updated_at, id, userId] = p;
       const s = scripts.find((x) => x.id === id && x.user_id === userId);
       if (s) { s.title = title; s.content = content; s.updated_at = updated_at; r.changes = 1; }
+    } else if (sql.includes('INSERT INTO users_pro')) {
+      const [userId, expiresAt] = p;
+      const existing = pro.find((x) => x.user_id === userId);
+      if (existing) { existing.expires_at = expiresAt; }
+      else pro.push({ user_id: userId, expires_at: expiresAt });
+      r.changes = 1;
+    } else if (sql.includes('FROM users_pro WHERE')) {
+      const [userId, now] = p;
+      const row = pro.find((x) => x.user_id === userId && x.expires_at > now);
+      r.row = row || null;
     } else if (sql.includes('INSERT INTO remote_sessions')) {
       const [ownerUserId, token, lastCommand, createdAt, updatedAt] = p;
       const id = ++rid;
@@ -83,7 +94,16 @@ export function makeMockDB() {
     };
   }
 
-  return { prepare };
+  return {
+    prepare,
+    // 仅供本地测试：为用户授予 Pro（默认 30 天），模拟 payments webhook 写入 users_pro
+    grantPro(userId, days = 30) {
+      const expiresAt = Date.now() + days * 86400000;
+      const existing = pro.find((x) => x.user_id === userId);
+      if (existing) existing.expires_at = expiresAt;
+      else pro.push({ user_id: userId, expires_at: expiresAt });
+    },
+  };
 }
 
 export function makeEnv() {

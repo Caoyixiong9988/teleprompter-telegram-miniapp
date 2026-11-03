@@ -64,6 +64,15 @@ class D1EnhanceStore {
     return (info.meta?.changes ?? 0) > 0;
   }
 
+  // ── users_pro（与 payments 同 D1；云同步是 Pro 权益，未订阅禁止读写）──
+  async getProStatus(userId) {
+    const row = await this.db
+      .prepare('SELECT user_id, expires_at FROM users_pro WHERE user_id = ? AND expires_at > ?')
+      .bind(userId, Date.now())
+      .first();
+    return !!row;
+  }
+
   // ── remote_sessions ──
   async createSession({ ownerUserId, sessionToken, createdAt }) {
     await this.db
@@ -145,13 +154,14 @@ async function handle(request, env) {
     return json({ templates: TEMPLATES });
   }
 
-  // ── A) 台词云端同步 ──
+  // ── A) 台词云端同步（Pro 权益：未订阅禁止读写，避免非付费占用云存储）──
   if (path === '/scripts') {
     if (request.method === 'GET') {
       const initData = url.searchParams.get('initData') || '';
       const a = await authUser(initData, env);
       if (!a.ok) return json({ error: a.error }, a.status);
       const store = new D1EnhanceStore(env.DB);
+      if (!(await store.getProStatus(a.userId))) return json({ error: 'pro_required' }, 403);
       const list = await store.listScripts(a.userId);
       return json({ scripts: list });
     }
@@ -162,6 +172,7 @@ async function handle(request, env) {
       const { id, title, content } = body;
       if (!title || content == null) return json({ error: 'missing_fields' }, 400);
       const store = new D1EnhanceStore(env.DB);
+      if (!(await store.getProStatus(a.userId))) return json({ error: 'pro_required' }, 403);
       const now = Date.now();
       if (id != null) {
         const existing = await store.getScript(id);
@@ -177,9 +188,10 @@ async function handle(request, env) {
       const body = await readJson(request);
       const a = await authUser(body.initData, env);
       if (!a.ok) return json({ error: a.error }, a.status);
+      const store = new D1EnhanceStore(env.DB);
+      if (!(await store.getProStatus(a.userId))) return json({ error: 'pro_required' }, 403);
       const { id } = body;
       if (id == null) return json({ error: 'missing_id' }, 400);
-      const store = new D1EnhanceStore(env.DB);
       const existing = await store.getScript(id);
       if (!existing) return json({ error: 'not_found' }, 404);
       if (existing.user_id !== a.userId) return json({ error: 'forbidden' }, 403); // 所有权校验

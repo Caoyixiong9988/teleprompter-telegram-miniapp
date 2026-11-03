@@ -8,6 +8,29 @@
 
 ---
 
+## 2026-11-03 · feat — 多讲稿管理 + 云同步（Pro 权益 #2 落地）；澄清"云"的归属
+
+**改了什么**
+
+- **数据模型重构（单篇 → 多讲稿）**：`state.script`（单字符串）升级为 `state.scripts` 数组 `[{id,title,content,updatedAt,cloudId}]` + `state.activeScriptId`；旧版单篇自动迁移，不丢老用户讲稿。新增助手 `activeScript / getActiveContent / setActiveContent / setActiveTitle / addScript / deleteScript / selectScript / loadActiveIntoEditor / renderScriptList`。
+- **讲稿库 UI**（设置面板）：讲稿列表（高亮当前、点标题切换、点 ✕ 删除，至少保留 1 篇）、「＋ 新建讲稿」、讲稿标题输入框；讲稿内容编辑实时同步当前讲稿。
+- **云同步（Pro 权益，本地模式自动降级）**：纯函数 `reconcileScripts` 做本地↔云端双向合并（本地优先解决冲突、云端独有回写本地）；`syncScripts / cloudList / cloudSave / cloudDelete / canCloudSync / maybeSyncDebounced` 负责增删改即时同步与启动拉取。`renderSyncStatus` 区分：本地模式 / 非 Pro 提示升级 / 已开启 / 同步中 / 完成 / 失败。
+- **后端 /scripts 加 Pro 门禁**（`p6-enhance/enhance-worker.js` + `schema.sql` 复用 `users_pro`）：未订阅 Pro 访问云端同步一律 `403 pro_required`（GET/POST/DELETE 三路由均在验签后校验），避免非付费占用云存储；mock D1 与 `test-scripts.mjs` 同步加 `users_pro` 与用例。
+- **五语 i18n 新增 17 键**（讲稿库 / 云同步相关），键集保持各 **113 键**一致；新增 `.script-list` 等样式。
+
+**为什么**
+
+- 用户要求先实现「多讲稿 + 云同步」。顺带澄清一个误解：提词器的"云"**不是用户在 Telegram 上租的空间**——Telegram Mini App 不提供这种云存储；我们的云同步是**自建后端（Cloudflare Workers + D1）**，按用户 Telegram `user_id` 隔离存储讲稿，属于我们提供给用户的 Pro 服务。
+
+**怎么验证**
+
+- `npm test` → **62/62**（新增后端 `p6-enhance/test-scripts.mjs` Pro 门禁用例；前端 `test_i18n_real.mjs` 新增第 13/14/15 项：多讲稿数据模型、reconcileScripts 合并、云同步门禁）。
+- 局限：jsdom 无 canvas、且本机未部署后端，真实"上传/下载到云端"需部署 `wrangler deploy` 后在 Telegram 内真机验证；本地/未配置后端时云同步正确降级为"本地模式"。
+
+**涉及文件**：`index.html`、`p6-enhance/enhance-worker.js`、`p6-enhance/test-scripts.mjs`、`p6-enhance/test-helpers.mjs`、`test_i18n_real.mjs`、`schema.sql`、`CHANGELOG.md`、`【功能清单】…md`
+
+---
+
 ## 2026-11-03 · feat — 实现 Pro「去水印 + 高清导出」成片卡（首个真正可用的 Pro 权益）
 
 **改了什么**

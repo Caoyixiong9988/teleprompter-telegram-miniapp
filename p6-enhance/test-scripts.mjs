@@ -24,8 +24,22 @@ function req(overEnv, method, path, body, query) {
   return worker.fetch(new Request(url, init), overEnv || ENV);
 }
 
+test('0) 非 Pro 用户访问 /scripts 一律 403（云同步为 Pro 权益）', async () => {
+  const init = await signInitData(BOT_TOKEN, 'u_free');
+  const post = await req(ENV, 'POST', '/scripts', { initData: init, title: 't', content: 'c' });
+  assert.equal(post.status, 403);
+  assert.equal((await post.json()).error, 'pro_required');
+
+  const get = await req(ENV, 'GET', '/scripts', null, 'initData=' + encodeURIComponent(init));
+  assert.equal(get.status, 403);
+
+  const del = await req(ENV, 'DELETE', '/scripts', { initData: init, id: 1 });
+  assert.equal(del.status, 403);
+});
+
 test('1) save → list 往返：新增台词可被本人列出', async () => {
   const init = await signInitData(BOT_TOKEN, 'u_scripts_1');
+  ENV.DB.grantPro('u_scripts_1');
   const save = await req(ENV, 'POST', '/scripts', { initData: init, title: '稿A', content: '内容A' });
   assert.equal(save.status, 200);
   const saved = (await save.json()).script;
@@ -41,6 +55,7 @@ test('1) save → list 往返：新增台词可被本人列出', async () => {
 
 test('2) upsert：传 id 更新已有台词内容', async () => {
   const init = await signInitData(BOT_TOKEN, 'u_scripts_2');
+  ENV.DB.grantPro('u_scripts_2');
   const s1 = (await req(ENV, 'POST', '/scripts', { initData: init, title: '稿B', content: '旧内容' }).then((r) => r.json())).script;
   const s2 = (await req(ENV, 'POST', '/scripts', { initData: init, id: s1.id, title: '稿B改', content: '新内容' }).then((r) => r.json())).script;
   assert.equal(s2.id, s1.id, '应原地更新同一行');
@@ -67,6 +82,7 @@ test('3) 非法 initData（篡改 hash）→ 401', async () => {
 test('4) 删除强制执行所有权：他人不能删我的台词', async () => {
   const owner = await signInitData(BOT_TOKEN, 'u_owner');
   const other = await signInitData(BOT_TOKEN, 'u_other');
+  ENV.DB.grantPro('u_owner');
 
   const s = (await req(ENV, 'POST', '/scripts', { initData: owner, title: '我的稿', content: '私密' }).then((r) => r.json())).script;
 
