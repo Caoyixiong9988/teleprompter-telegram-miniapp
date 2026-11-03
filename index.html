@@ -1092,6 +1092,13 @@ function generateCard(){
   // 分隔线
   ctx.strokeStyle = '#e3e6ec'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(80, 210); ctx.lineTo(1000, 210); ctx.stroke();
+  // 阅读等级徽章（免费头衔）：右上角，随当前界面语言
+  const rkBadge = RANKS[rankIndexOf(state.reads || 0)];
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#2f6fed';
+  ctx.font = 'bold 36px sans-serif';
+  ctx.fillText(rkBadge.icon + ' ' + rankNameOf(rkBadge), 1000, 120);
+  ctx.textAlign = 'left';
   // 讲稿片段
   const raw = (state.script || t('defaultScript')).replace(/\s+$/,'');
   const snippet = raw.slice(0, 240);
