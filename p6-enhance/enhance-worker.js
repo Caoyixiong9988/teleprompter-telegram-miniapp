@@ -14,12 +14,60 @@
  *   - 模板库只放"中性口播框架"，不含绝对化承诺用语
  *   - 远程控制只是设备间播放指令中转，绝不涉及 P2P 转账 / 赌博
  *   - secret（BOT_TOKEN / ADMIN_SECRET）保持占位，部署时由 wrangler secret put 注入
+ *
+ * 存储防护（2026-11-10）：/scripts POST 是唯一能让用户无上限写 D1 的入口。
+ * 未加限制时单篇可塞到 D1 单行上限 2 MB、篇数不限，足以撑爆免费额度或被恶意刷量。
+ * 现按「请求体 → 字段类型 → 字段字节数 → 每用户篇数」四层拦截，且只作用于新增。
  */
 
 import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
 import { TEMPLATES } from './templates.js';
 
 const ALLOWED_CMDS = ['play', 'pause', 'speed'];
+
+// ── /scripts 写入配额（防撑爆 D1 免费额度 / 恶意刷量）──
+// 按 UTF-8 字节而非 JS 字符数计算：中文 3 字节/字，与 D1 实际占用一致。
+// 请求体上限留出 JSON 转义（最坏约 2 倍）与 initData 的开销，避免误拒合法长稿。
+const SCRIPT_LIMITS = Object.freeze({
+  MAX_CONTENT_BYTES: 100 * 1024,  // 单篇正文 100 KiB
+  MAX_TITLE_BYTES:   1024,        // 标题 1 KiB
+  MAX_PER_USER:      200,         // 每用户最多 200 篇
+  MAX_BODY_BYTES:    256 * 1024,  // 整个请求体 256 KiB
+});
+
+function utf8Bytes(s) {
+  return new TextEncoder().encode(s).length;
+}
+
+/**
+ * 仅供 /scripts POST 使用：先用 Content-Length 快速拒绝明显超大的请求，
+ * 再读文本按实际 UTF-8 字节数复核（防伪造 header / chunked 无长度）。
+ * 其他路由继续用 readJson()，行为保持不变。
+ */
+async function readJsonLimited(request, maxBytes) {
+  const declared = Number(request.headers.get('content-length') || 0);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    return { ok: false, status: 413, error: 'payload_too_large' };
+  }
+  let raw;
+  try {
+    raw = await request.text();
+  } catch {
+    return { ok: false, status: 400, error: 'invalid_body' };
+  }
+  if (utf8Bytes(raw) > maxBytes) {
+    return { ok: false, status: 413, error: 'payload_too_large' };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, status: 400, error: 'invalid_body' };
+    }
+    return { ok: true, body: parsed };
+  } catch {
+    return { ok: false, status: 400, error: 'invalid_body' };
+  }
+}
 
 // ── D1 Store 适配器（实现 P6 所需的 scripts / remote_sessions 读写）──
 class D1EnhanceStore {
@@ -28,6 +76,13 @@ class D1EnhanceStore {
   }
 
   // ── scripts ──
+  async countScripts(userId) {
+    const row = await this.db
+      .prepare('SELECT COUNT(*) AS n FROM scripts WHERE user_id = ?')
+      .bind(userId)
+      .first();
+    return Number(row?.n ?? 0);
+  }
   async listScripts(userId) {
     const rows = await this.db
       .prepare('SELECT id, user_id, title, content, updated_at FROM scripts WHERE user_id = ? ORDER BY updated_at DESC')
@@ -166,11 +221,23 @@ async function handle(request, env) {
       return json({ scripts: list });
     }
     if (request.method === 'POST') {
-      const body = await readJson(request);
+      const parsed = await readJsonLimited(request, SCRIPT_LIMITS.MAX_BODY_BYTES);
+      if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+      const body = parsed.body;
       const a = await authUser(body.initData, env);
       if (!a.ok) return json({ error: a.error }, a.status);
       const { id, title, content } = body;
       if (!title || content == null) return json({ error: 'missing_fields' }, 400);
+      // 类型校验必须先于字节校验：非字符串会绕过 utf8Bytes，且会以异常值写入 D1。
+      if (typeof title !== 'string' || typeof content !== 'string') {
+        return json({ error: 'invalid_fields' }, 400);
+      }
+      if (utf8Bytes(title) > SCRIPT_LIMITS.MAX_TITLE_BYTES) {
+        return json({ error: 'title_too_long' }, 400);
+      }
+      if (utf8Bytes(content) > SCRIPT_LIMITS.MAX_CONTENT_BYTES) {
+        return json({ error: 'content_too_long' }, 400);
+      }
       const store = new D1EnhanceStore(env.DB);
       if (!(await store.getProStatus(a.userId))) return json({ error: 'pro_required' }, 403);
       const now = Date.now();
@@ -180,6 +247,10 @@ async function handle(request, env) {
         if (existing.user_id !== a.userId) return json({ error: 'forbidden' }, 403); // 越权拒删/改
         const updated = await store.updateScript({ id, userId: a.userId, title, content, updatedAt: now });
         return json({ script: updated });
+      }
+      // 仅新增消耗配额；更新已有讲稿不受篇数上限影响。
+      if ((await store.countScripts(a.userId)) >= SCRIPT_LIMITS.MAX_PER_USER) {
+        return json({ error: 'script_limit_reached', limit: SCRIPT_LIMITS.MAX_PER_USER }, 409);
       }
       const created = await store.insertScript({ userId: a.userId, title, content, updatedAt: now });
       return json({ script: created });

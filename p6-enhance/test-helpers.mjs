@@ -46,6 +46,9 @@ export function makeMockDB() {
       r.results = scripts
         .filter((s) => s.user_id === userId)
         .sort((a, b) => b.updated_at - a.updated_at || b.id - a.id);
+    } else if (sql.includes('SELECT COUNT(*) AS n FROM scripts WHERE user_id')) {
+      const [userId] = p;
+      r.row = { n: scripts.filter((s) => s.user_id === userId).length };
     } else if (sql.includes('DELETE FROM scripts')) {
       const [id, userId] = p;
       const idx = scripts.findIndex((x) => x.id === id && x.user_id === userId);

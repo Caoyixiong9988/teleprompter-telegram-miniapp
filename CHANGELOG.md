@@ -8,6 +8,38 @@
 
 ---
 
+## 2026-11-10 · fix — /scripts 写入配额与长度上限（防撑爆 D1 免费额度）
+
+**改了什么**
+- 后端 `p6-enhance/enhance-worker.js`：`/scripts POST` 新增四层拦截（只作用于该路由，其余路由行为不变）
+  1. 请求体 ≤ 256 KiB：`readJsonLimited()` 先按 Content-Length 快速拒绝，再按 `TextEncoder` 实测 UTF-8 字节复核（防伪造 header / chunked 无长度），超限 413 `payload_too_large`。
+  2. 字段类型：`title` / `content` 必须为字符串，否则 400 `invalid_fields`（防非字符串绕过字节计算、防异常值写入 D1）。
+  3. 长度：正文 ≤ 100 KiB、标题 ≤ 1 KiB（按 UTF-8 字节，中文 3 字节/字），超限 400 `content_too_long` / `title_too_long`。
+  4. 每用户 ≤ 200 篇：`D1EnhanceStore.countScripts()` 走 `SELECT COUNT(*) ... WHERE user_id = ?`，**仅新增时检查**，超限 409 `script_limit_reached`（响应带 `limit`）；更新已有讲稿不消耗配额。
+  - 校验顺序：读体 → 验签 → 字段类型/长度 → Pro 门禁 → 配额 → 写库。非法 initData 仍 401、非 Pro 仍 403、越权读写仍 403。
+- 前端 `index.html`：
+  - `syncScripts()` 单篇失败时停止后续上传，但**仍执行 `saveState()`** 把已成功拿到的 `cloudId` 落盘，再抛出错误。修掉「限流后刷新页面重复新增 → 再次撞上限」的死循环。
+  - `renderSyncStatus('err', detail)` 把后端 error code 附在状态文案后，便于诊断（不再只有笼统的「同步失败」）。
+  - 五语 `proB5` 由「无限讲稿数量」改为「本地讲稿不限量 · 云同步最多 200 篇」；只改值不加键，键集仍各 155 键。
+- 测试：`p6-enhance/test-helpers.mjs` 的 mock D1 支持 `SELECT COUNT(*) AS n FROM scripts WHERE user_id`；`p6-enhance/test-scripts.mjs` 新增 7 项（5–11）：正文超长且不落库、100 KiB 边界值、标题超长、非字符串绕过、请求体超 413、200 篇配额（边界/409/更新/删除恢复/按用户隔离）、鉴权顺序不被破坏。
+
+**为什么**
+`/scripts POST` 此前只校验 `!title || content == null`，单篇可塞到 D1 单行上限 2 MB、篇数不限，是免费额度被撑爆 / 被恶意刷的真实入口；且此前全部测试都跑在本地 mock 上，从未在真实后端约束下验证过——与此前「积分异常增加数百分」属同类问题。
+
+**怎么验证**
+- `npm test` → **70/70**（原 63 + 新增 7）
+- `node test_i18n_real.mjs` → **32/32 全部通过**，五语键集各 155 键
+- ⚠️ 仍为本地 mock：真实 Cloudflare D1 的 `COUNT(*)` 行数计费、256 KiB 请求体在 Workers 运行时的行为、以及真机上的超限提示，需 `wrangler deploy` 后在 Telegram 内验证。
+
+**涉及文件**
+`p6-enhance/enhance-worker.js` / `p6-enhance/test-helpers.mjs` / `p6-enhance/test-scripts.mjs` / `index.html` / `CHANGELOG.md`
+
+**仍待处理（本次未涉及）**
+- 「积分异常增加数百分」的成因未查明。
+- 后端从未部署：`wrangler.toml` 的 `database_id`、`BOT_TOKEN` 等仍是占位符，`API_BASE` 为空，云同步当前在前端降级为「本地模式」。
+
+---
+
 ## 2026-11-04 · feat — 语音跟随滚动（Pro 权益 #5 · 六项全部落地）
 
 **改了什么**

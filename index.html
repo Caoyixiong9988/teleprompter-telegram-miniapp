@@ -384,7 +384,7 @@
           <li data-i18n="proB2">去水印 · 高清导出完成卡</li>
           <li data-i18n="proB3">跨设备云同步讲稿</li>
           <li data-i18n="proB4">遥控器 / 远程预览</li>
-          <li data-i18n="proB5">无限讲稿数量</li>
+          <li data-i18n="proB5">本地讲稿不限量 · 云同步最多 200 篇</li>
           <li data-i18n="proB6">字幕导出</li>
         </ul>
       </div>
@@ -639,7 +639,7 @@ const I18N = {
   proB2:'导出无水印高清成片卡',
   proB3:'讲稿跨设备云同步',
   proB4:'双设备遥控：用手机控制另一台设备上的提词',
-  proB5:'无限讲稿数量',
+  proB5:'本地讲稿不限量 · 云同步最多 200 篇',
   proB6:'字幕与文本导出（SRT / TXT）',
   proFreeTitle:"免费版包含",
   proF1:"基础提词滚动、字号 / 颜色 / 对齐",
@@ -782,7 +782,7 @@ const I18N = {
   proB2:'Watermark-free high-resolution card export',
   proB3:'Cloud sync for scripts across devices',
   proB4:'Two-device remote: control the prompter from your phone',
-  proB5:'Unlimited scripts',
+  proB5:'Unlimited local scripts · up to 200 synced',
   proB6:'Caption and text export (SRT / TXT)',
   proFreeTitle:"Free plan includes",
   proF1:"Basic scrolling, font / color / alignment",
@@ -925,7 +925,7 @@ const I18N = {
   proB2:'ウォーターマークなしの高画質カード書き出し',
   proB3:'原稿の端末間クラウド同期',
   proB4:'2台リモート操作：スマホから別端末のプロンプターを操作',
-  proB5:'原稿数の上限なし',
+  proB5:'ローカル原稿は無制限・クラウド同期は最大 200 件',
   proB6:'字幕・テキスト書き出し（SRT / TXT）',
   proFreeTitle:"無料プランに含まれるもの",
   proF1:"基本スクロール、文字サイズ / 色 / 配置",
@@ -1068,7 +1068,7 @@ const I18N = {
   proB2:'워터마크 없는 고화질 카드 내보내기',
   proB3:'대본 기기 간 클라우드 동기화',
   proB4:'2대 원격 제어: 휴대폰으로 다른 기기의 프롬프터 조작',
-  proB5:'대본 수 무제한',
+  proB5:'로컬 대본 무제한 · 클라우드 동기화 최대 200개',
   proB6:'자막·텍스트 내보내기 (SRT / TXT)',
   proFreeTitle:"무료 플랜 포함",
   proF1:"기본 스크롤, 글자 크기 / 색상 / 정렬",
@@ -1211,7 +1211,7 @@ const I18N = {
   proB2:'Экспорт карточки в высоком качестве без водяного знака',
   proB3:'Облачная синхронизация сценариев между устройствами',
   proB4:'Пульт с двух устройств: управляйте суфлёром с телефона',
-  proB5:'Без ограничения числа сценариев',
+  proB5:'Локальных сценариев без ограничений · до 200 в облачной синхронизации',
   proB6:'Экспорт субтитров и текста (SRT / TXT)',
   proFreeTitle:"Что входит в бесплатную версию",
   proF1:"Базовая прокрутка, размер шрифта / цвет / выравнивание",
@@ -2102,25 +2102,31 @@ async function syncScripts(){
     });
     state.scripts = merged;
     // 回写本地（新增/更新）→ 拿到 cloudId
+    // 单篇失败（如后端 409 配额已满 / 400 正文超长）时停止后续上传，
+    // 但必须把已成功拿到 cloudId 的部分落盘，否则刷新后会重复新增、再次撞上限。
+    let syncError = null;
     for (const s of state.scripts) {
       if (s.cloudId == null || (s.updatedAt || 0) >= (cloud.find(function (c){ return c.id === s.cloudId; }) || {}).updated_at) {
-        const cid = await cloudSave(s);
-        if (cid != null) s.cloudId = cid;
+        try {
+          const cid = await cloudSave(s);
+          if (cid != null) s.cloudId = cid;
+        } catch (e) { syncError = e; break; }
       }
     }
     saveState(); renderScriptList(); loadActiveIntoEditor();
+    if (syncError) throw syncError;
     renderSyncStatus('done');
-  } catch(e){ renderSyncStatus('err'); }
+  } catch(e){ renderSyncStatus('err', e && e.message ? e.message : ''); }
 }
 
-function renderSyncStatus(stateOpt){
+function renderSyncStatus(stateOpt, detailOpt){
   const el = document.getElementById('scriptSyncStatus');
   if (!el) return;
   if (!CONFIG.API_BASE) { el.textContent = t('cloudSyncLocal'); return; }
   if (!isPro()) { el.textContent = t('cloudSyncPro'); return; }
   if (stateOpt === 'pending') { el.textContent = t('cloudSyncPending'); return; }
   if (stateOpt === 'done') { el.textContent = t('cloudSyncDone'); return; }
-  if (stateOpt === 'err') { el.textContent = t('cloudSyncErr'); return; }
+  if (stateOpt === 'err') { el.textContent = t('cloudSyncErr') + (detailOpt ? ' · ' + detailOpt : ''); return; }
   el.textContent = t('cloudSyncOn');
 }
 
