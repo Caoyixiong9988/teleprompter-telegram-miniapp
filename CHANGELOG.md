@@ -8,6 +8,27 @@
 
 ---
 
+## 2026-11-11 · feat — 前端接通 Telegram Stars 官方收银台 + Bot API 测试环境可配置
+
+**为什么**：此前「升级 Pro」按钮只弹「即将上线」，后端 `/payments/invoice` 与 webhook 记账虽已写好并测过，但用户没有任何入口真的付钱——等于零收入。另外 `README_deploy.md §9.4` 与 `payments-client.js` 的示例仍写 `credits_pro` 积分包，照抄会买了积分却不解锁 Pro。
+
+**改了什么**
+- **单文件内接通收银台**：Pro 权益页月付／年付可点选（默认月付，避免误买 4000⭐），点「升级 Pro」→ 带 `initData` 请求 `/payments/invoice` → `Telegram.WebApp.openInvoice()` 拉起官方付款弹窗 → 处理 paid / cancelled / failed / pending。
+- **权益红线**：`openInvoice` 回调报 `paid` **绝不**直接写 `state.isPro`；只通过 `confirmProAfterPay()` 轮询 `/payments/pro-status` 由服务端确认（webhook 落库可能滞后，按 0 / 0.8 / 1.6 / 2.4 秒回查）。
+- **商品白名单**：`proProductId()` 只放行 `pro_month` / `pro_year`，用 `hasOwnProperty` 挡住 `__proto__` 等原型链键；修正文档与注释里的 `credits_pro` 示例。
+- **前置降级**：未配 `API_BASE` / 不在 Telegram / 无 `initData` / 旧版客户端无 `openInvoice` 时给出对应提示且**不发请求**；下单失败、取消、客户端抛错都恢复按钮；`payInFlight` 防重复下单。
+- **五语各新增 9 个支付文案键**（166 → 175）。
+- **后端支持官方测试环境**：新增 `botApiUrl(env, method)`，`BOT_API_TEST=1` 时走 `/bot<token>/test/METHOD`（测试 Stars 免费），`BOT_API_BASE` 可指向自建 Bot API Server；`createInvoiceLink` 与 `refundStarPayment` 均改走此函数。
+
+**怎么验证**
+- 新增 `p3-payments/test-checkout.mjs` 16 项：静态契约、五语键集、白名单／原型链、状态归一化、套餐选择、四种前置校验、成功链路、年付商品、服务端未发货不解锁 Pro、取消／失败／pending、下单失败、防重复、openInvoice 抛错、Bot API 三态地址。
+- `npm test` → **126 / 126**；`node test_i18n_real.mjs` → **32 / 32**（五语各 175 键）；`npm run smoke:worker` → **18 / 18**。
+- **仍未验证**：真机 `openInvoice`、真实／测试环境 Stars 付款、webhook 真实回调、真实 `refundStarPayment`。这些必须等 bot 与部署，见 `README_deploy.md §9.6`。
+
+**涉及文件**：`index.html`、`p3-payments/payments-worker.js`、`p3-payments/payments-client.js`、`p3-payments/test-checkout.mjs`（新增）、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`package.json`、`README.md`、`README_deploy.md`、`CHANGELOG.md`
+
+---
+
 ## 2026-11-10 · feat — 后台退款操作台 + 退款自动撤销 Pro + 本地 Worker 真实运行时自测
 
 **为什么**：核实发现两处缺口——① 五语 `paidNotice` 一直承诺「14 天内可经 `/paysupport` 全额退款」，但后台**没有任何退款界面或按钮**，承诺无法履行；② 即使人工退了 Stars，`users_pro` 里的订阅仍在，用户会继续白用 Pro。另外 `worker.js` 的 ROUTES 漏挂 `/admin` 前缀，已有的对账仪表盘线上其实是 404。

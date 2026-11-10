@@ -6,7 +6,7 @@
  *   const pay = createPayments({ baseUrl: 'https://teleprompter-payments.<sub>.workers.dev' });
  *
  *   // 1) 取发票链接 → 用 Telegram.WebApp.openInvoice 拉起官方支付
- *   const { invoiceLink, productId, stars, credits } = await pay.createInvoice({ productId: 'credits_pro' });
+ *   const { invoiceLink, productId, stars } = await pay.createInvoice({ productId: 'pro_month' });
  *   Telegram.WebApp.openInvoice(invoiceLink, (ok) => { if (ok) refreshBalance(); });
  *
  *   // 2) 查自己的 Stars 支付历史
@@ -63,7 +63,7 @@ export function createPayments({ baseUrl, getInitData }) {
   }
 
   return {
-    /** 创建 Stars 发票链接（productId ∈ credits_starter|credits_pro|credits_ultra） */
+    /** 创建 Stars 发票链接。升级 Pro 必须用 pro_month|pro_year；credits_* 是积分包，买了不会解锁 Pro */
     createInvoice({ productId }) {
       return post('/payments/invoice', { productId });
     },

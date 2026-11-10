@@ -34,6 +34,19 @@ import {
   revokeAmount,
 } from './payments-core.js';
 
+/**
+ * Bot API 地址。默认生产；跑 Telegram 官方测试环境（测试 Stars 免费）时把
+ * BOT_API_TEST 设为 '1'，路径会变成 https://api.telegram.org/bot<token>/test/METHOD。
+ * BOT_API_BASE 可指向自建 Bot API Server，便于完全离线调试。
+ * 注意：官方文档里的 `/bot/test/METHOD` 是 `<token>` 被 HTML 吃掉后的显示，实际必须带 token。
+ */
+export function botApiUrl(env, method){
+  const base = (env.BOT_API_BASE || 'https://api.telegram.org').replace(/\/+$/, '');
+  const flag = String(env.BOT_API_TEST || '');
+  const testSegment = (flag === '1' || flag === 'true' || flag === 'test') ? 'test/' : '';
+  return `${base}/bot${env.BOT_TOKEN}/${testSegment}${method}`;
+}
+
 // ── D1 Store 适配器（实现 payments-core 的 Store 接口 + ledger-core 的 Store 接口）──
 class D1PaymentsStore {
   constructor(db) {
@@ -328,7 +341,7 @@ async function handleInvoice(body, env) {
   const product = STARS_PRODUCTS[productId];
   if (!product) return json({ error: 'unknown_product' }, 400);
 
-  const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/createInvoiceLink`;
+  const url = botApiUrl(env, 'createInvoiceLink');
   const payload = {
     title: product.title,
     description: product.description,
@@ -479,7 +492,7 @@ async function handleRefund(request, env) {
   // 1) 让 Telegram 真的退钱。任何失败都不改本地状态。
   let data;
   try {
-    const resp = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/refundStarPayment`, {
+    const resp = await fetch(botApiUrl(env, 'refundStarPayment'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ user_id: userId, telegram_payment_charge_id: chargeId }),

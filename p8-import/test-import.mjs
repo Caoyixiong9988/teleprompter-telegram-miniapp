@@ -91,7 +91,7 @@ test('五语新增 10 个导入键齐全，投稿提示已清除', () => {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }
-  assert.equal(ev('Object.keys(I18N.zh).length'), 166);
+  assert.equal(ev('Object.keys(I18N.zh).length'), 175);
 });
 
 // ── 2. 格式白名单 ────────────────────────────────────────────────────

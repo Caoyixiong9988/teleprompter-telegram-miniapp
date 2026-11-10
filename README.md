@@ -31,10 +31,11 @@
 | P8 | 导入专项测试 | ✅ | 15/15 |
 | P9 | 免费版 3 篇上限 + Pro 状态修复 | ✅ | 11/11 |
 | P10 | 后台退款操作台 + 退款自动撤销 Pro | ✅ | 14/14 |
+| P11 | 前端 Stars 官方收银台接入 | ✅ | 16/16 |
 
-`npm test` → **110 / 110**；`node test_i18n_real.mjs` → **32 / 32**（五语键集各 166 键）；`npm run smoke:worker` → **18 / 18**（真 workerd + 真本地 SQLite）。
+`npm test` → **126 / 126**；`node test_i18n_real.mjs` → **32 / 32**（五语键集各 175 键）；`npm run smoke:worker` → **18 / 18**（真 workerd + 真本地 SQLite）。
 
-> 前两项是本地 mock；`smoke:worker` 跑的是**真实 Worker 运行时 + 真实本地 D1**，但仍是本机、不是云端。后端从未部署到 Cloudflare、Stars 支付前端从未接通、真机零验证、真实退款 API 从未调用——发布前必须补齐，见 [README_deploy.md](README_deploy.md) 与 CHANGELOG 顶部的「尚未验证」清单。
+> 前两项是本地 mock；`smoke:worker` 跑的是**真实 Worker 运行时 + 真实本地 D1**，但仍是本机、不是云端。**收银台前端代码已接通**（`openInvoice` 下单链路 + 服务端权益确认），但真机弹窗、真实/测试环境 Stars 付款、webhook 真实回调、真实 `refundStarPayment` 均未验证；后端也从未部署到 Cloudflare。发布前必须补齐，见 [README_deploy.md](README_deploy.md) §9.6 与 CHANGELOG 顶部的「尚未验证」清单。
 
 ## 目录结构
 

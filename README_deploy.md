@@ -276,6 +276,7 @@ node --test p2-credits/test-credits.mjs        # 5/5 应全绿
 > 已合并为单体后端：`/payments/*` 路由随根 `worker.js` 一起部署（见 §3）。`p3-payments/wrangler.toml` 与 `p3-payments/schema.sql` 已并入根目录，请勿再单独执行本节旧命令。支付 webhook 的配置见 §3.3。
 
 ### 9.4 前端接入（任一款 App）
+> 提词器 `index.html` 已在单文件内实现这段流程（`setProPlan()` → `openProCheckout()` → `openInvoice()` → `confirmProAfterPay()`），无需再引入本模块。下面是其它 App 复用 `payments-client.js` 时的参考片段。
 ```html
 <script type="module">
   import { createPayments } from './p3-payments/payments-client.js';
@@ -285,8 +286,8 @@ node --test p2-credits/test-credits.mjs        # 5/5 应全绿
   });
 
   // 1) 取发票链接 → 用 Telegram 官方支付拉起 Stars 收银台
-  const { invoiceLink, productId, stars, credits } =
-    await pay.createInvoice({ productId: 'credits_pro' });   // credits_starter|pro|ultra
+  const { invoiceLink, productId, stars } =
+    await pay.createInvoice({ productId: 'pro_month' });   // pro_month|pro_year；credits_* 只发积分、不解锁 Pro
   Telegram.WebApp.openInvoice(invoiceLink, (ok) => {
     if (ok) { /* 支付成功由 webhook 自动发积分；刷新积分余额即可 */ }
   });
@@ -305,6 +306,43 @@ node --test  p3-payments/test-payments.mjs       # 12/12 应全绿
 #       非法 initData 在 /invoice、/history 被拒 401 /
 #       平台对账 /admin 无 ADMIN_SECRET 返回 403
 ```
+
+### 9.6 收银台怎么测：不需要花真钱（重要）
+
+前端 `index.html` 已接通 `openInvoice()`，但**浏览器 / 本地跑不了**——`Telegram.WebApp.openInvoice` 只存在于 Telegram 客户端。真实验收银台有两条路：
+
+#### 路线 A（推荐，零成本）：Telegram 官方测试环境
+
+Telegram 有与生产**完全隔离的测试服务器**，测试 Stars 免费，付款、webhook、退款流程与线上一模一样。
+
+1. 用客户端登录测试服务器：
+   - Telegram Desktop：设置 → `Shift + Alt + 右键`点「Add Account」→ 选 **Test Server**
+   - iOS：连点设置图标 10 次 → Accounts → Login to another account → **Test**
+   - macOS：连点设置图标 10 次开 Debug Menu → `⌘ + 点击` Add Account → 登录测试账号
+2. 测试环境独立：要重新注册测试账号，并在**测试版 `@BotFather`** 里重新建一个测试 bot、拿测试 token。生产 token 在测试环境无效，反之亦然。
+3. Bot API 请求要在方法名前加 `test/`：`https://api.telegram.org/bot<TOKEN>/test/createInvoiceLink`。
+   > 官方文档有时显示成 `/bot/test/METHOD`，那是 `<token>` 被网页当 HTML 标签吃掉后的结果，**实际必须带 token**。
+4. 本项目已支持：给 Worker 配 `BOT_API_TEST = "1"`，`createInvoiceLink` 与 `refundStarPayment` 自动走 `/test/`；也可用 `BOT_API_BASE` 指向自建 Bot API Server 完全离线调试。
+5. 测试环境还允许 **Mini App 用 HTTP 链接（不强制 HTTPS）**，本地起服务 + 内网穿透即可，不必先买域名。
+6. 测试环境的 `initData` 用**测试 bot token** 验签，所以 `BOT_TOKEN` 也要一并换成测试 bot 的。
+
+#### 路线 B（备选，要花一点真钱）：生产小额自购 + 立即退款
+
+1. 先获得真实 Stars（见下），用自己的账号买一次最便宜的 Pro 月付。
+2. 立刻在 `/admin` 找到这笔交易点「退款」，或走 `/paysupport`。`refundStarPayment` 原路退回 Stars，代码同时撤销 Pro 并写 `refunds` 审计。
+3. 成本：Apple / Google 内购约 30% 渠道抽成**退款未必返还**，平台也可能限制频繁自购自退，只适合做最后一次端到端确认。
+
+#### 真实 Stars 从哪来
+
+- **官方渠道**：Telegram App 内通过 `@PremiumBot` 购买，或 iOS / Android 应用内购买（走 Apple / Google IAP）；也可用 **Fragment**（TON）买。
+- **不能自循环**：bot 收到的 Stars 进的是 **bot 余额**，只能提现成 Toncoin 或用于投 Telegram Ads，**不能转回个人账号**再拿来买自己的商品。「让 bot 发 Stars 给我自测」这条路不通。
+- 结论：**开发测试阶段用路线 A，完全不需要真实 Stars**；只有上线前最后一次生产确认才需要买一次。
+
+#### 当前状态与启动顺序
+
+`npm test`（126/126）和 `smoke:worker`（18/18）里的「支付成功」都是**伪造的 update / stub Bot API**，验证的是「如果 Telegram 通知我们收了钱，账本会不会记对」，**不是**「用户能不能把钱付进来」。
+
+真实验收顺序：申请 bot（生产或测试）→ 填 `CONFIG.API_BASE` → 部署 Worker 并配 `BOT_TOKEN` / `ADMIN_SECRET` / `WEBHOOK_SECRET`（测试环境另加 `BOT_API_TEST=1`）→ `setWebhook` → 在 Telegram 真机打开 Mini App → 点一次「升级 Pro」→ 看收银台、webhook、`/payments/pro-status`、`/admin` 退款列表是否串起来。
 
 ---
 
