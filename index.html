@@ -544,6 +544,8 @@ const I18N = {
   importFailBig:"内容过长，请拆分后再导入",
   importFailUnsupported:"当前设备无法解析该格式，请另存为 .txt 后导入",
   importFailEmpty:"文件里没有可导入的文字",
+  scriptQuota:"{n}/{max} 篇 · 免费版额度（Pro 不限量）",
+  scriptLimitToast:"免费版最多保存 {max} 篇讲稿；你现有的稿件都会保留，删除一篇后可再新建。升级 Pro 不限量。",
   playPause:"播放/暂停",
   reset:"重置",
   speed:"速度",
@@ -697,6 +699,8 @@ const I18N = {
   importFailBig:"Text too long. Split it and try again.",
   importFailUnsupported:"This device cannot read that format. Save as .txt and import again.",
   importFailEmpty:"No text found in this file",
+  scriptQuota:"{n}/{max} scripts · Free plan (Pro: unlimited)",
+  scriptLimitToast:"The free plan keeps up to {max} scripts. All your existing scripts are kept — delete one to add another, or upgrade to Pro for unlimited.",
   playPause:"Play / Pause",
   reset:"Reset",
   speed:"Speed",
@@ -850,6 +854,8 @@ const I18N = {
   importFailBig:"文字数が多すぎます。分割して再度お試しください",
   importFailUnsupported:"この端末ではその形式を読み込めません。.txt で保存し直してください",
   importFailEmpty:"ファイルに読み込める文字がありません",
+  scriptQuota:"{n}/{max} 件 · 無料プラン（Pro は無制限）",
+  scriptLimitToast:"無料プランで保存できる原稿は最大 {max} 件です。既存の原稿はすべて保持されます。1 件削除すると追加できます。Pro なら無制限です。",
   playPause:"再生/一時停止",
   reset:"リセット",
   speed:"速度",
@@ -1003,6 +1009,8 @@ const I18N = {
   importFailBig:"내용이 너무 깁니다. 나누어 다시 시도해 주세요",
   importFailUnsupported:"이 기기에서는 해당 형식을 읽을 수 없습니다. .txt로 저장해 주세요",
   importFailEmpty:"파일에서 가져올 텍스트가 없습니다",
+  scriptQuota:"{n}/{max}개 · 무료 플랜 (Pro 무제한)",
+  scriptLimitToast:"무료 플랜은 최대 {max}개까지 저장할 수 있습니다. 기존 대본은 모두 그대로 보관되며, 하나를 삭제하면 다시 추가할 수 있습니다. Pro는 무제한입니다.",
   playPause:"재생/일시정지",
   reset:"초기화",
   speed:"속도",
@@ -1156,6 +1164,8 @@ const I18N = {
   importFailBig:"Текст слишком длинный. Разделите его",
   importFailUnsupported:"Это устройство не может прочитать формат. Сохраните как .txt",
   importFailEmpty:"В файле нет текста для импорта",
+  scriptQuota:"{n}/{max} · бесплатный план (Pro: без лимита)",
+  scriptLimitToast:"Бесплатный план хранит до {max} сценариев. Все ваши текущие сценарии сохранены — удалите один, чтобы добавить новый, или перейдите на Pro без ограничений.",
   playPause:"Пуск / Пауза",
   reset:"Сброс",
   speed:"Скорость",
@@ -1398,7 +1408,27 @@ function activeScript(){
 function getActiveContent(){ const s = activeScript(); return s ? s.content : ''; }
 function setActiveContent(v){ const s = activeScript(); if (s) { s.content = v; s.updatedAt = Date.now(); } }
 function setActiveTitle(v){ const s = activeScript(); if (s) { s.title = v; s.updatedAt = Date.now(); } }
+/* ---------- 免费版讲稿额度（产品宪法 §2：容量是墙，核心读稿不设限） ----------
+ * 免费用户最多保存 3 篇；Pro 不限量。核心提词、粘贴、编辑、导入内容本身始终免费。
+ * 数据安全红线：限额只拦「新增」，绝不删除、隐藏或截断用户已有的讲稿。
+ * 老用户 / Pro 到期 / 退款降级后若已超过 3 篇，全部原样保留，仅不能再新增；
+ * 删到额度内即可继续新建。云同步回写的是用户自己的数据，不受此限。
+ */
+const FREE_SCRIPT_LIMIT = 3;
+function canAddScript(pro, count, limit){
+  return !!pro || count < (limit == null ? FREE_SCRIPT_LIMIT : limit);
+}
+function scriptLimitReached(){
+  return !canAddScript(isPro(), (state.scripts || []).length, FREE_SCRIPT_LIMIT);
+}
+function guardScriptLimit(){
+  if (!scriptLimitReached()) return false;
+  toast(fmt(t('scriptLimitToast'), { max: FREE_SCRIPT_LIMIT }));
+  openProSheetSafe();
+  return true;
+}
 function addScript(){
+  if (guardScriptLimit()) return;
   const s = { id: uid(), title: t('scriptNewTitle'), content: '', updatedAt: Date.now(), cloudId: null };
   state.scripts.push(s); state.activeScriptId = s.id;
   saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
@@ -1601,6 +1631,7 @@ async function parseImportFile(file){
 
 // 导入一律新建讲稿，不覆盖用户当前内容（避免误操作丢稿）。
 function importTextAsNewScript(title, content){
+  if (guardScriptLimit()) return null; // 防御：任何绕过入口的新建路径同样受额度约束
   const s = { id: uid(), title: title, content: content, updatedAt: Date.now(), cloudId: null };
   state.scripts.push(s); state.activeScriptId = s.id;
   saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
@@ -1609,9 +1640,10 @@ function importTextAsNewScript(title, content){
 
 async function handleImportFile(file){
   if (!file) return;
+  if (guardScriptLimit()) return; // 选文件前先拦，避免白解析一遍才提示
   try {
     const r = await parseImportFile(file);
-    importTextAsNewScript(r.title, r.text);
+    if (!importTextAsNewScript(r.title, r.text)) return;
     toast(t('importOk'));
   } catch (err) {
     toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'));
@@ -1662,7 +1694,12 @@ function renderScriptList(){
     listEl.appendChild(row);
   });
   const cnt = document.getElementById('scriptCount');
-  if (cnt) cnt.textContent = (state.scripts || []).length + ' · ' + t('scriptSelect');
+  if (cnt) {
+    const n = (state.scripts || []).length;
+    cnt.textContent = isPro()
+      ? (n + ' · ' + t('scriptSelect'))
+      : fmt(t('scriptQuota'), { n: n, max: FREE_SCRIPT_LIMIT });
+  }
 }
 
 let state = Object.assign({}, defaultState);
@@ -2282,6 +2319,10 @@ async function verifyInitData(){
 }
 
 /* ---------- Pro 状态（前端缓存 + 后端校验 + 本地预览） ---------- */
+// 纯函数便于测试：默认一律不允许；只有「本地未配置后端」且 URL 显式带 ?dev=1 才开放预览。
+function devPreviewAllowed(apiBase, search){
+  return !apiBase && /(?:^|[?&])dev=1(?:&|$)/.test(String(search || ''));
+}
 function renderProState(){
   const badge = document.getElementById('proStatusBadge');
   if (badge) {
@@ -2290,8 +2331,8 @@ function renderProState(){
   }
   const devBtn = document.getElementById('btnProDevPreview');
   if (devBtn) {
-    // 仅本地（未配置后端 API_BASE）显示，避免生产环境被 URL 参数绕过 Pro 付费
-    devBtn.hidden = !!CONFIG.API_BASE;
+    // 默认隐藏；仅「未配置后端 + 显式 ?dev=1」时开放，避免任何人一键解锁 Pro
+    devBtn.hidden = !devPreviewAllowed(CONFIG.API_BASE, location.search);
     devBtn.textContent = isPro() ? t('proDevOff') : t('proDevOn');
   }
 }
@@ -2302,7 +2343,11 @@ async function checkProStatus(){
   try {
     const r = await fetch(apiUrl('/payments/pro-status') + '?initData=' + encodeURIComponent(Telegram.WebApp.initData));
     const j = await r.json();
-    if (j && j.pro) { state.isPro = true; saveState(); }
+    // 服务端为唯一真相：退款 / 到期 / 降级必须把本地缓存的 true 回写成 false，
+    // 否则用户仍能在前端继续享受 Pro 权益。仅在成功拿到响应时改写；网络失败保留缓存，
+    // 避免临时断网把付费用户误降级。
+    const pro = !!(j && j.pro);
+    if (state.isPro !== pro) { state.isPro = pro; saveState(); }
     renderProState();
   } catch(e){ renderProState(); }
 }
@@ -2731,6 +2776,7 @@ function init(){
   // 本地预览 Pro 效果（仅本地无后端时显示；生产环境隐藏，Pro 状态以服务端为准）
   const devPreview = document.getElementById('btnProDevPreview');
   if (devPreview) devPreview.addEventListener('click', function () {
+    if (!devPreviewAllowed(CONFIG.API_BASE, location.search)) return; // 隐藏不等于安全，事件本身也要校验
     state.isPro = !state.isPro; saveState(); renderProState();
     toast(isPro() ? t('proStatusOn') : t('proStatusOff'));
   });

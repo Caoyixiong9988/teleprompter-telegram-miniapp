@@ -172,22 +172,27 @@ const p10 = optFree.scale === 1 && optFree.noWatermark === false
   && optPro.scale === 2 && optPro.noWatermark === true
   && isProFalse === false && isProTrue === true;
 
-// ---- 本地预览按钮（无后端 API_BASE 时可见，文案正确）----
+// ---- 本地预览按钮：默认必须隐藏（防止任何人一键解锁 Pro）----
 const devBtn = doc.getElementById('btnProDevPreview');
-const devVisible = !!(devBtn && devBtn.hidden === false);
+const devHidden = !!(devBtn && devBtn.hidden === true);
 const devLabel = devBtn && devBtn.textContent;
-const p11 = devVisible && devLabel === '本地预览 Pro 效果（测试用）';
+const p11 = devHidden && devLabel === '本地预览 Pro 效果（测试用）';
 
-// ---- 本地预览按钮点击可切换 isPro（仅本地；生产环境隐藏，无法绕过付费）----
+// ---- 隐藏不等于安全：事件本身也要校验；仅 ?dev=1 且无后端时允许 ----
 if (devBtn) devBtn.click();
 const afterClickPro = window.eval('isPro()');
-if (devBtn) devBtn.click();
-const afterClickBack = window.eval('isPro()');
-const p12 = afterClickPro === true && afterClickBack === false;
+const devPure = window.eval(`JSON.stringify([
+  devPreviewAllowed('', ''),
+  devPreviewAllowed('', '?dev=1'),
+  devPreviewAllowed('', '?x=1&dev=1'),
+  devPreviewAllowed('', '?dev=10'),
+  devPreviewAllowed('https://api.example.com', '?dev=1')
+])`);
+const p12 = afterClickPro === false && devPure === '[false,true,true,false,false]';
 
 console.log('--- Pro 去水印高清导出策略 ---');
 console.log('免费:', JSON.stringify(optFree), '| Pro:', JSON.stringify(optPro), '| isPro(false/true):', isProFalse, isProTrue);
-console.log('本地预览按钮可见:', devVisible, '| 文案:', devLabel, '| 点击切换:', afterClickPro, '->', afterClickBack);
+console.log('本地预览按钮默认隐藏:', devHidden, '| 文案:', devLabel, '| 点击后 isPro:', afterClickPro, '| 开关组合:', devPure);
 
 // ---- 多讲稿数据模型（state.scripts + 切换/新建/删除，至少保留 1 篇）----
 window.eval(`state.scripts=[{id:'a',title:'稿一',content:'内容一',updatedAt:1,cloudId:null},{id:'b',title:'稿二',content:'内容二',updatedAt:2,cloudId:null}]; state.activeScriptId='a'; saveState(); loadActiveIntoEditor();`);
@@ -361,8 +366,8 @@ console.log('7) 俄语环境自动识别:', p7 ? '✅' : '❌');
 console.log('8) 五语客户文案无占卜类字样:', p8 ? '✅' : '❌ ' + bannedHits.join(', '));
 console.log('9) 阅读等级(5 档/多语/短稿不计次/晋级提示):', p9 ? '✅' : '❌');
 console.log('10) Pro 去水印高清导出策略(免费1×带水印 / Pro2×去水印):', p10 ? '✅' : '❌');
-console.log('11) 本地预览按钮可见且文案正确:', p11 ? '✅' : '❌');
-console.log('12) 本地预览按钮点击切换 isPro:', p12 ? '✅' : '❌');
+console.log('11) 本地预览按钮默认隐藏且文案正确:', p11 ? '✅' : '❌');
+console.log('12) 预览按钮点击无效 + dev 开关组合正确:', p12 ? '✅' : '❌');
 console.log('13) 多讲稿数据模型(切换/新建/删除保底):', p13 ? '✅' : '❌');
 console.log('14) reconcileScripts 合并/冲突/云端独有:', p14 ? '✅' : '❌');
 console.log('15) 云同步门禁(无后端/非Pro 不可，Pro+后端可):', p15 ? '✅' : '❌');

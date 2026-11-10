@@ -79,7 +79,8 @@ test('页面无运行时错误，导入入口存在且是免费功能', () => {
   assert.ok(w.document.getElementById('importFile'), '缺少 file input');
   assert.equal(ev('typeof handleImportFile'), 'function');
   assert.equal(ev('parseImportFile.toString().includes("isPro")'), false, '解析层不应有 Pro 门禁');
-  assert.equal(ev('handleImportFile.toString().includes("isPro")'), false, '导入入口不应有 Pro 门禁');
+  assert.equal(ev('handleImportFile.toString().includes("isPro")'), false, '导入入口不应按 Pro 身份拒绝');
+  assert.equal(ev('handleImportFile.toString().includes("guardScriptLimit")'), true, '导入入口应受通用讲稿额度约束（不是 Pro 门禁）');
   assert.equal(ev('state.isPro'), false, '默认应为免费用户');
 });
 
@@ -90,7 +91,7 @@ test('五语新增 10 个导入键齐全，投稿提示已清除', () => {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }
-  assert.equal(ev('Object.keys(I18N.zh).length'), 164);
+  assert.equal(ev('Object.keys(I18N.zh).length'), 166);
 });
 
 // ── 2. 格式白名单 ────────────────────────────────────────────────────
