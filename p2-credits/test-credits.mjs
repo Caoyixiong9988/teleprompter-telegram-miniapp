@@ -143,7 +143,7 @@ test('3) Worker 端到端：验签门禁 / adminSecret / 402 / 401 / 403', async
 
   // 3.2 带 adminSecret grant → 200，余额 100
   r = await worker.fetch(
-    new Request('https://x/credits/grant', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ adminSecret: ADMIN_SECRET, userId: 'u_api', amount: 100, reason: 'bounty_win' }) }),
+    new Request('https://x/credits/grant', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ adminSecret: ADMIN_SECRET, userId: 'u_api', amount: 100, reason: 'pro_unlock' }) }),
     ENV
   );
   assert.equal(r.status, 200);

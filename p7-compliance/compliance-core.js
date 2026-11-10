@@ -18,7 +18,7 @@ import { UI_STRINGS, getLang } from './i18n.js';
 /**
  * 取某语言完整免责声明文本（结构化）。
  * @param {string} lang
- * @returns {{lang:string,title:string,body:string,paidNotice:string,submitNotice:string}}
+ * @returns {{lang:string,title:string,body:string,paidNotice:string}}
  */
 export function getDisclaimerText(lang) {
   const l = getLang(lang);
@@ -28,7 +28,6 @@ export function getDisclaimerText(lang) {
     title: s.disclaimerTitle,
     body: s.disclaimerBody,
     paidNotice: s.paidNotice,
-    submitNotice: s.submitNotice,
   };
 }
 

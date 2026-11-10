@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS credits_ledger (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    TEXT NOT NULL,
   delta      INTEGER NOT NULL,
-  reason     TEXT NOT NULL,            -- grant / consume / signin / bounty_win / refund ...
-  ref_type   TEXT,                    -- 关联的 biz 类型：pro_unlock / watermark_export / bounty ...
+  reason     TEXT NOT NULL,            -- grant / consume / signin / pro_unlock / refund ...
+  ref_type   TEXT,                    -- 关联的 biz 类型：pro_unlock / watermark_export ...
   ref_id     TEXT,                    -- 关联业务 id
   created_at INTEGER NOT NULL
 );
@@ -64,43 +64,11 @@ CREATE TABLE IF NOT EXISTS users_pro (
 CREATE INDEX IF NOT EXISTS idx_users_pro_expires ON users_pro(expires_at);
 
 -- ---------------------------------------------------------------------------
--- P4 悬赏改稿（与 P2 同库，使 escrow 托管与积分发放同库原子）
--- 合规红线：奖励平台托管（escrow），仅 award 释放给中标者；绝不 P2P 转账/提现/赌博。
+-- 2026-11-10：P4 悬赏改稿已下线（依据《产品宪法 · 所有 APP 共同底线》）。
+--   原因：双边市场 + UGC + 积分托管 + 需人工裁决，与「单人可运维」冲突。
+--   新部署不再创建 bounties / bounty_submissions / bounty_awards 及索引；
+--   p4-bounty/ 目录与单测保留为存档，运行时路由已移除。
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS bounties (
-  id             TEXT    PRIMARY KEY,
-  owner_user_id  TEXT    NOT NULL,
-  title          TEXT    NOT NULL,
-  script_text    TEXT    NOT NULL,
-  reward_credits INTEGER NOT NULL,
-  status         TEXT    NOT NULL DEFAULT 'open',  -- open | closed | cancelled
-  created_at     INTEGER NOT NULL,
-  deadline       INTEGER,
-  CHECK (reward_credits > 0)
-);
-
-CREATE TABLE IF NOT EXISTS bounty_submissions (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  bounty_id      TEXT    NOT NULL,
-  author_user_id TEXT    NOT NULL,
-  revised_text   TEXT    NOT NULL,
-  status         TEXT    NOT NULL DEFAULT 'pending', -- pending | accepted | rejected
-  created_at     INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS bounty_awards (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  bounty_id      TEXT    NOT NULL,
-  submission_id  INTEGER NOT NULL,
-  winner_user_id TEXT    NOT NULL,
-  awarded_at     INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_bounties_owner     ON bounties(owner_user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_bounties_status    ON bounties(status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_submissions_bounty ON bounty_submissions(bounty_id, created_at ASC);
-CREATE INDEX IF NOT EXISTS idx_submissions_author ON bounty_submissions(author_user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_awards_bounty      ON bounty_awards(bounty_id);
 
 -- ---------------------------------------------------------------------------
 -- P5 病毒增长 / 推荐 / 排行榜 / 礼物（与 P2 同库，积分变动与增长表同库原子）

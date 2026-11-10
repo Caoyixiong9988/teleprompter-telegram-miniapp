@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "提词器 Telegram Mini App（单体后端：P0 验签 + P2 积分 + P3 支付 + P4 悬赏 + P5 增长 + P6 增强 + P7 合规），Cloudflare Workers + D1。",
+  "description": "提词器 Telegram Mini App（单体后端：P0 验签 + P2 积分 + P3 支付 + P5 增长 + P6 增强 + P7 合规；P4 悬赏已下线，P8 文件导入为纯前端免费功能），Cloudflare Workers + D1。",
   "scripts": {
-    "test": "node --test p2-credits/test-credits.mjs p3-payments/test-payments.mjs p3-payments/test-pro-status.mjs p4-bounty/test-bounty.mjs p5-growth/test-growth.mjs p6-enhance/test-helpers.mjs p6-enhance/test-remote.mjs p6-enhance/test-scripts.mjs p6-enhance/test-speech.mjs p6-enhance/test-templates.mjs p7-compliance/test-compliance.mjs"
+    "test": "node --test p2-credits/test-credits.mjs p3-payments/test-payments.mjs p3-payments/test-pro-status.mjs p4-bounty/test-bounty.mjs p5-growth/test-growth.mjs p6-enhance/test-helpers.mjs p6-enhance/test-remote.mjs p6-enhance/test-scripts.mjs p6-enhance/test-speech.mjs p6-enhance/test-templates.mjs p7-compliance/test-compliance.mjs p8-import/test-import.mjs"
   },
   "devDependencies": {
     "jsdom": "^24.1.3"

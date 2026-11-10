@@ -1,9 +1,13 @@
 /**
  * worker.js — 提词器 Telegram Mini App 单体后端（Monolith）
  *
- * 合并范围：P0 验签 + P2 统一积分 + P3 Stars 支付 + P4 悬赏改稿
+ * 合并范围：P0 验签 + P2 统一积分 + P3 Stars 支付
  *           + P5 病毒增长 + P6 增强（台词云同步/远程控制/模板）
  *           + P7 合规（免责声明/举报）
+ *
+ * 2026-11-10：P4 悬赏改稿已下线（依据《产品宪法 · 所有 APP 共同底线》）。
+ *   原因：双边市场 + UGC + 积分托管 + 需要人工裁决，与「单人可运维」冲突。
+ *   运行时不再挂载 /bounty；p4-bounty/ 目录与单测仅作存档，不参与部署。
  *
  * 形态：Cloudflare Workers Modules 格式 + 单一 D1（teleprompter-credits）。
  *
@@ -17,7 +21,6 @@
  *   /verify                 POST  initData 验签（P0，直接用 shared/verify.js，消除旧 worker.js 的重复实现）
  *   /credits/*              P2 统一积分账本
  *   /payments/*             P3 Telegram Stars 支付账本（+ /admin 运营对账）
- *   /bounty/*               P4 悬赏改稿
  *   /growth/*               P5 病毒增长 / 推荐 / 排行榜 / 礼物
  *   /scripts/* /remote/* /templates  P6 增强（云同步 / 远程控制 / 模板库）
  *   /compliance/*           P7 免责声明 / 举报
@@ -30,7 +33,6 @@ import { verifyInitData } from './shared/verify.js';
 
 import creditsHandler from './p2-credits/credits-worker.js';
 import paymentsHandler from './p3-payments/payments-worker.js';
-import bountyHandler from './p4-bounty/bounty-worker.js';
 import growthHandler from './p5-growth/growth-worker.js';
 import enhanceHandler from './p6-enhance/enhance-worker.js';
 import complianceHandler from './p7-compliance/compliance-worker.js';
@@ -39,7 +41,6 @@ import complianceHandler from './p7-compliance/compliance-worker.js';
 const ROUTES = [
   ['/credits', creditsHandler],
   ['/payments', paymentsHandler],
-  ['/bounty', bountyHandler],
   ['/growth', growthHandler],
   ['/scripts', enhanceHandler],
   ['/remote', enhanceHandler],
@@ -122,7 +123,7 @@ async function fetch(request, env, ctx) {
       service: 'teleprompter-monolith',
       status: 'ok',
       version: '0.1.0',
-      modules: ['credits', 'payments', 'bounty', 'growth', 'enhance', 'compliance', 'verify'],
+      modules: ['credits', 'payments', 'growth', 'enhance', 'compliance', 'verify'],
     });
   }
 

@@ -8,6 +8,46 @@
 
 ---
 
+## 2026-11-10 · feat — 从文件导入讲稿（免费 · 零依赖 · 纯本地）
+
+**改了什么**
+- `index.html` 设置页「讲稿内容」输入框下方新增「从文件导入讲稿」按钮 + 五语提示（"讲稿已经写在 Word 或记事本里？直接导入，不用复制粘贴"）+ 五语格式说明。
+- 新增零依赖解析内核：扩展名白名单二次校验（不信 `accept`、ZIP 文件头复核）、UTF-8 / UTF-16 BOM / GBK 自动识别、SRT / VTT 去序号与时间码、ZIP central directory 定位 + 浏览器原生 `DecompressionStream('deflate-raw')` 解压 + `DOMParser` 只取纯文本节点（天然规避宏与外链图片）。
+- 支持 `TXT / TEXT / MD / MARKDOWN / CSV / SRT / VTT / LOG / DOCX / ODT / XLSX`；**不做**旧版 `.doc`（OLE 二进制）、PDF、RTF、Pages / WPS，UI 明确引导另存为 `.docx` 或 `.txt`。
+- 约束：文件 ≤ 2 MB、提取后 UTF-8 ≤ 90 KiB（与上一轮 `/scripts` 正文 100 KiB 上限对齐，避免云同步时撞 400）；清洗 CRLF / NUL / 行尾空格 / 过多空行；每类失败都有五语明确提示。
+- 导入一律**新建一篇讲稿**（标题取文件名），不覆盖用户当前内容；**无 Pro 门禁**、无网络请求、无第三方库 / CDN。
+- 新增 `p8-import/test-import.mjs` 15 项测试（含手工构造 STORED ZIP 跑通 DOCX 端到端、免费用户导入不覆盖原稿、悬赏运行时下线断言），已加入 `npm test`。
+
+**为什么**
+依据《产品宪法》：入口功能一律免费。导入是用户带着现成内容来的第一个动作，锁进 Pro 会在他还没体验到提词价值时撞墙；何况 Stars 收银台目前尚未接通（付费墙后面没有收银台）。坚持零依赖是为了守住「单文件、离线、不产生新运维面」。
+
+**怎么验证**：`npm test` → 85/85；`node test_i18n_real.mjs` → 32/32，五语键集各 164 键。
+**尚未验证（真机，发布前必做）**：Telegram Android / iOS / Desktop / Web 四端文件选择器行为、GBK 中文 txt、真实带表格与图片的 docx、大文件、xlsx 多工作表。若某端选不了文件，textarea 仍可复制粘贴，不影响主流程。
+**涉及文件**：`index.html`、`package.json`、`p8-import/test-import.mjs`、`README.md`、`CHANGELOG.md`
+
+---
+
+## 2026-11-10 · refactor — 下线悬赏改稿（P4），确立所有 APP 共同底线
+
+**改了什么**
+- 新增 `【产品宪法】所有APP共同底线.md`：五条硬性底线、免费/Pro 分区规则、新功能准入 8 问、例外审批、跨 APP 共用内核、上线前后固定动作。适用于当前及未来每一个 APP。
+- `worker.js`：移除 `/bounty` 路由分发与 `bounty-worker.js` import，健康检查 `modules` 去掉 `bounty`。
+- `schema.sql`：移除 `bounties` / `bounty_submissions` / `bounty_awards` 三张表及 5 个索引；顺带清掉 `credits_ledger` 注释里的悬赏枚举。
+- 五语 `submitNotice`（投稿提示 / 奖励不予发放）从 `index.html` 内联字典与 `p7-compliance/i18n.js` 一并删除；`getDisclaimerText()` 不再返回该字段，合规测试相应改为断言「字段已消失」。
+- `p7-compliance/test-compliance.mjs`、`p2-credits/test-credits.mjs` 里残留的悬赏测试字符串改为中性值。
+
+**为什么**
+悬赏是全项目唯一的「双边市场 + UGC + 积分托管 + 需人工裁决」模块。公司只有一人且要陆续推多个 APP，这类功能会持续产生工单与审核责任，与「业务逻辑简单明了、不能造成混乱」冲突。前端本来就没接过悬赏 UI（全文件仅 2 处注释/文案），下线成本极低。
+
+**边界说明（重要）**
+- 按既定方案**只做运行时下线**，`p4-bounty/` 目录与其 6 项单测保留为存档，仍在 `npm test` 列表里跑（保证存档代码不腐烂），但不挂路由、不建表、不进健康检查、不参与部署。
+- `/compliance/report` 举报/反馈入口**保留**：它是通用反馈与合规兜底，零人工队列成本。
+
+**怎么验证**：`npm test` → 70/70；`grep -rn "submitNotice" index.html p7-compliance/` → 仅剩测试断言一处。
+**涉及文件**：产品宪法、`worker.js`、`schema.sql`、`index.html`、`p7-compliance/{i18n.js,compliance-core.js,test-compliance.mjs}`、`p2-credits/test-credits.mjs`、`CHANGELOG.md`
+
+---
+
 ## 2026-11-10 · fix — /scripts 写入配额与长度上限（防撑爆 D1 免费额度）
 
 **改了什么**

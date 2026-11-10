@@ -33,9 +33,6 @@ export const UI_STRINGS = {
       '你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。' +
       '购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。' +
       '本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。',
-    submitNotice:
-      '你即将提交内容。请确认内容真实、原创、不侵犯他人权利，并遵守你所在地区的法律法规；' +
-      '违反平台规则的内容将被下架，相关奖励不予发放。',
     reportTitle: '举报 / 反馈',
     reportPlaceholder: '请描述您要举报的问题或反馈……',
     reportSubmit: '提交',
@@ -60,10 +57,6 @@ export const UI_STRINGS = {
       '/paysupport, no reason required; repeated requests from the same account may be declined. ' +
       'This does not affect your statutory rights. Payment is handled by Telegram; we never receive ' +
       'your payment details.',
-    submitNotice:
-      'You are about to submit content. Please make sure it is accurate, original, does not infringe ' +
-      'the rights of others, and complies with the laws where you live; content that breaks the ' +
-      'platform rules will be removed and no reward will be paid.',
     reportTitle: 'Report / Feedback',
     reportPlaceholder: 'Describe the issue you want to report or your feedback…',
     reportSubmit: 'Submit',
@@ -88,10 +81,6 @@ export const UI_STRINGS = {
       '（同一アカウントでの繰り返しの申請はお受けできない場合があります）。' +
       '本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、' +
       '当方が支払い情報を取得することはありません。',
-    submitNotice:
-      'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、' +
-      'お住まいの地域の法令に従っていることを確認してください。規約に違反する内容は削除され、' +
-      '報酬は支払われません。',
     reportTitle: '報告 / フィードバック',
     reportPlaceholder: '報告したい問題やフィードバックを記述してください……',
     reportSubmit: '送信',
@@ -114,9 +103,6 @@ export const UI_STRINGS = {
       '구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다' +
       '(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. ' +
       '결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.',
-    submitNotice:
-      '곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 ' +
-      '준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.',
     reportTitle: '신고 / 피드백',
     reportPlaceholder: '신고할 문제나 피드백을 설명해 주세요……',
     reportSubmit: '제출',
@@ -142,10 +128,6 @@ export const UI_STRINGS = {
       'возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта ' +
       'может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, ' +
       'мы не получаем ваши платёжные данные.',
-    submitNotice:
-      'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права ' +
-      'третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, ' +
-      'будет удалён, а вознаграждение не выплачивается.',
     reportTitle: 'Жалоба / Обратная связь',
     reportPlaceholder: 'Опишите проблему или ваши замечания……',
     reportSubmit: 'Отправить',

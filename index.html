@@ -213,6 +213,12 @@
         <label data-i18n="scriptContentLabel">讲稿内容</label>
         <textarea id="setScript" data-i18n-ph="scriptPlaceholder"></textarea>
         <div class="hint" data-i18n="saveHint">内容保存在你当前设备浏览器中（localStorage）；开通 Pro 云同步后可跨设备访问。</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;">
+          <button class="btn" type="button" id="btnImportFile" data-i18n="importBtn">从文件导入讲稿</button>
+          <span class="hint" data-i18n="importHint" style="flex:1 1 190px;min-width:180px;">讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。</span>
+          <input type="file" id="importFile" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.docx,.odt,.xlsx" style="position:absolute;width:1px;height:1px;opacity:0;left:-9999px;" />
+        </div>
+        <div class="hint" data-i18n="importFormats" style="margin-top:6px;">支持 TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX；不支持旧版 .doc 与 PDF，请先另存为 .docx 或 .txt。导入会新建一篇讲稿，不会覆盖现有内容。</div>
       </div>
 
       <div class="field">
@@ -527,7 +533,17 @@ const LS_KEY = 'teleprompter_state_v1';
 
 /* ---------- 多语言（P7：zh 默认 + en/ja/ko/ru） ---------- */
 const I18N = {
-  zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。', submitNotice:'你即将提交内容。请确认内容真实、原创、不侵犯他人权利，并遵守你所在地区的法律法规；违反平台规则的内容将被下架，相关奖励不予发放。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
+  zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
+  importBtn:"从文件导入讲稿",
+  importHint:"讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。",
+  importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX；不支持旧版 .doc 与 PDF，请先另存为 .docx 或 .txt。导入会新建一篇讲稿，不会覆盖现有内容。",
+  importOk:"已导入为新讲稿",
+  importFailType:"不支持的文件类型，请用 TXT / DOCX 等文本格式",
+  importFailSize:"文件过大（上限 2 MB），请拆分后再导入",
+  importFailParse:"文件解析失败，请另存为 .txt 或 .docx 后重试",
+  importFailBig:"内容过长，请拆分后再导入",
+  importFailUnsupported:"当前设备无法解析该格式，请另存为 .txt 后导入",
+  importFailEmpty:"文件里没有可导入的文字",
   playPause:"播放/暂停",
   reset:"重置",
   speed:"速度",
@@ -670,7 +686,17 @@ const I18N = {
   voiceUnsupportedHint:"你的浏览器不支持语音识别（Web Speech API）。请改用 Android Chrome 或桌面 Chrome；其余功能不受影响。",
   voiceStatusLabel:"状态"
  },
-  en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', submitNotice:'You are about to submit content. Please make sure it is accurate, original, does not infringe the rights of others, and complies with the laws where you live; content that breaks the platform rules will be removed and no reward will be paid.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
+  en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
+  importBtn:"Import from file",
+  importHint:"Already wrote your script in Word or Notepad? Import it here instead of copy-pasting.",
+  importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX. Legacy .doc and PDF are not supported; please save as .docx or .txt. Each import creates a new script and never overwrites existing ones.",
+  importOk:"Imported as a new script",
+  importFailType:"Unsupported file type. Use TXT or DOCX.",
+  importFailSize:"File too large (2 MB limit). Split it and try again.",
+  importFailParse:"Could not read this file. Save as .txt or .docx and retry.",
+  importFailBig:"Text too long. Split it and try again.",
+  importFailUnsupported:"This device cannot read that format. Save as .txt and import again.",
+  importFailEmpty:"No text found in this file",
   playPause:"Play / Pause",
   reset:"Reset",
   speed:"Speed",
@@ -813,7 +839,17 @@ const I18N = {
   voiceUnsupportedHint:"Your browser does not support speech recognition (Web Speech API). Use Android Chrome or desktop Chrome instead; all other features are unaffected.",
   voiceStatusLabel:"Status"
  },
-  ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', submitNotice:'まもなくコンテンツを送信します。内容が正確でオリジナルであり、第三者の権利を侵害せず、お住まいの地域の法令に従っていることを確認してください。規約に違反する内容は削除され、報酬は支払われません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
+  ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
+  importBtn:"ファイルから読み込む",
+  importHint:"Word やメモ帳で原稿を書いてありますか？コピペせずにここから直接読み込めます。",
+  importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX。旧形式 .doc と PDF は非対応です。.docx または .txt で保存し直してください。読み込みは新しい原稿として追加され、既存の内容は上書きしません。",
+  importOk:"新しい原稿として読み込みました",
+  importFailType:"対応していないファイル形式です。TXT または DOCX をご利用ください",
+  importFailSize:"ファイルが大きすぎます（上限 2 MB）。分割して再度お試しください",
+  importFailParse:"ファイルを読み込めませんでした。.txt または .docx で保存し直してください",
+  importFailBig:"文字数が多すぎます。分割して再度お試しください",
+  importFailUnsupported:"この端末ではその形式を読み込めません。.txt で保存し直してください",
+  importFailEmpty:"ファイルに読み込める文字がありません",
   playPause:"再生/一時停止",
   reset:"リセット",
   speed:"速度",
@@ -956,7 +992,17 @@ const I18N = {
   voiceUnsupportedHint:"お使いのブラウザは音声認識（Web Speech API）に対応していません。Android Chrome かデスクトップ Chrome をお使いください。他の機能は影響を受けません。",
   voiceStatusLabel:"状態"
  },
-  ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', submitNotice:'곧 콘텐츠를 제출합니다. 내용이 정확하고 독창적이며 제3자의 권리를 침해하지 않고 거주 지역 법률을 준수하는지 확인하세요. 규정을 위반한 콘텐츠는 삭제되고 보상은 지급되지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
+  ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
+  importBtn:"파일에서 가져오기",
+  importHint:"Word나 메모장에 이미 대본을 써 두셨나요? 복사·붙여넣기 없이 여기서 바로 가져오세요.",
+  importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX. 이전 형식 .doc 및 PDF는 지원하지 않습니다. .docx 또는 .txt로 다시 저장해 주세요. 가져오기는 새 대본으로 추가되며 기존 내용을 덮어쓰지 않습니다.",
+  importOk:"새 대본으로 가져왔습니다",
+  importFailType:"지원하지 않는 파일 형식입니다. TXT 또는 DOCX를 사용해 주세요",
+  importFailSize:"파일이 너무 큽니다(최대 2 MB). 나누어 다시 시도해 주세요",
+  importFailParse:"파일을 읽을 수 없습니다. .txt 또는 .docx로 다시 저장해 주세요",
+  importFailBig:"내용이 너무 깁니다. 나누어 다시 시도해 주세요",
+  importFailUnsupported:"이 기기에서는 해당 형식을 읽을 수 없습니다. .txt로 저장해 주세요",
+  importFailEmpty:"파일에서 가져올 텍스트가 없습니다",
   playPause:"재생/일시정지",
   reset:"초기화",
   speed:"속도",
@@ -1099,7 +1145,17 @@ const I18N = {
   voiceUnsupportedHint:"브라우저가 음성 인식(Web Speech API)을 지원하지 않습니다. Android Chrome이나 데스크톱 Chrome을 사용해 주세요. 다른 기능은 영향을 받지 않습니다.",
   voiceStatusLabel:"상태"
  },
-  ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', submitNotice:'Вы собираетесь отправить материал. Убедитесь, что он достоверен, оригинален, не нарушает права третьих лиц и соответствует законодательству вашей страны. Контент, нарушающий правила платформы, будет удалён, а вознаграждение не выплачивается.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
+  ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
+  importBtn:"Импорт из файла",
+  importHint:"Текст уже написан в Word или Блокноте? Загрузите его здесь без копирования.",
+  importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX. Устаревший .doc и PDF не поддерживаются — сохраните как .docx или .txt. Импорт создаёт новый сценарий и не перезаписывает существующие.",
+  importOk:"Импортировано как новый сценарий",
+  importFailType:"Неподдерживаемый формат. Используйте TXT или DOCX",
+  importFailSize:"Файл слишком большой (лимит 2 МБ). Разделите его",
+  importFailParse:"Не удалось прочитать файл. Сохраните как .txt или .docx",
+  importFailBig:"Текст слишком длинный. Разделите его",
+  importFailUnsupported:"Это устройство не может прочитать формат. Сохраните как .txt",
+  importFailEmpty:"В файле нет текста для импорта",
   playPause:"Пуск / Пауза",
   reset:"Сброс",
   speed:"Скорость",
@@ -1347,6 +1403,221 @@ function addScript(){
   state.scripts.push(s); state.activeScriptId = s.id;
   saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
 }
+/* ---------- 从文件导入讲稿（免费 · 纯本地 · 零依赖） ----------
+ * 依据《产品宪法 · 所有 APP 共同底线》：入口功能一律免费，不设 Pro 门禁。
+ * 只做纯文本提取：不上传、不执行文件内容、不引入任何第三方库 / CDN。
+ * 支持 TXT / TEXT / MD / MARKDOWN / CSV / SRT / VTT / LOG（纯文本）
+ *      DOCX / ODT / XLSX（ZIP + XML，浏览器原生 DecompressionStream）
+ * 不做旧版 .doc（OLE 二进制）、PDF、RTF、Pages / WPS —— UI 明确引导另存。
+ */
+const IMPORT_TEXT_EXTS = { txt:1, text:1, md:1, markdown:1, csv:1, srt:1, vtt:1, log:1 };
+const IMPORT_ZIP_EXTS  = { docx:1, odt:1, xlsx:1 };
+const IMPORT_MAX_FILE_BYTES = 2 * 1024 * 1024;
+const IMPORT_MAX_TEXT_BYTES = 90 * 1024; // 与后端 /scripts 正文 100 KiB 上限对齐，留余量
+const IMPORT_ERR_KEYS = {
+  type:'importFailType', size:'importFailSize', parse:'importFailParse',
+  big:'importFailBig', unsupported:'importFailUnsupported', empty:'importFailEmpty'
+};
+
+function importFail(code){ throw { code: code }; }
+function importExtOf(name){
+  const m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+  return m ? m[1].toLowerCase() : '';
+}
+function importIsSupported(ext){ return !!(IMPORT_TEXT_EXTS[ext] || IMPORT_ZIP_EXTS[ext]); }
+
+// 纯文本解码：UTF-8 BOM / UTF-16 BOM / 无 BOM 的 UTF-8，失败回退 GBK（浏览器内置解码器）。
+function decodeTextBytes(input){
+  const b = new Uint8Array(input);
+  const dec = new TextDecoder('utf-8');
+  if (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return dec.decode(b.subarray(3));
+  if (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE) return new TextDecoder('utf-16le').decode(b.subarray(2));
+  if (b.length >= 2 && b[0] === 0xFE && b[1] === 0xFF) {
+    const swapped = new Uint8Array(b.length - 2);
+    for (let i = 2; i + 1 < b.length; i += 2) { swapped[i-2] = b[i+1]; swapped[i-1] = b[i]; }
+    return new TextDecoder('utf-16le').decode(swapped);
+  }
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(b); }
+  catch (e) {
+    try { return new TextDecoder('gbk').decode(b); } catch (e2) { return dec.decode(b); }
+  }
+}
+
+// 导入字幕文件时去掉序号 / 时间码 / WEBVTT 头，只留下要念的文字。
+function stripSubtitleMarkup(text, ext){
+  if (ext !== 'srt' && ext !== 'vtt') return text;
+  const kept = String(text).split(/\r?\n/).filter(function (line) {
+    const s = line.trim();
+    if (!s) return true;
+    if (/^WEBVTT/i.test(s)) return false;
+    if (/^\d+$/.test(s)) return false;
+    if (/^\d{1,3}:\d{1,2}(:\d{1,2})?[,.]\d{1,3}\s*-->/.test(s)) return false;
+    if (/^(NOTE|STYLE|REGION|Kind:|Language:)/i.test(s)) return false;
+    return true;
+  });
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function readU16(b, o){ return b[o] | (b[o+1] << 8); }
+function readU32(b, o){ return ((b[o] | (b[o+1] << 8) | (b[o+2] << 16) | (b[o+3] << 24)) >>> 0); }
+
+// 从 ZIP central directory 定位条目，返回 { method, data }；找不到返回 null。
+function findZipEntry(input, wantName){
+  const b = new Uint8Array(input);
+  let eocd = -1;
+  const min = Math.max(0, b.length - 65558);
+  for (let i = b.length - 22; i >= min; i--) {
+    if (b[i] === 0x50 && b[i+1] === 0x4B && b[i+2] === 0x05 && b[i+3] === 0x06) { eocd = i; break; }
+  }
+  if (eocd < 0) return null;
+  const count = readU16(b, eocd + 10);
+  let off = readU32(b, eocd + 16);
+  const nameDec = new TextDecoder('utf-8');
+  for (let n = 0; n < count; n++) {
+    if (off + 46 > b.length || readU32(b, off) !== 0x02014b50) return null;
+    const method = readU16(b, off + 10);
+    const compSize = readU32(b, off + 20);
+    const nameLen = readU16(b, off + 28);
+    const extraLen = readU16(b, off + 30);
+    const commentLen = readU16(b, off + 32);
+    const localOff = readU32(b, off + 42);
+    const fname = nameDec.decode(b.subarray(off + 46, off + 46 + nameLen));
+    if (fname === wantName) {
+      if (localOff + 30 > b.length || readU32(b, localOff) !== 0x04034b50) return null;
+      const start = localOff + 30 + readU16(b, localOff + 26) + readU16(b, localOff + 28);
+      return { method: method, data: b.subarray(start, start + compSize) };
+    }
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return null;
+}
+
+// 只用 Streams API 解 raw deflate，不依赖 Blob.stream / Response（兼容较老 WebView）。
+async function inflateRaw(data){
+  if (typeof DecompressionStream === 'undefined') importFail('unsupported');
+  let ds;
+  try { ds = new DecompressionStream('deflate-raw'); } catch (e) { importFail('unsupported'); }
+  const writer = ds.writable.getWriter();
+  await writer.write(data);
+  await writer.close();
+  const reader = ds.readable.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const r = await reader.read();
+    if (r.done) break;
+    chunks.push(r.value); total += r.value.length;
+  }
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (let i = 0; i < chunks.length; i++) { out.set(chunks[i], p); p += chunks[i].length; }
+  return out;
+}
+
+// 只取纯文本节点，不渲染 HTML，天然规避文档里的宏 / 外链图片。
+function extractPlainTextFromXml(xmlText, ext){
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) importFail('parse');
+  const lines = [];
+  if (ext === 'docx') {
+    const paras = doc.getElementsByTagName('w:p');
+    if (!paras.length) {
+      const ts = doc.getElementsByTagName('w:t');
+      for (let i = 0; i < ts.length; i++) lines.push(ts[i].textContent);
+    } else {
+      for (let i = 0; i < paras.length; i++) {
+        let line = '';
+        const nodes = paras[i].getElementsByTagName('*');
+        for (let j = 0; j < nodes.length; j++) {
+          const ln = (nodes[j].localName || nodes[j].nodeName || '').toLowerCase();
+          if (ln === 't') line += nodes[j].textContent;
+          else if (ln === 'tab') line += '\t';
+          else if (ln === 'br' || ln === 'cr') line += '\n';
+        }
+        lines.push(line);
+      }
+    }
+  } else if (ext === 'odt') {
+    const nodes = doc.getElementsByTagName('*');
+    for (let i = 0; i < nodes.length; i++) {
+      const ln = (nodes[i].localName || nodes[i].nodeName || '').toLowerCase();
+      if (ln === 'p' || ln === 'h') lines.push(nodes[i].textContent);
+    }
+  } else if (ext === 'xlsx') {
+    const si = doc.getElementsByTagName('si');
+    const nodes = si.length ? si : doc.getElementsByTagName('t');
+    for (let i = 0; i < nodes.length; i++) lines.push(nodes[i].textContent);
+  }
+  return lines.join('\n');
+}
+
+function readFileAsArrayBuffer(file){
+  if (typeof file.arrayBuffer === 'function') return file.arrayBuffer();
+  return new Promise(function (resolve, reject) {
+    const r = new FileReader();
+    r.onload = function () { resolve(r.result); };
+    r.onerror = function () { reject(new Error('read_failed')); };
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function importCleanText(text){
+  return String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u0000/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim();
+}
+
+async function parseImportFile(file){
+  const ext = importExtOf(file && file.name);
+  if (!importIsSupported(ext)) importFail('type');
+  if ((file.size != null ? file.size : 0) > IMPORT_MAX_FILE_BYTES) importFail('size');
+  let bytes;
+  try { bytes = new Uint8Array(await readFileAsArrayBuffer(file)); }
+  catch (e) { importFail('parse'); }
+  if (bytes.length > IMPORT_MAX_FILE_BYTES) importFail('size');
+
+  let text;
+  if (IMPORT_ZIP_EXTS[ext]) {
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) importFail('parse'); // ZIP 头二次校验，不信扩展名
+    const target = ext === 'docx' ? 'word/document.xml'
+                 : ext === 'odt'  ? 'content.xml'
+                 : 'xl/sharedStrings.xml';
+    const entry = findZipEntry(bytes, target);
+    if (!entry) importFail('parse');
+    const raw = entry.method === 0 ? entry.data : await inflateRaw(entry.data);
+    text = extractPlainTextFromXml(new TextDecoder('utf-8').decode(raw), ext);
+  } else {
+    text = stripSubtitleMarkup(decodeTextBytes(bytes), ext);
+  }
+  text = importCleanText(text);
+  if (!text) importFail('empty');
+  if (new TextEncoder().encode(text).length > IMPORT_MAX_TEXT_BYTES) importFail('big');
+  const title = String(file.name || '').replace(/\.[^.]+$/, '').trim().slice(0, 60) || t('scriptNewTitle');
+  return { title: title, text: text };
+}
+
+// 导入一律新建讲稿，不覆盖用户当前内容（避免误操作丢稿）。
+function importTextAsNewScript(title, content){
+  const s = { id: uid(), title: title, content: content, updatedAt: Date.now(), cloudId: null };
+  state.scripts.push(s); state.activeScriptId = s.id;
+  saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
+  return s;
+}
+
+async function handleImportFile(file){
+  if (!file) return;
+  try {
+    const r = await parseImportFile(file);
+    importTextAsNewScript(r.title, r.text);
+    toast(t('importOk'));
+  } catch (err) {
+    toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'));
+  }
+}
+
 function deleteScript(id){
   if (!state.scripts || state.scripts.length <= 1) { toast(t('scriptDeleteLast')); return; }
   const s = state.scripts.find(function (x) { return x.id === id; });
@@ -2471,6 +2742,18 @@ function init(){
     document.getElementById('aboutSheet').classList.add('hidden');
   });
   document.getElementById('btnReport').addEventListener('click', submitReport);
+
+  // 从文件导入讲稿（免费功能，无 Pro 门禁）：导入后新建一篇，不覆盖现有内容
+  const importBtn = document.getElementById('btnImportFile');
+  const importInput = document.getElementById('importFile');
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', function () { importInput.click(); });
+    importInput.addEventListener('change', function (e) {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = ''; // 允许连续选择同一个文件
+      handleImportFile(f);
+    });
+  }
 
   // 遥控（Pro）：打开/关闭/角色切换/创建/停止/复制/分享/连接/断开/播放/暂停/调速
   const remoteSheet = document.getElementById('remoteSheet');
