@@ -1,0 +1,29 @@
+# wrangler.dev.toml — 本地自测专用配置（无需 Cloudflare 账号、无需 Bot、无需登录）
+#
+# 用法：
+#   npm run smoke:worker
+#   （等价：wrangler d1 execute ... --local --file=./schema.sql
+#          → wrangler dev --config wrangler.dev.toml → node tools/smoke-worker.mjs）
+#
+# 与生产 wrangler.toml 的区别：
+#   - database_id 是一个格式合法的假 UUID，只在本地 .wrangler/state 里建 SQLite，不连云端；
+#   - [vars] 里全是明显的假值，仅供本地签 initData / 过 ADMIN_SECRET 门禁。
+#   ⚠️ 绝不要把真实 BOT_TOKEN / ADMIN_SECRET 写进这个文件，它会被提交到仓库。
+#      生产一律用 `wrangler secret put`，见 README_deploy.md §3.3。
+#
+# 这份配置刻意不改动生产 wrangler.toml 的占位符，避免本地调试污染真实部署配置。
+
+name = "teleprompter-monolith-dev"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "teleprompter-credits"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[vars]
+BOT_USERNAME = "scriptdeck_dev_bot"
+BOT_TOKEN = "DEV_BOT_TOKEN:local-only-not-a-real-token"
+ADMIN_SECRET = "dev-admin-secret-local-only"
+WEBHOOK_SECRET = "dev-webhook-secret-local-only"

@@ -1,6 +1,6 @@
 # wrangler.toml — 提词器 Telegram Mini App 单体后端（Monolith）
-# 一个 Worker + 一个 D1 + 一个后端 URL，合并 P0 验签 + P2 积分 + P3 支付
-# + P4 悬赏 + P5 增长 + P6 增强 + P7 合规。彻底消除"多 Worker 分头部署"带来的 clash 风险。
+# 一个 Worker + 一个 D1 + 一个后端 URL，合并 P0 验签 + P2 积分 + P3 支付/退款
+# + P5 增长 + P6 增强 + P7 合规（P4 悬赏已下线）。彻底消除"多 Worker 分头部署"带来的 clash 风险。
 
 name = "teleprompter-monolith"
 main = "worker.js"
@@ -19,7 +19,7 @@ BOT_USERNAME = "__BOT_USERNAME_PLACEHOLDER__"   # 与 BotFather 用户名一致�
 
 # 部署 secret（交互式输入，不落盘、不提交真实值）：
 #   wrangler secret put BOT_TOKEN        # 与 BotFather token 一致（initData 验签 + 调 Bot API 开发票/设 webhook）
-#   wrangler secret put ADMIN_SECRET     # /payments/verify、/bounty/verify、/growth/verify 运营对账门禁
+#   wrangler secret put ADMIN_SECRET     # /payments/verify、/growth/verify 对账门禁，以及 /admin 退款操作台
 #   wrangler secret put WEBHOOK_SECRET   # setWebhook 的 secret_token（/payments/webhook 验签）
 #
 # 初始化数据库（本地 + 远程各跑一次，schema 全量建表、幂等安全）：
@@ -35,4 +35,5 @@ BOT_USERNAME = "__BOT_USERNAME_PLACEHOLDER__"   # 与 BotFather 用户名一致�
 #        https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
 #
 # 前端 index.html 只需填一个后端根地址 CONFIG.API_BASE（如 https://teleprompter-monolith.<sub>.workers.dev）
-# 所有 /verify /credits /payments /bounty /growth /scripts /remote /templates /compliance 都挂在此 URL 下。
+# 所有 /verify /credits /payments /admin /growth /scripts /remote /templates /compliance 都挂在此 URL 下。
+# 本地自测请勿改本文件，改用 wrangler.dev.toml（假 UUID + 假密钥）；见 README_deploy.md §0.1。

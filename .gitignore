@@ -6,6 +6,10 @@ node_modules/
 dist/
 *.log
 
+# wrangler 本地 D1 / workerd 状态（本地自测生成，不含源码，不进仓库）
+.wrangler/
+.dev.vars
+
 # 临时/调试文件
 *_dbg*
 _dbg.*

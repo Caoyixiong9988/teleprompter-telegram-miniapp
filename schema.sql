@@ -52,16 +52,44 @@ CREATE INDEX IF NOT EXISTS idx_payments_user ON payments_stars(user_id, id DESC)
 -- P3（续）Pro 订阅（按 Telegram Stars 购买；月付 pro_month / 年付 pro_year；到期前有效）
 -- 与支付账本同库；webhook 在 successful_payment 收到 pro_* 商品时写此表，
 -- 前端 /payments/pro-status 据此返回 { pro: bool }，作为"去水印高清导出"等 Pro 权益的权威来源。
+--
+-- 2026-11-10：新增 charge_id（授予该订阅的支付号）。退款时按 charge_id 精确撤销，
+-- 避免「用户先买月付、再买年付覆盖同一行」后退掉旧单却误撤当前有效订阅。
+-- 后端尚未首次部署，直接改建表定义即可，无历史数据迁移成本。
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users_pro (
   user_id    TEXT    PRIMARY KEY,
   product_id TEXT    NOT NULL,            -- pro_month | pro_year
+  charge_id  TEXT    NOT NULL,            -- 授予该订阅的 tg_payment_charge_id（退款精确撤销用）
   stars      INTEGER NOT NULL,            -- 用户支付的 Telegram Stars 数量
   expires_at INTEGER NOT NULL,            -- 到期时间戳(ms)；到期前 pro-status 返回 true
   created_at INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_pro_expires ON users_pro(expires_at);
+CREATE INDEX IF NOT EXISTS idx_users_pro_charge ON users_pro(charge_id);
+
+-- ---------------------------------------------------------------------------
+-- P3（续）退款审计（管理员在 /admin 页面点「退款」后写入）
+-- 硬约束：只有 Telegram Bot API refundStarPayment 返回 ok:true 才会写本地，
+--         即「平台真的退了钱」才撤销 Pro / 扣回积分，绝不先撤权益后退钱。
+-- UNIQUE(charge_id) 是重复退款的幂等硬保证；credits_revoked 记录实际扣回数
+-- （用户已花掉的部分不追成负数），pro_revoked 标记是否撤销了对应订阅行。
+-- forced=1 表示管理员明确越过 14 天窗口，必须留痕。
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS refunds (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id              TEXT    NOT NULL,
+  tg_payment_charge_id TEXT    NOT NULL,
+  stars                INTEGER NOT NULL,
+  credits_revoked      INTEGER NOT NULL DEFAULT 0,
+  pro_revoked          INTEGER NOT NULL DEFAULT 0,
+  forced               INTEGER NOT NULL DEFAULT 0,
+  created_at           INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_refunds_charge ON refunds(tg_payment_charge_id);
+CREATE INDEX IF NOT EXISTS idx_refunds_user ON refunds(user_id, id DESC);
 
 -- ---------------------------------------------------------------------------
 -- 2026-11-10：P4 悬赏改稿已下线（依据《产品宪法 · 所有 APP 共同底线》）。

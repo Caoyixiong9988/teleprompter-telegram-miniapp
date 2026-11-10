@@ -30,18 +30,21 @@
 | P7 | 合规（免责声明 / 举报反馈） | ✅ | |
 | P8 | 导入专项测试 | ✅ | 15/15 |
 | P9 | 免费版 3 篇上限 + Pro 状态修复 | ✅ | 11/11 |
+| P10 | 后台退款操作台 + 退款自动撤销 Pro | ✅ | 14/14 |
 
-`npm test` → **96 / 96**；`node test_i18n_real.mjs` → **32 / 32**（五语键集各 166 键）。
+`npm test` → **110 / 110**；`node test_i18n_real.mjs` → **32 / 32**（五语键集各 166 键）；`npm run smoke:worker` → **18 / 18**（真 workerd + 真本地 SQLite）。
 
-> 以上均为**本地 mock 测试**。后端从未部署、Stars 支付前端从未接通、真机零验证——发布前必须补齐，见 [README_deploy.md](README_deploy.md) 与 CHANGELOG 顶部的「尚未验证」清单。
+> 前两项是本地 mock；`smoke:worker` 跑的是**真实 Worker 运行时 + 真实本地 D1**，但仍是本机、不是云端。后端从未部署到 Cloudflare、Stars 支付前端从未接通、真机零验证、真实退款 API 从未调用——发布前必须补齐，见 [README_deploy.md](README_deploy.md) 与 CHANGELOG 顶部的「尚未验证」清单。
 
 ## 目录结构
 
 ```
 .
 ├── index.html                    # 单文件提词器（P1 + 文件导入）
-├── worker.js                     # 单体 Worker 路由（P0 验签）
-├── schema.sql / wrangler.toml     # 单一 D1 建表与部署配置
+├── worker.js                     # 单体 Worker 路由（P0 验签 / P3 /admin 分发）
+├── schema.sql / wrangler.toml     # 生产用：单一 D1 建表与部署配置
+├── wrangler.dev.toml             # 本地自测用：假 UUID + 全假密钥，不碰生产配置
+├── tools/smoke-worker.mjs        # 真 workerd + 真本地 D1 冒烟（一键）
 ├── shared/                       # 验签 / 积分账本共享核心
 ├── 【产品宪法】所有APP共同底线.md  # 跨 APP 最高优先级约束
 ├── CHANGELOG.md                  # 每次改动的可读清单
@@ -51,6 +54,7 @@
 ├── p7-compliance/                # 免责声明与反馈
 ├── p8-import/                    # 导入功能专项测试
 ├── p9-quota/                     # 免费额度与 Pro 状态专项测试
+├── p3-payments/test-refund.mjs   # 退款 + 撤销 Pro 专项测试（14 项）
 ├── test_i18n_real.mjs            # 前端 jsdom 回归（32 项）
 └── README_deploy.md              # 部署手册（Cloudflare Workers + D1）
 ```
@@ -65,12 +69,29 @@
 - **行为**：导入后**新建一篇讲稿**（标题取文件名），绝不覆盖当前内容；SRT / VTT 自动去掉时间码只留台词
 - 中文 txt 若为 GBK 编码会自动识别，无需手工转换
 
+## 后台退款操作（管理员）
+
+客户通过 `/paysupport` 提出退款后，打开 `https://<worker>/admin?adminSecret=<ADMIN_SECRET>`（密钥即 `wrangler secret put ADMIN_SECRET` 设的值）：
+
+- 页面列出最近 20 笔 Stars 支付，每笔一个**「退款」按钮**，点击二次确认；已退款的显示「已退款」。
+- 默认只允许购买后 **14 天**内退款（与五语条款一致）；超期需勾选「强制退款」并会写入审计。
+- 点下去**先调 Telegram `refundStarPayment`**；只有平台确认成功，才会撤销该笔授予的 **Pro 权益**、扣回未使用积分、写 `refunds` 审计。平台没退钱绝不先撤权益。
+- 撤销后 `/payments/pro-status` 立即返回 `pro:false`，前端 `checkProStatus()` 会把本地缓存一起降为免费版。
+- 也可用 `GET /admin/refunds`（列表 JSON）与 `POST /admin/refund`（body `{chargeId, force}`）脚本化操作，均需 `x-admin-secret` 头。
+
+> Telegram Stars 销售为 final，**平台不会自动退款，也没有 chargeback webhook**；「同意退款」只能由你在这个页面点按钮触发。密钥只在页面会话内使用，地址栏会自动清除。
+
 ## 本地测试
 
 ```bash
-npm test                   # 后端 + 导入全部单测（85 项）
+npm test                   # 后端 + 导入 + 退款全部单测（110 项，mock D1）
 node test_i18n_real.mjs    # 前端真实 DOM 冒烟（32 项）
+npm run smoke:worker       # 真 workerd + 真本地 D1（18 项，一键从零跑通）
 ```
+
+`npm run smoke:worker` **不需要 Cloudflare 账号、不需要 Bot、不需要联网**：自动用 `wrangler.dev.toml` 幂等建本地 D1、拉起 `wrangler dev`、验完自动关闭。它覆盖 mock 测不到的真实 SQL、`D1 batch`、路由分发与建表字段。只想手动起服务时用 `npm run dev:worker`（先跑一次 `npm run d1:local` 建表）。
+
+> `wrangler.dev.toml` 里的 UUID 与密钥**全是假值**，仅本机用；真实密钥一律 `wrangler secret put`，绝不写进仓库。生产 `wrangler.toml` 的占位符保持不变。
 
 导入功能还需真机手工验收：Telegram Android / iOS / Desktop / Web 四端文件选择器、GBK 中文 txt、带表格与图片的 docx、大文件。清单见 CHANGELOG 顶部。
 

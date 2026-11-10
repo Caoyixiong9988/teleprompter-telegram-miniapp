@@ -2,23 +2,38 @@
 
 > **产品对外品牌名：`ScriptDeck`**（副标题 `Teleprompter & Cue Cards`）。本文档中出现的 `teleprompter-credits`（D1 库）、`teleprompter-monolith`（Worker）、`teleprompter`（Pages 项目名）均为**内部技术标识，不随品牌改名**——改名意味着重建数据库、迁移数据、更换 Worker URL，用户不可见且纯属额外风险。前端所有用户可见的品牌位（标题、副标题、分享卡片水印、分享文案）已统一为 `ScriptDeck`。
 
-> 范围：P0（脚手架 + initData 验签）+ P1（核心提词器零后台 MVP）+ P2（跨 App 统一积分账本）+ P3（Telegram Stars 支付账本）+ P4（悬赏改稿）+ P5（病毒增长）+ P6（增强模块）+ P7（合规 + 多语言 EN/JP/KR + 平台对账 + 举报）。
+> 范围：P0（脚手架 + initData 验签）+ P1（核心提词器零后台 MVP）+ P2（跨 App 统一积分账本）+ P3（Telegram Stars 支付账本 + 后台退款）+ P5（病毒增长）+ P6（增强模块）+ P7（合规 + 多语言 EN/JP/KR + 平台对账 + 举报）。**P4 悬赏改稿已下线**，本手册不再包含它。
 > 产物：`index.html`（单文件提词器，含多语切换 / 可见免责声明 / 举报入口）、根目录 `worker.js`（**单体后端**：合并 P0+P2–P7）、根目录 `schema.sql` 与 `wrangler.toml`、本文件；各模块业务代码见 `p2-credits/`…`p7-compliance/`。
 
-> ★ **已合并为单体后端（Monolith）**：P0 验签 + P2 积分 + P3 支付 + P4 悬赏 + P5 增长 + P6 增强 + P7 合规，现在由**一个** Cloudflare Worker（`worker.js`）、**一个** D1 库（`teleprompter-credits`）、**一个** `wrangler.toml`、**一个** `schema.sql` 统一部署。Telegram Mini App 只需填**一个**后端 URL（`index.html` 的 `CONFIG.API_BASE`）。这彻底消除了"多独立 Worker 分头部署、日后改动互相漂移 / clash"的风险。
+> ★ **已合并为单体后端（Monolith）**：P0 验签 + P2 积分 + P3 支付/退款 + P5 增长 + P6 增强 + P7 合规，现在由**一个** Cloudflare Worker（`worker.js`）、**一个** D1 库（`teleprompter-credits`）、**一个** `wrangler.toml`、**一个** `schema.sql` 统一部署。Telegram Mini App 只需填**一个**后端 URL（`index.html` 的 `CONFIG.API_BASE`）。这彻底消除了"多独立 Worker 分头部署、日后改动互相漂移 / clash"的风险。
 >
 > ⚠️ **部署以 §3 单体部署为准**：下文 §8–§13 各模块里出现的 `p2-credits/schema.sql`、`*/wrangler.toml` 等逐模块路径**已不再单独存在**（已合并到根目录）。不要再逐模块执行 `wrangler deploy`；那些章节仅作各模块逻辑与前端客户端用法说明。
 
 ---
 
-## 0. 前置条件
+## 0. 前置条件（分清「部署」与「上线」）
 
-| 项 | 说明 |
-|---|---|
-| 本地 | 浏览器（Chrome/Edge）做 UI 测试；可选 Node.js 跑 `node --check worker.js` |
-| BotFather | 在 Telegram 搜索 `@BotFather`，创建 bot 并拿到 **bot token** |
-| Cloudflare | 免费账号（托管静态 `index.html` 用 Pages，验签用 Worker） |
-| 可选 | `wrangler` CLI（`npm i -g wrangler`，`wrangler login`） |
+**部署不需要 Bot**。Telegram bot 在 `@BotFather` 发 `/newbot` 约 30 秒即可拿到 token，无审批、无企业资质、无费用；Mini App 也没有应用商店式审核。真正要等的是收款主体（香港账户那条线），而它不影响技术部署与验证。
+
+| 阶段 | 项 | 说明 |
+|---|---|---|
+| **现在就能做（零账号）** | 本地 Worker 自测 | `npm run smoke:worker` — 真 workerd + 真本地 D1，无需 Cloudflare 账号 / Bot / 联网，见 §0.1 |
+| | `index.html` 本地预览 | `python -m http.server 8080`，浏览器打开；`CONFIG.API_BASE` 留空时前端不发任何后端请求 |
+| | 代码排查 | `npm test`、`node test_i18n_real.mjs`；「积分异常增加数百分」等纯逻辑 bug 与 Bot 无关 |
+| **云端部署才需要** | Cloudflare | 免费账号（Pages 托管 `index.html`、Worker 跑验签、D1 存数据），需 `wrangler login` |
+| **真机联调 / 收费才需要** | BotFather | `@BotFather` → `/newbot` 拿 token；`/newapp` 绑定 Web App URL |
+| | 收款主体 | Stars 提现走 Fragment / TON，不走银行账户；与 Google Play 的组织开发者账号是两件事 |
+
+> 顺序建议：**先本地自测 → 再云端部署 → 再建 Bot（5 分钟）→ 最后真机与支付验收**，不要反过来干等 Bot。`wrangler deploy` 只是拿到一个 `*.workers.dev` 地址，不对外宣传就没有用户、没有资金流、可随时回滚，不等于发布。
+
+### 0.1 本地 Worker 自测（无需任何账号，推荐部署前先跑）
+
+```bash
+npm install                # 已含 wrangler 与 jsdom
+npm run smoke:worker       # 一键：幂等建本地 D1 → 拉起 wrangler dev → 18 项断言 → 自动关闭
+```
+
+用的是 `wrangler.dev.toml`：假 UUID + 全假密钥，只读本地 `.wrangler/state`，**不修改生产 `wrangler.toml` 的占位符、不连云端**。想手动起服务：`npm run d1:local` 建表后 `npm run dev:worker`。
 
 ---
 
@@ -93,7 +108,7 @@ wrangler d1 execute teleprompter-credits --remote --file=./schema.sql
 ```bash
 wrangler login
 wrangler secret put BOT_TOKEN        # BotFather token（initData 验签 + 调 Bot API 开发票/设 webhook）
-wrangler secret put ADMIN_SECRET     # /payments/verify、/bounty/verify、/growth/verify 运营对账门禁
+wrangler secret put ADMIN_SECRET     # /payments/verify、/growth/verify 对账门禁，以及 /admin 退款操作台
 wrangler secret put WEBHOOK_SECRET   # setWebhook 的 secret_token（/payments/webhook 验签）
 wrangler deploy                      # 读根 wrangler.toml → https://teleprompter-monolith.<sub>.workers.dev
 ```
@@ -114,6 +129,15 @@ const CONFIG = {
 };
 ```
 > `/verify`、`/compliance/report` 等所有端点都由 `API_BASE` 经 `apiUrl()` 自动派生，**不再需要分别为每个服务填 URL**。留空 `API_BASE` 时，前端不会发起后端请求（适合本地/浏览器先测 UI）。真机验收前务必填好。
+
+### 3.5 后台退款操作台（部署后）
+
+打开 `https://<worker>/admin?adminSecret=<ADMIN_SECRET>`，页面列出最近 20 笔 Stars 支付并带**退款按钮**。客户经 `/paysupport` 申请后在这里按支付号处理。
+
+- 三个 secret 里 `ADMIN_SECRET` 必须设置，否则 `/admin` 一律 403；`BOT_TOKEN` 必须设置，否则退款返回 `503 bot_token_not_configured`。
+- 点退款会先调 `refundStarPayment`；**只有 Telegram 返回 `ok:true`** 才撤销该笔 Pro 订阅、扣回未使用积分并写 `refunds` 审计。API 失败时本地状态零改动。
+- `/admin` 前缀已在根 `worker.js` 的 `ROUTES` 中挂到支付模块；若访问返回 404，先检查这一项。
+- 详细规则（14 天窗口、强制退款留痕、幂等）见 `README.md` 的「后台退款操作」与 `p3-payments/test-refund.mjs`。
 
 ---
 

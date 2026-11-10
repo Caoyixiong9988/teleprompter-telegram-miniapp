@@ -8,6 +8,35 @@
 
 ---
 
+## 2026-11-10 · feat — 后台退款操作台 + 退款自动撤销 Pro + 本地 Worker 真实运行时自测
+
+**为什么**：核实发现两处缺口——① 五语 `paidNotice` 一直承诺「14 天内可经 `/paysupport` 全额退款」，但后台**没有任何退款界面或按钮**，承诺无法履行；② 即使人工退了 Stars，`users_pro` 里的订阅仍在，用户会继续白用 Pro。另外 `worker.js` 的 ROUTES 漏挂 `/admin` 前缀，已有的对账仪表盘线上其实是 404。
+
+**改了什么**
+- **后台退款界面**：`/admin` 从只读对账页升级为可操作页面，最近 20 笔每笔带「退款」按钮（二次确认）、超期提示、强制退款勾选、成功／失败状态条；地址栏里的管理密钥加载后自动清除，之后一律走 `x-admin-secret` 头。
+- **新增接口**：`GET /admin/refunds`（可退款交易列表 JSON，含 14 天窗口判定）、`POST /admin/refund`（执行退款）。全部 `ADMIN_SECRET` 门禁。
+- **退款铁律**：**先调 Telegram `refundStarPayment`，只有返回 `ok:true` 才写本地**。平台没退钱绝不先撤权益；API 失败／未配 token 一律 502／503 且本地状态零改动（测试专门锁死这条）。
+- **同意退款后自动撤销 Pro 与积分**：`users_pro` 新增 `charge_id` 列，退款按支付号精确 `DELETE`，避免「先买月付、再买年付覆盖同一行」后退旧单误撤当前有效订阅；同时扣回仍未使用的积分（不超过余额、不追负数）、写负向 ledger、写 `refunds` 审计行（含 `forced` 留痕）。`/payments/pro-status` 随即返回 `pro:false`，前端 `checkProStatus()` 会把它回写本地缓存。
+- **窗口与幂等**：默认仅 14 天内可退（与五语条款一致），超期需管理员显式「强制」并留痕；`refunds` 表 `UNIQUE(charge_id)` + 支付行 `status='refunded'` 双重防重复退款。
+- **无人值守的本地自测**：新增 `wrangler.dev.toml`（假 UUID + 全假密钥，**不碰生产 `wrangler.toml` 的占位符**）、`tools/smoke-worker.mjs`、`npm run smoke:worker`。无需 Cloudflare 账号、无需 Bot、无需网络，自动幂等建本地 D1、自动拉起 workerd、跑完自动关闭。
+- **修 `/admin` 404**：`worker.js` ROUTES 补 `['/admin', paymentsHandler]`。
+
+**怎么验证（可复现）**
+```
+npm test                   → 110 / 110（原 96 + 新增 14 项 test-refund.mjs）
+node test_i18n_real.mjs    → 32 / 32，五语键集各 166
+npm run smoke:worker       → 18 / 18（真 workerd + 真本地 SQLite，从零一键跑通）
+```
+`smoke:worker` 验证的是 mock 测不出来的东西：真实 SQL 方言、`D1 batch`、新增 `charge_id` 列的 INSERT、`grantPro → pro-status` 真读回、`/admin` 前缀分发、真实 Pro 门禁。新增 14 项单测覆盖：14 天窗口／force、精确撤销旧单、参数校验、Bot API 参数、Pro 降级、积分扣回、重复退款、API 失败不动状态、注入防护。
+
+**涉及文件**：`schema.sql`、`p3-payments/{payments-worker.js,payments-core.js,inmemory-payments-store.js,test-refund.mjs}`、`worker.js`、`wrangler.dev.toml`、`tools/smoke-worker.mjs`、`package.json`、`package-lock.json`、`.gitignore`、`README.md`、`README_deploy.md`、`wrangler.toml`（注释）、`【产品宪法】所有APP共同底线.md`、本文件。
+
+**仍待验证**：本地 D1 从未连过真实 Cloudflare；`refundStarPayment` 只用 stub 测过，**没有真实 Bot Token 与真实支付号**；退款页面在真机／生产 Worker 上的交互、14 天窗口与真实系统时间的边界，都要部署后验。
+
+> **例外留痕（按产品宪法 §3）**：底线 4 写「无人工审核队列」。退款确实需要管理员点一次按钮，但它是 Telegram Stars 条款 + 我们自己五语承诺要求履行的**低频履约动作**，不是持续流入、需要内容裁决的 UGC 审核队列；无定时任务、无待办积压、单人几分钟可完成。**退出方案**：若日后不打算承接退款，须先改窄五语 `paidNotice` 条款（不能既承诺又不给退），再下线 `/admin/refund`。**复核日期**：Stars 收银台接通当天。
+
+---
+
 ## 2026-11-10 · feat — 免费版 3 篇上限 + 云同步数据契约 + Pro 状态修复
 
 **改了什么**

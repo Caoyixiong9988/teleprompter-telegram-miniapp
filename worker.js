@@ -41,6 +41,7 @@ import complianceHandler from './p7-compliance/compliance-worker.js';
 const ROUTES = [
   ['/credits', creditsHandler],
   ['/payments', paymentsHandler],
+  ['/admin', paymentsHandler],   // P7 对账仪表盘 + 退款操作界面（此前漏挂，导致 /admin 一直是 404）
   ['/growth', growthHandler],
   ['/scripts', enhanceHandler],
   ['/remote', enhanceHandler],

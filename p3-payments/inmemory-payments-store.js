@@ -109,8 +109,35 @@ export class InMemoryPaymentsStore {
       created_at: Date.now(),
     });
     this.pro = this.pro || new Map();
-    this.pro.set(userId, { product_id: productId, stars, expires_at: expiresAt });
+    // charge_id 记录「是哪笔支付授予的订阅」，退款时按此精确撤销（与 D1 版一致）
+    this.pro.set(userId, { product_id: productId, charge_id: chargeId, stars, expires_at: expiresAt });
     return { inserted: true };
+  }
+
+  /**
+   * 按 charge_id 精确撤销订阅。用户若随后买了更长订阅覆盖了本行，退旧单不会误撤当前有效订阅。
+   * @returns {boolean} 是否真的撤销了一行
+   */
+  revokeProByCharge(chargeId) {
+    if (!this.pro) return false;
+    for (const [uid, row] of this.pro) {
+      if (row.charge_id === chargeId) {
+        this.pro.delete(uid);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  markPaymentRefunded(chargeId) {
+    const row = this.payments.get(chargeId);
+    if (!row) return false;
+    row.status = 'refunded';
+    return true;
+  }
+
+  getPaymentByChargeId(chargeId) {
+    return this.payments.get(chargeId) || null;
   }
 
   getProStatus(userId) {

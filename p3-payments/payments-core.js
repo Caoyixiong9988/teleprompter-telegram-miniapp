@@ -84,3 +84,36 @@ export async function processSuccessfulPayment(store, { userId, chargeId, stars,
   const res = await store.recordPaymentAndGrantTxn({ userId, chargeId, stars, creditsGranted });
   return { ok: true, duplicate: !!res.duplicate, creditsGranted };
 }
+
+// ── 退款资格（纯逻辑，不依赖 Cloudflare / DB / 网络，便于单测）────────────
+// 与五语 paidNotice 的承诺一致：购买后 14 天内可申请全额退款。
+// 超期并非绝对禁止：管理员可显式 force（处理客诉），但会写入 refunds.forced=1 留痕。
+export const REFUND_WINDOW_DAYS = 14;
+export const REFUND_WINDOW_MS = REFUND_WINDOW_DAYS * 24 * 3600 * 1000;
+
+/**
+ * @param {{createdAt:number, now?:number, force?:boolean}} params
+ * @returns {{ok:boolean, reason?:string, forced?:boolean, daysLeft?:number}}
+ */
+export function evaluateRefundEligibility({ createdAt, now = Date.now(), force = false }) {
+  if (!Number.isFinite(createdAt) || createdAt <= 0 || now < createdAt) {
+    return { ok: false, reason: 'invalid_created_at' };
+  }
+  const age = now - createdAt;
+  const daysLeft = Math.max(0, Math.ceil((REFUND_WINDOW_MS - age) / (24 * 3600 * 1000)));
+  if (age > REFUND_WINDOW_MS) {
+    if (!force) return { ok: false, reason: 'refund_window_expired', daysLeft: 0, days: REFUND_WINDOW_DAYS };
+    return { ok: true, forced: true, daysLeft: 0 };
+  }
+  return { ok: true, forced: false, daysLeft };
+}
+
+/**
+ * 退款时应扣回的内部积分数：不超过当初发放量，也不让余额变负（用户可能已消耗）。
+ * 纯函数，供 D1 事务与内存 store 共用。
+ */
+export function revokeAmount(balance, creditsGranted) {
+  const b = Number.isFinite(balance) && balance > 0 ? balance : 0;
+  const g = Number.isFinite(creditsGranted) && creditsGranted > 0 ? creditsGranted : 0;
+  return Math.min(b, g);
+}

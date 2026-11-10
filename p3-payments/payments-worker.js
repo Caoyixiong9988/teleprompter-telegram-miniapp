@@ -10,15 +10,29 @@
  *   POST /payments/webhook   Telegram Stars webhook：pre_checkout→放行；successful_payment→记录+发积分（幂等）
  *   POST /payments/invoice   经 initData 验签；调用 Bot API createInvoiceLink 返回发票链接
  *   GET  /payments/history   经 initData 验签；返回当前用户 Stars 支付历史
+ *   GET  /payments/pro-status 经 initData 验签；Pro 权益权威来源（退款/到期后返回 false）
  *   GET  /payments/verify    ADMIN_SECRET 门禁；运营对账
+ *   GET  /admin              ADMIN_SECRET 门禁；Stars 对账 + 退款操作界面（含退款按钮）
+ *   GET  /admin/summary      ADMIN_SECRET 门禁；对账 JSON
+ *   GET  /admin/refunds      ADMIN_SECRET 门禁；可退款交易列表 JSON
+ *   POST /admin/refund       ADMIN_SECRET 门禁；全额退款并原子撤销 Pro / 扣回积分
  *
  * 合规：Stars 只经 Telegram 官方；积分仅平台发放、用户只消耗；无 P2P 转账 / 无赌博。
+ * 退款铁律：必须等 Bot API refundStarPayment 返回 ok:true，才写本地撤销；
+ *          平台没退钱就先撤权益，是最容易引发客诉的顺序错误。
  *
  * secret（占位，部署时填）：BOT_TOKEN、ADMIN_SECRET、WEBHOOK_SECRET（setWebhook 的 secret_token）
  */
 
 import { verifyInitData, getUserIdFromInitData } from '../shared/verify.js';
-import { processSuccessfulPayment, STARS_PRODUCTS, getProduct } from './payments-core.js';
+import {
+  processSuccessfulPayment,
+  STARS_PRODUCTS,
+  getProduct,
+  evaluateRefundEligibility,
+  REFUND_WINDOW_DAYS,
+  revokeAmount,
+} from './payments-core.js';
 
 // ── D1 Store 适配器（实现 payments-core 的 Store 接口 + ledger-core 的 Store 接口）──
 class D1PaymentsStore {
@@ -135,9 +149,9 @@ class D1PaymentsStore {
           'INSERT INTO payments_stars (user_id, tg_payment_charge_id, provider, stars, credits_granted, status, created_at) VALUES (?,?,?,?,?,?,?)'
         ).bind(userId, chargeId, 'telegram_stars', stars, 0, 'completed', now),
         this.db.prepare(
-          'INSERT INTO users_pro (user_id, product_id, stars, expires_at, created_at) VALUES (?,?,?,?,?) ' +
-          'ON CONFLICT(user_id) DO UPDATE SET product_id=excluded.product_id, stars=excluded.stars, expires_at=excluded.expires_at, created_at=excluded.created_at'
-        ).bind(userId, productId, stars, expiresAt, now),
+          'INSERT INTO users_pro (user_id, product_id, charge_id, stars, expires_at, created_at) VALUES (?,?,?,?,?,?) ' +
+          'ON CONFLICT(user_id) DO UPDATE SET product_id=excluded.product_id, charge_id=excluded.charge_id, stars=excluded.stars, expires_at=excluded.expires_at, created_at=excluded.created_at'
+        ).bind(userId, productId, chargeId, stars, expiresAt, now),
       ]);
       return { inserted: true };
     } catch (e) {
@@ -158,6 +172,65 @@ class D1PaymentsStore {
     const now = Date.now();
     if (row.expires_at && row.expires_at <= now) return { pro: false, expired: true };
     return { pro: true, productId: row.product_id, expiresAt: row.expires_at };
+  }
+
+  // ── 退款相关 ──────────────────────────────────────────────
+  async getPaymentByChargeId(chargeId) {
+    const row = await this.db
+      .prepare(
+        'SELECT id, user_id, tg_payment_charge_id, stars, credits_granted, status, created_at FROM payments_stars WHERE tg_payment_charge_id = ?'
+      )
+      .bind(chargeId)
+      .first();
+    return row || null;
+  }
+
+  async getRefundByChargeId(chargeId) {
+    const row = await this.db
+      .prepare('SELECT id FROM refunds WHERE tg_payment_charge_id = ?').bind(chargeId).first();
+    return row || null;
+  }
+
+  /**
+   * 退款本地落账（单个 D1 batch，原子）。
+   * 调用前必须已确认 Bot API refundStarPayment 返回 ok:true —— 平台没退钱，绝不撤权益。
+   * Pro 按 charge_id 精确撤销；积分只扣回仍在余额里的部分，不追成负数、不产生用户间转账。
+   */
+  async recordRefundTxn({ payment, forced }) {
+    const now = Date.now();
+    const balance = await this.getBalance(payment.user_id);
+    const creditsToRevoke = revokeAmount(balance, payment.credits_granted);
+    const proRow = await this.db
+      .prepare('SELECT user_id FROM users_pro WHERE charge_id = ?')
+      .bind(payment.tg_payment_charge_id)
+      .first();
+    const proRevoked = proRow ? 1 : 0;
+
+    const stmts = [
+      this.db.prepare("UPDATE payments_stars SET status = 'refunded' WHERE tg_payment_charge_id = ?")
+        .bind(payment.tg_payment_charge_id),
+      this.db.prepare(
+        'INSERT INTO refunds (user_id, tg_payment_charge_id, stars, credits_revoked, pro_revoked, forced, created_at) VALUES (?,?,?,?,?,?,?)'
+      ).bind(payment.user_id, payment.tg_payment_charge_id, payment.stars, creditsToRevoke, proRevoked, forced ? 1 : 0, now),
+      // 精确按 charge_id 撤销：用户若随后买了更长订阅覆盖了 users_pro 行，退旧单不会误撤当前有效订阅
+      this.db.prepare('DELETE FROM users_pro WHERE charge_id = ?').bind(payment.tg_payment_charge_id),
+    ];
+    if (creditsToRevoke > 0) {
+      stmts.push(
+        this.db.prepare('UPDATE users_credits SET balance = balance - ?, updated_at = ? WHERE user_id = ?')
+          .bind(creditsToRevoke, now, payment.user_id),
+        this.db.prepare('INSERT INTO credits_ledger (user_id, delta, reason, ref_type, ref_id, created_at) VALUES (?,?,?,?,?,?)')
+          .bind(payment.user_id, -creditsToRevoke, 'refund_revoke', 'refund', payment.tg_payment_charge_id, now)
+      );
+    }
+    try {
+      await this.db.batch(stmts);
+      return { ok: true, creditsRevoked: creditsToRevoke, proRevoked: !!proRevoked };
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (/UNIQUE|unique|constraint/i.test(msg)) return { ok: false, duplicate: true };
+      throw e;
+    }
   }
 }
 
@@ -340,10 +413,108 @@ async function handleAdminSummary(request, env) {
   });
 }
 
-// 平台对账页面（HTML 仪表盘，ADMIN_SECRET 门禁）—— 直接回答"管理收到的 Stars"
+// ── 退款（管理员操作）──────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+// 可退款交易列表（JSON，便于脚本核对与自动化测试）
+async function handleRefundList(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return json({ error: 'forbidden' }, 403);
+  const store = new D1PaymentsStore(env.DB);
+  const recent = await store.getRecentPayments(50);
+  const now = Date.now();
+  const items = (recent || []).map((r) => {
+    const e = evaluateRefundEligibility({ createdAt: r.created_at, now });
+    return {
+      chargeId: r.tg_payment_charge_id,
+      userId: r.user_id,
+      stars: r.stars,
+      creditsGranted: r.credits_granted,
+      status: r.status,
+      createdAt: r.created_at,
+      refundable: r.status !== 'refunded' && e.ok,
+      expired: e.reason === 'refund_window_expired',
+      daysLeft: e.daysLeft ?? 0,
+    };
+  });
+  return json({ ok: true, windowDays: REFUND_WINDOW_DAYS, items });
+}
+
+/**
+ * 执行全额退款。顺序不可调换：
+ *   1) 鉴权 → 2) 查单 / 幂等 / 14 天窗口 → 3) 调 Bot API refundStarPayment
+ *   4) 只有第 3 步 ok:true 才 recordRefundTxn 撤销 Pro + 扣回积分 + 写审计
+ * Telegram Stars 销售为 final，平台不会自动退款；也没有 chargeback webhook，
+ * 因此「同意退款」这件事只能在后台由管理员点按钮触发，这里就是那个落点。
+ */
+async function handleRefund(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return json({ error: 'forbidden' }, 403);
+
+  const body = await readJson(request);
+  const chargeId = String(body.chargeId || '').trim();
+  const force = body.force === true;
+  if (!chargeId) return json({ error: 'missing_charge_id' }, 400);
+  if (chargeId.length > 256) return json({ error: 'invalid_charge_id' }, 400);
+
+  const store = new D1PaymentsStore(env.DB);
+  const payment = await store.getPaymentByChargeId(chargeId);
+  if (!payment) return json({ error: 'payment_not_found' }, 404);
+  if (payment.status === 'refunded' || (await store.getRefundByChargeId(chargeId))) {
+    return json({ error: 'already_refunded' }, 409);
+  }
+  const e = evaluateRefundEligibility({ createdAt: payment.created_at, now: Date.now(), force });
+  if (!e.ok) return json({ error: e.reason, windowDays: REFUND_WINDOW_DAYS }, 409);
+
+  const userId = Number(payment.user_id);
+  if (!Number.isSafeInteger(userId) || userId <= 0) return json({ error: 'invalid_user_id' }, 400);
+  if (!env.BOT_TOKEN || env.BOT_TOKEN === '__BOT_TOKEN_PLACEHOLDER__') {
+    return json({ error: 'bot_token_not_configured' }, 503);
+  }
+
+  // 1) 让 Telegram 真的退钱。任何失败都不改本地状态。
+  let data;
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/refundStarPayment`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, telegram_payment_charge_id: chargeId }),
+    });
+    data = await resp.json();
+  } catch (err) {
+    return json({ error: 'refund_api_failed', detail: String((err && err.message) || err) }, 502);
+  }
+  if (!data || !data.ok) {
+    return json({ error: 'refund_rejected', detail: data && data.description }, 502);
+  }
+
+  // 2) 平台已确认退款，才原子撤销本地 Pro 权益与积分
+  const res = await store.recordRefundTxn({ payment, forced: !!e.forced });
+  if (!res.ok) return json({ error: 'already_refunded' }, 409);
+  return json({
+    ok: true,
+    chargeId,
+    userId: payment.user_id,
+    stars: payment.stars,
+    creditsRevoked: res.creditsRevoked,
+    proRevoked: res.proRevoked,
+    forced: !!e.forced,
+  });
+}
+
+// 平台对账 + 退款操作页面（HTML 仪表盘，ADMIN_SECRET 门禁）
 async function handleAdminPage(request, env) {
   const auth = await requireAdmin(request, env);
   if (!auth.ok) return new Response('403 Forbidden', { status: 403 });
+  const provided =
+    request.headers.get('x-admin-secret') ||
+    new URL(request.url).searchParams.get('adminSecret') || '';
+  const adminLiteral = JSON.stringify(provided).replace(/</g, '\\u003c');
+
   const store = new D1PaymentsStore(env.DB);
   const total = await store.countPayments();
   const agg = await env.DB
@@ -352,30 +523,94 @@ async function handleAdminPage(request, env) {
     )
     .first();
   const recent = await store.getRecentPayments(20);
-  const rows = (recent || [])
-    .map(
-      (r) =>
-        `<tr><td>${String(r.user_id).replace(/[<>&]/g, '')}</td><td>${r.stars}</td><td>${r.credits_granted}</td><td>${r.status}</td><td>${new Date(r.created_at).toISOString()}</td></tr>`
-    )
-    .join('');
-  const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>Stars 对账</title>
-<style>body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f8fa;color:#222}
-.kpi{display:flex;gap:1rem;margin-bottom:1rem}.kpi div{background:#fff;border-radius:12px;padding:1rem 1.5rem;flex:1;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  const now = Date.now();
+  const rows = (recent || []).map((r) => {
+    const e = evaluateRefundEligibility({ createdAt: r.created_at, now });
+    const refunded = r.status === 'refunded';
+    let action;
+    if (refunded) {
+      action = '<span class="done">已退款</span>';
+    } else {
+      const tag = e.reason === 'refund_window_expired'
+        ? '<span class="warn">超 ' + REFUND_WINDOW_DAYS + ' 天</span> ' : '';
+      action = tag + '<button class="rf" data-charge="' + esc(r.tg_payment_charge_id) + '">退款</button>';
+    }
+    return '<tr><td>' + esc(r.user_id) + '</td><td>' + esc(r.stars) + '</td><td>' + esc(r.credits_granted) +
+      '</td><td>' + esc(r.status) + '</td><td>' + esc(new Date(r.created_at).toISOString()) +
+      '</td><td>' + (e.daysLeft ?? 0) + '</td><td>' + action + '</td></tr>';
+  }).join('');
+
+  const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Stars 对账与退款</title>
+<style>body{font-family:system-ui,sans-serif;margin:2rem;background:#f7f8fa;color:#222;max-width:1100px}
+.kpi{display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.kpi div{background:#fff;border-radius:12px;padding:1rem 1.5rem;flex:1;min-width:140px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .kpi b{display:block;font-size:1.8rem}.kpi span{color:#888;font-size:.85rem}
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-th,td{padding:.7rem 1rem;text-align:left;border-bottom:1px solid #eee;font-size:.9rem}</style></head>
-<body><h1>Telegram Stars 对账（平台）</h1>
+th,td{padding:.7rem .8rem;text-align:left;border-bottom:1px solid #eee;font-size:.85rem;word-break:break-all}
+.note{background:#fff8e6;border:1px solid #f0d9a0;border-radius:10px;padding:.8rem 1rem;font-size:.85rem;line-height:1.6;margin-bottom:1rem}
+button.rf{background:#c0392b;color:#fff;border:0;border-radius:6px;padding:.35rem .8rem;cursor:pointer;font-size:.85rem}
+button.rf:disabled{background:#aaa;cursor:default}
+.done{color:#1f9d55}.warn{color:#b26a00;font-size:.8rem}
+#msg{margin:.8rem 0;font-size:.9rem;min-height:1.2em}
+label.force{font-size:.85rem;display:inline-flex;gap:.4rem;align-items:center}</style></head>
+<body><h1>Telegram Stars 对账与退款</h1>
 <div class="kpi">
 <div><b>${total}</b><span>总笔数</span></div>
 <div><b>${agg ? agg.stars : 0}</b><span>收到 Stars 总额</span></div>
 <div><b>${agg ? agg.credits : 0}</b><span>兑换积分总量</span></div>
 </div>
-<div><h3>最近 20 笔</h3>
-<table><thead><tr><th>用户</th><th>Stars</th><th>积分</th><th>状态</th><th>时间(UTC)</th></tr></thead>
-<tbody>${rows || '<tr><td colspan="5">暂无记录</td></tr>'}</tbody></table></div>
-<p style="color:#888;font-size:.8rem">内部积分 ≠ Stars ≠ 法币；不可提现、不可转账、不可交易。数据仅平台可见。</p>
+<div class="note">
+退款为<b>全额</b>、不可撤销。点击后先调用 Telegram <code>refundStarPayment</code>；<b>只有平台确认退款成功</b>，才会撤销该笔授予的 Pro 权益、扣回仍未使用的积分，并写入退款审计。<br>
+默认仅允许购买后 ${REFUND_WINDOW_DAYS} 天内退款；超过窗口需勾选下方「强制」并会留痕。客户通过 <code>/paysupport</code> 申请后，请在此页面按支付号操作。<br>
+管理密钥仅本次页面会话有效，地址栏已自动清除；刷新请重新带 <code>?adminSecret=...</code> 打开。用完请关闭页面。
+</div>
+<div id="msg"></div>
+<label class="force"><input type="checkbox" id="forceChk"> 强制退款（超过 ${REFUND_WINDOW_DAYS} 天，留痕）</label>
+<h3>最近 20 笔</h3>
+<table><thead><tr><th>用户 ID</th><th>Stars</th><th>积分</th><th>状态</th><th>时间(UTC)</th><th>剩余天数</th><th>操作</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="7">暂无记录</td></tr>'}</tbody></table>
+<p style="color:#888;font-size:.8rem">内部积分 ≠ Stars ≠ 法币；不可提现、不可转账、不可交易。数据仅平台可见。退款后用户端 Pro 状态由 /payments/pro-status 自动降为 false。</p>
+<script>
+var ADMIN = ${adminLiteral};
+try { history.replaceState(null, '', location.pathname); } catch (e) {}
+var msg = document.getElementById('msg');
+document.addEventListener('click', async function (ev) {
+  var btn = ev.target.closest ? ev.target.closest('button.rf') : null;
+  if (!btn) return;
+  var chargeId = btn.getAttribute('data-charge');
+  var force = document.getElementById('forceChk').checked;
+  if (!confirm('确认全额退还这笔 Stars 支付？\\n支付号：' + chargeId +
+    '\\n将同时撤销该笔授予的 Pro 权益与未使用积分，且不可撤销。' +
+    (force ? '\\n【强制】已超过 ' + ${REFUND_WINDOW_DAYS} + ' 天窗口，将写入审计。' : ''))) return;
+  btn.disabled = true;
+  msg.textContent = '正在请求 Telegram 退款…';
+  try {
+    var r = await fetch('/admin/refund', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-secret': ADMIN },
+      body: JSON.stringify({ chargeId: chargeId, force: force })
+    });
+    var d = await r.json();
+    if (!r.ok || !d.ok) {
+      msg.style.color = '#c0392b';
+      msg.textContent = '退款失败：' + (d.error || r.status) + (d.detail ? ' — ' + d.detail : '');
+      btn.disabled = false;
+      return;
+    }
+    msg.style.color = '#1f9d55';
+    msg.textContent = '退款成功：' + d.stars + ' Stars｜撤销 Pro：' + (d.proRevoked ? '是' : '否') +
+      '｜扣回积分：' + d.creditsRevoked + (d.forced ? '｜强制留痕' : '');
+    btn.outerHTML = '<span class="done">已退款</span>';
+  } catch (err) {
+    msg.style.color = '#c0392b';
+    msg.textContent = '网络错误：' + (err && err.message ? err.message : err);
+    btn.disabled = false;
+  }
+});
+</script>
 </body></html>`;
-  return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
 }
 
 // ── 路由 ───────────────────────────────────────────────────
@@ -432,6 +667,14 @@ async function handle(request, env) {
   if (path === '/admin') {
     if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
     return handleAdminPage(request, env);
+  }
+  if (path === '/admin/refunds') {
+    if (request.method !== 'GET') return json({ error: 'method_not_get' }, 405);
+    return handleRefundList(request, env);
+  }
+  if (path === '/admin/refund') {
+    if (request.method !== 'POST') return json({ error: 'method_not_post' }, 405);
+    return handleRefund(request, env);
   }
 
   return json({ error: 'not_found' }, 404);
