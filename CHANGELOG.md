@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-11-15 · docs — 新增《上线清单：从账号到真机收银台》
+
+**为什么**：代码与本地测试已全绿，但「账号 → BotFather → 云端部署 → 真机收银台」这条链一直散落在 `README_deploy.md` 的各模块章节里，且部分章节口径过期（`CONFIG.VERIFY_URL`、P4 悬赏、§9.4 的 `credits_pro`）。用户正在解决账号与 bot 问题，需要一份能按顺序照着执行、并明确「哪些阶段现在就能做、不用等 bot」的清单。
+
+**改了什么**
+- 新增 `【上线清单】从账号到真机收银台_2026-11-15.md`：阶段 0–6 共 6 个可勾选阶段。阶段 0 写明号码选择（+86 的 SMS Fee、VoIP 风险、明确劝阻使用 `986-910` 那张美国卡）、注册后必做的 2FA/邮箱/用户名；阶段 1–2 强调 Cloudflare 部署零 bot 依赖、可与账号问题并行；阶段 3 生产 + 测试两套 bot；阶段 4 密钥与 webhook；阶段 5 测试 Stars 免费真机全链路；阶段 6 切生产与上线判定标准。
+- 写进两个此前文档没覆盖的实操坑：① `BOT_API_TEST` 只让 `createInvoiceLink` / `refundStarPayment` 走 `/test/`，**`setWebhook` 是手写 curl，测试环境必须手工加 `/test/`**；② 测试环境 `initData` 用测试 bot token 验签，同一套 Worker 不能同时跑生产与测试，需整套切换 `BOT_TOKEN`，换 secret 无需重新 deploy。
+- 附「一页速查：所有要填的值」「常见失败对照表」「旧手册口径校正表」；明确 126 项全绿 ≠ 能收钱，上线判定标准是真机生产闭环跑通一次。
+- `README.md` / `README_deploy.md` 加入口链接；修正 `README.md` 进度表 P3 仍写「前端收银台未接」的过期描述。
+
+**怎么验证**：纯文档改动，未动任何代码。`npm test` → **126 / 126**；`node test_i18n_real.mjs` → **32 / 32**（五语各 175 键）。代码未变，`smoke:worker` 无需重跑。
+
+**涉及文件**：`【上线清单】从账号到真机收银台_2026-11-15.md`（新增）、`README.md`、`README_deploy.md`、`CHANGELOG.md`
+
+---
+
 ## 2026-11-11 · feat — 前端接通 Telegram Stars 官方收银台 + Bot API 测试环境可配置
 
 **为什么**：此前「升级 Pro」按钮只弹「即将上线」，后端 `/payments/invoice` 与 webhook 记账虽已写好并测过，但用户没有任何入口真的付钱——等于零收入。另外 `README_deploy.md §9.4` 与 `payments-client.js` 的示例仍写 `credits_pro` 积分包，照抄会买了积分却不解锁 Pro。

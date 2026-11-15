@@ -23,7 +23,7 @@
 | P0 | initData 验签（`worker.js`） | ✅ | 单体 Worker 内建 |
 | P1 | 核心提词器 + **从文件导入讲稿**（`index.html` 单文件） | ✅ | 导入为免费功能，零依赖纯本地 |
 | P2 | 跨 App 统一积分账本 | ✅ | |
-| P3 | Telegram Stars 支付账本 | ✅ | 后端账本就绪，**前端收银台未接** |
+| P3 | Telegram Stars 支付账本 | ✅ | 账本 + 前端收银台已接通（见 P11），**真机付款未验证** |
 | P4 | ~~悬赏改稿（escrow）~~ | ⛔ 已下线 | 违反产品宪法；目录留作存档 |
 | P5 | 病毒增长 / 邀请 | ✅ | |
 | P6 | 增强（云同步 / 远程控制 / 语音跟随 / 模板） | ✅ | |
@@ -36,6 +36,8 @@
 `npm test` → **126 / 126**；`node test_i18n_real.mjs` → **32 / 32**（五语键集各 175 键）；`npm run smoke:worker` → **18 / 18**（真 workerd + 真本地 SQLite）。
 
 > 前两项是本地 mock；`smoke:worker` 跑的是**真实 Worker 运行时 + 真实本地 D1**，但仍是本机、不是云端。**收银台前端代码已接通**（`openInvoice` 下单链路 + 服务端权益确认），但真机弹窗、真实/测试环境 Stars 付款、webhook 真实回调、真实 `refundStarPayment` 均未验证；后端也从未部署到 Cloudflare。发布前必须补齐，见 [README_deploy.md](README_deploy.md) §9.6 与 CHANGELOG 顶部的「尚未验证」清单。
+
+> **下一步怎么走**：按 [【上线清单】从账号到真机收银台](./【上线清单】从账号到真机收银台_2026-11-15.md) 的阶段 0–6 顺序执行。阶段 1–2（Cloudflare + Pages + Worker/D1）**不需要 bot**，可与账号问题并行推进。
 
 ## 目录结构
 
