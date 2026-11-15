@@ -10,7 +10,7 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "teleprompter-credits"
-database_id = "__D1_DATABASE_ID__"   # `wrangler d1 create teleprompter-credits` 拿到后填入
+database_id = "4e4eb6f1-577b-4489-8600-9b1de0b86053"   # 生产库，2026-11-15 创建于 WNAM
 
 # 明文变量（非敏感）。BOT_USERNAME 用于分享深链，明文即可。
 [vars]
