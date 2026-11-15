@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-15 · docs — 上线清单阶段 1.2 补 Wrangler 手机授权流与凭据边界
+
+**为什么**：用户已在手机完成 Cloudflare 注册，但本机 `dash.cloudflare.com` 的 Turnstile 曾出现 Challenge loop；清单原写的 `wrangler login`（默认开电脑浏览器做 OAuth）在这台机器上很可能走不通。官方 Wrangler 文档提供 `--device` 设备授权流，可在手机上完成批准，正好绕开该障碍。
+
+**改了什么**
+- `【上线清单】…md` 阶段 1.2：把 `wrangler login` 改为 `npx wrangler login --device --browser=false` + `npx wrangler whoami`，写明在手机打开 `dash.cloudflare.com/oauth2/device` 输入 code（5 分钟有效）、无需 localhost 回调；说明账号在云端、手机注册后无需迁移会话。
+- 新增「凭据边界」注记：邮箱验证链接 / OAuth 链接 / 验证码 / API Token / `BOT_TOKEN` 一律不进对话，只有公开 `*.pages.dev` / `*.workers.dev` 可分享；附备用方案 `CLOUDFLARE_API_TOKEN`（"Edit Cloudflare Workers" 模板）。
+
+**怎么验证**：纯文档改动，未动任何代码与测试断言，故未重跑 `npm test`。
+
+**涉及文件**：`【上线清单】从账号到真机收银台_2026-11-15.md`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-15 · docs — 新增《上线清单：从账号到真机收银台》
 
 **为什么**：代码与本地测试已全绿，但「账号 → BotFather → 云端部署 → 真机收银台」这条链一直散落在 `README_deploy.md` 的各模块章节里，且部分章节口径过期（`CONFIG.VERIFY_URL`、P4 悬赏、§9.4 的 `credits_pro`）。用户正在解决账号与 bot 问题，需要一份能按顺序照着执行、并明确「哪些阶段现在就能做、不用等 bot」的清单。
