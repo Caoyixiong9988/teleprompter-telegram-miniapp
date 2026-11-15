@@ -57,14 +57,14 @@ test('页面无运行时错误，配额与 Pro 开关函数齐备', () => {
   assert.ok(ev('importTextAsNewScript.toString().includes("guardScriptLimit")'), '导入落库未接额度');
 });
 
-test('五语新增 2 个额度键齐全，键集一致（各 181 键）', () => {
+test('五语新增 2 个额度键齐全，键集一致（各 183 键）', () => {
   for (const lang of ['zh', 'en', 'ja', 'ko', 'ru']) {
     assert.ok(ev(`I18N.${lang}.scriptQuota`), `${lang} 缺 scriptQuota`);
     assert.ok(ev(`I18N.${lang}.scriptLimitToast`), `${lang} 缺 scriptLimitToast`);
     assert.ok(ev(`I18N.${lang}.scriptLimitToast.includes("{max}")`), `${lang} 额度文案缺 {max} 占位`);
   }
   const sizes = ['zh', 'en', 'ja', 'ko', 'ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-  assert.deepEqual(sizes, [181, 181, 181, 181, 181]);
+  assert.deepEqual(sizes, [183, 183, 183, 183, 183]);
 });
 
 // ── 2. 纯函数边界 ────────────────────────────────────────────────────

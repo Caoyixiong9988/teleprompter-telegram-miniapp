@@ -8,6 +8,23 @@
 
 ---
 
+## 2026-11-15 · fix(ios) — 第二轮真机问题：播放 / 粘贴 / 底部按钮
+
+**为什么**：第一轮修复部署后用户在 iPhone Safari 复测又报 5 项：① 输入后点播放、再把光标放回开头、再点播放没反应；② iOS 在光标旁弹出的系统「粘贴」预览点了无效；③ 粘贴按钮连点第二次没反应；④ 粘贴按钮像是只唤起 iOS 系统粘贴，必须长按再选；⑤ 右下角只露出半个 ⚙。
+
+**根因与改法**
+- ① `togglePlay` 只做布尔取反：`offset` 已滚到底时下一帧立即自动停，看起来就是「点了没反应」；此前 `focus` 还会无条件把 `playing` 置 false。现在点播放先退出主屏编辑态（隐藏工具条 + blur，避免 iOS 焦点回弹），已到底则 `offset=0` 重头开始；内容不足一屏时给明确 toast 而不是静默不动。只有真正改动文字（input/paste）才暂停滚动，单纯定位光标不再打断播放。
+- ②③ `paste` 事件原先 `preventDefault()` 再用 `document.execCommand('insertText')` 插入，这一套在 iOS Safari 上会吞掉系统原生粘贴；粘贴按钮则 `textContent = txt` 整篇覆盖，第二次点内容一模一样，看起来没反应。现在 **paste 绝不 preventDefault**，交给浏览器原生插入（系统菜单 / 剪贴板预览气泡都能用），富文本兜底压成纯文本；粘贴按钮改为读剪贴板后在**保存的光标 Range 处插入**，可连续点连续粘，并给「已粘贴」toast。
+- ④ 读剪贴板失败时不再卡住，明确提示用系统长按粘贴（此时该路径已可用）。
+- ⑤ `#controlBar` 会被 flex 压缩，且 7 个元素在窄屏放不下，右侧图标被裁成半个。现在 `flex-wrap:wrap` + `flex-shrink:0` + 底部安全区 padding；≤480px 时速度条独占第二行，6 个按钮完整留在第一行。
+- 另修一处隐藏缺陷：`togglePlay` 在顶层、`leaveEditMode` 在 `init()` 内部，跨作用域取不到，已改为直接操作 DOM。
+
+**怎么验证**：新增常驻回归 `npm run test:ios` **18/18**（含 paste 不 preventDefault、连续粘贴、播放重头开始、控制条 CSS 断言）；`npm test` **126/126**；`node test_i18n_real.mjs` **32/32**；`npm run smoke:worker` **18/18**。五语新增 `editPasteOk` / `editNoScroll` 两键（181→183，三个测试里的硬编码键数同步更新）。**仍需 iPhone 真机复测**。
+
+**涉及文件**：`index.html`、`package.json`、`verify-ios-editor.mjs`（新增）、三个测试文件、`【上线清单】…md`。
+
+---
+
 ## 2026-11-15 · fix(ios) — 主屏提词区在 iPhone 上可删 / 可粘 / 可输入 / 可导入文件
 
 **为什么**：用户在 iPhone Safari 做第 0 步真机试用时发现，屏幕上那段「在这里粘贴你的讲稿……」既删不掉、也粘不进、打不了字，还打不开约定格式的文件。三层原因：① 那段文字是 `#scrollText` 的 `textContent`（只读展示区），主屏根本没有输入入口，导入按钮只藏在设置抽屉里；② `<meta viewport>` 带 `maximum-scale=1, user-scalable=no`，而设置面板输入框字号只有 15px，iOS 聚焦时的强制缩放与「禁止缩放」冲突，键盘弹起后文本框错位、点不中；③ 隐藏的文件输入用 `position:absolute; left:-9999px` 放在 `overflow:auto` 抽屉里，iOS 上系统文件选择器可能弹不出来。
