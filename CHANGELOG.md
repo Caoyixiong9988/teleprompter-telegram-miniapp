@@ -8,6 +8,23 @@
 
 ---
 
+## 2026-11-15 · fix(desktop) — 长稿溢出无滚动条 / 桌面剪贴板被拒时粘贴失败
+
+**为什么**：电脑端（WorkBuddy 内置预览面板）复测报两项：① 主屏提词区输入内容多时没有滚动条，文字溢出到编辑工具条和底部控制条区域；② 复制文字后点「📋 粘贴」被提示「无法读取剪贴板的内容」。
+
+**改了什么**：
+
+1. `#viewport` 补 `min-height:0`（flex 子项默认 `min-height:auto`，会被 contenteditable 的长内容撑破整个 `#app` 布局）；进入编辑态时给 `#app` 加 `.editing`，提词区改为 `overflow-y:scroll` 并配上可见的自定义滚动条。点 ▶ / ↺ 退出编辑态时自动还原 `overflow:hidden`，不影响原有 transform 滚动播放。
+2. 编辑工具条从 `#viewport` 内部（绝对定位 `bottom:0`）移到 `#viewport` 之外，成为 `#app` 的独立 flex 行。长稿只在提词区内滚动，工具条永远固定在文字下方，不会再浮在文字中间或被滚走。
+3. 粘贴按钮不再只依赖 `navigator.clipboard.readText()`：该 API 在 iframe / 内嵌预览 / 无 `clipboard-read` 权限的环境会被直接拒绝。现在读取失败时自动弹出「剪贴板兜底框」，用户按 Ctrl+V / ⌘V 用系统原生粘贴（不依赖任何 API），内容自动插入讲稿光标处；另提供「插入讲稿」按钮与「取消」。`readText` 可用时仍走原自动粘贴路径，iOS 系统长按粘贴不受影响。
+4. 五语文案：新增 4 个键（185→189）；`editPasteFail` 去掉「长按系统菜单」这种只适用于手机的措辞，`editHint` 补上「内容较长时可在提词区内上下滚动」。
+
+**怎么验证**：`npm run test:ios` **45/45**（本轮新增 14 项：布局 CSS、工具条父节点、编辑态开关、兜底框弹出 / Ctrl+V / 按钮插入 / 取消、readText 正常路径）、`npm test` **126/126**、`node test_i18n_real.mjs` **32/32**、`npm run smoke:worker` **18/18**。
+
+**涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`CHANGELOG.md`、`【上线清单】…md`。
+
+---
+
 ## 2026-11-15 · fix(ios) — 第三轮真机问题：刷新按钮 / iOS 语音跟随误弹升级会员
 
 **为什么**：iPhone Safari 复测又报两项：① ▶ 旁边的 ↺ 刷新按钮点了没反应；② 🎤 语音跟随点开是「升级会员」界面，没有说明苹果手机暂无此功能、安卓手机可用。

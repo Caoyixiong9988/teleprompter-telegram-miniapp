@@ -31,7 +31,7 @@
   header .title{font-size:17px; font-weight:700; letter-spacing:.5px;}
   header .sub{font-size:11px; color:var(--muted);}
   #viewport{
-    flex:1; position:relative; overflow:hidden; background:#ffffff;
+    flex:1; min-height:0; position:relative; overflow:hidden; background:#ffffff;
   }
   #scrollText{
     white-space:pre-wrap; word-break:break-word; padding:28px 22px;
@@ -52,10 +52,19 @@
   #setScriptTitle, #reportDetail, #langSelect{
     font-size:16px !important; -webkit-user-select:text; user-select:text;
   }
-  /* 主屏编辑工具条：粘贴 / 导入文件 / 清空 / 完成 */
+  /* 主屏编辑态：长稿只在提词区内部滚动，绝不撑破布局、溢出到工具条/控制条之外。
+     min-height:0 在 #viewport 上配合 overflow-y:scroll，避免 flex 子项被内容顶开。 */
+  #app.editing #viewport{
+    overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  }
+  #app.editing #viewport::-webkit-scrollbar{width:10px;}
+  #app.editing #viewport::-webkit-scrollbar-track{background:#f3f5f9;}
+  #app.editing #viewport::-webkit-scrollbar-thumb{
+    background:#c2cad8; border-radius:8px; border:2px solid #f3f5f9;
+  }
+  /* 主屏编辑工具条：作为 #app 的独立 flex 行，永远贴在提词区下方，不随长稿滚走 */
   .edit-bar{
-    position:absolute; left:0; right:0; bottom:0; z-index:20;
-    display:flex; flex-wrap:wrap; gap:8px;
+    flex-shrink:0; display:flex; flex-wrap:wrap; gap:8px;
     padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     background:rgba(255,255,255,.97); border-top:1px solid var(--line);
     box-shadow:0 -6px 18px rgba(20,24,33,.08);
@@ -63,6 +72,21 @@
   .edit-bar.hidden{display:none;}
   .edit-bar .btn{font-size:14px; min-height:42px; padding:8px 12px; cursor:pointer;}
   .edit-hint{flex:1 1 100%; font-size:12px; color:var(--muted); line-height:1.5;}
+  /* 剪贴板兜底面板：navigator.clipboard.readText() 被 iframe / 权限策略拒绝时，
+     改用系统原生 Ctrl+V（不依赖任何剪贴板 API）完成粘贴 */
+  .paste-fallback{
+    flex-shrink:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:#fffaf0; border-top:1px solid var(--line);
+  }
+  .paste-fallback.hidden{display:none;}
+  .paste-hint{font-size:12px; color:#8a6410; line-height:1.5; margin-bottom:8px;}
+  .paste-fallback textarea{
+    width:100%; box-sizing:border-box; min-height:72px; resize:vertical;
+    font-size:16px; padding:9px 10px; border:1px solid #e0c98a; border-radius:10px;
+    background:#fff; color:var(--text);
+  }
+  .paste-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+  .paste-actions .btn{flex:0 0 auto; font-size:14px; min-height:42px;}
   /* 底部控制条：禁止被 flex 压缩；窄屏换行，保证 6 个按钮一个都不被裁掉半个 */
   #controlBar{
     display:flex; align-items:center; flex-wrap:wrap; gap:8px; flex-shrink:0;
@@ -215,12 +239,23 @@
 
   <div id="viewport">
     <div id="scrollText" contenteditable="true" role="textbox" aria-multiline="true" aria-label="讲稿编辑区" spellcheck="false" autocapitalize="off" data-i18n-title="editHint"></div>
-    <div id="editBar" class="edit-bar hidden">
-      <div class="edit-hint" data-i18n="editHint">点一下上面的文字就能直接删改、粘贴、输入；也可以从文件导入讲稿。</div>
-      <button class="btn" type="button" id="btnQuickPaste" data-i18n="editPaste">📋 粘贴</button>
-      <label class="btn" for="importFile" data-i18n="importBtn">📂 从文件导入讲稿</label>
-      <button class="btn" type="button" id="btnQuickClear" data-i18n="editClear">🗑 清空</button>
-      <button class="btn primary" type="button" id="btnQuickDone" data-i18n="editDone">完成</button>
+  </div>
+
+  <!-- 工具条与兜底面板放在 #viewport 之外：长稿只在 viewport 内滚动，
+       它们作为独立 flex 行固定显示，不会浮在文字中间，也不会被滚走。 -->
+  <div id="editBar" class="edit-bar hidden">
+    <div class="edit-hint" data-i18n="editHint">点一下上面的文字就能直接删改、粘贴、输入；内容较长时可在提词区内上下滚动。也可以从文件导入讲稿。</div>
+    <button class="btn" type="button" id="btnQuickPaste" data-i18n="editPaste">📋 粘贴</button>
+    <label class="btn" for="importFile" data-i18n="importBtn">📂 从文件导入讲稿</label>
+    <button class="btn" type="button" id="btnQuickClear" data-i18n="editClear">🗑 清空</button>
+    <button class="btn primary" type="button" id="btnQuickDone" data-i18n="editDone">完成</button>
+  </div>
+  <div id="pasteFallback" class="paste-fallback hidden">
+    <div class="paste-hint" data-i18n="pasteFallbackHint">浏览器拦截了剪贴板读取，请在下面输入框按 Ctrl+V（Mac 用 ⌘V）粘贴，内容会自动插入讲稿。</div>
+    <textarea id="pasteFallbackInput" rows="3" data-i18n-ph="pasteFallbackPh" spellcheck="false" autocapitalize="off"></textarea>
+    <div class="paste-actions">
+      <button class="btn primary" type="button" id="btnPasteInsert" data-i18n="pasteFallbackInsert">插入讲稿</button>
+      <button class="btn" type="button" id="btnPasteCancel" data-i18n="pasteFallbackCancel">取消</button>
     </div>
   </div>
 
@@ -626,12 +661,16 @@ const I18N = {
   shareChat:"分享到聊天",
   creditsNotice:"积分与购买须知",
   defaultScript:"在这里粘贴你的讲稿……\n\n点击右下角 ⚙ 打开设置，编辑脚本、调整字号与速度。\n\n准备好后点左上角 ▶ 开始滚动提词。",
-  editHint:"点一下上面的文字就能直接删改、粘贴、输入；也可以从文件导入讲稿。",
+  editHint:"点一下上面的文字就能直接删改、粘贴、输入；内容较长时可在提词区内上下滚动。也可以从文件导入讲稿。",
   editPlaceholder:"讲稿是空的。点这里直接输入，或粘贴已复制的文字，也可以从下方导入文件。",
   editPaste:"📋 粘贴",
   editClear:"🗑 清空",
   editDone:"完成",
-  editPasteFail:"无法自动读取剪贴板，请长按文字后从系统菜单粘贴",
+  editPasteFail:"无法自动读取剪贴板，请在下方输入框按 Ctrl+V / ⌘V 粘贴",
+  pasteFallbackHint:"浏览器拦截了剪贴板读取，请在下面输入框按 Ctrl+V（Mac 用 ⌘V）粘贴，内容会自动插入讲稿。",
+  pasteFallbackPh:"在这里按 Ctrl+V / ⌘V 粘贴……",
+  pasteFallbackInsert:"插入讲稿",
+  pasteFallbackCancel:"取消",
   editPasteOk:"已粘贴到光标处，可继续粘贴或编辑",
   editNoScroll:"讲稿不足一屏，暂时无需滚动；内容变长后再点 ▶ 即可",
   resetDone:"已回到开头。点 ▶ 可重新播放",
@@ -800,12 +839,16 @@ const I18N = {
   shareChat:"Share to Chat",
   creditsNotice:"Credits & Purchase Notice",
   defaultScript:"Paste your script here…\n\nTap ⚙ at the bottom right to open settings and edit the script, font size, and speed.\n\nWhen ready, tap ▶ at the top left to start scrolling.",
-  editHint:"Tap the text above to edit, delete, paste or type directly. You can also import a file.",
+  editHint:"Tap the text above to edit, delete, paste or type directly. Long scripts scroll inside the prompter area; you can also import a file.",
   editPlaceholder:"Empty script. Tap here to type, paste copied text, or import a file below.",
   editPaste:"📋 Paste",
   editClear:"🗑 Clear",
   editDone:"Done",
-  editPasteFail:"Clipboard unavailable. Long-press the text and paste from the system menu.",
+  editPasteFail:"Clipboard blocked by the browser. Use Ctrl+V / Cmd+V in the box below.",
+  pasteFallbackHint:"The browser blocked clipboard access. Press Ctrl+V (Cmd+V on Mac) in the box below and the text will be inserted into your script.",
+  pasteFallbackPh:"Press Ctrl+V / Cmd+V here…",
+  pasteFallbackInsert:"Insert into script",
+  pasteFallbackCancel:"Cancel",
   editPasteOk:"Pasted at the cursor. Tap again to paste more.",
   editNoScroll:"Script fits on one screen — nothing to scroll yet. Tap ▶ once it is longer.",
   resetDone:"Back to the start. Tap ▶ to play again.",
@@ -974,12 +1017,16 @@ const I18N = {
   shareChat:"チャットで共有",
   creditsNotice:"クレジットと購入について",
   defaultScript:"ここに原稿を貼り付け……\n\n右下の ⚙ で設定を開き、原稿・文字サイズ・速度を編集できます。\n\n準備ができたら左上の ▶ でスクロールを開始。",
-  editHint:"上の文字をタップすると、削除・貼り付け・直接入力ができます。ファイルの読み込みも可能です。",
+  editHint:"上の文字をタップすると、削除・貼り付け・直接入力ができます。長い原稿は表示エリア内でスクロールできます。ファイルの読み込みも可能です。",
   editPlaceholder:"原稿が空です。ここをタップして入力、コピーした文字を貼り付け、または下からファイルを読み込めます。",
   editPaste:"📋 貼り付け",
   editClear:"🗑 クリア",
   editDone:"完了",
-  editPasteFail:"クリップボードを読み取れません。文字を長押ししてシステムメニューから貼り付けてください。",
+  editPasteFail:"クリップボードを読み取れません。下の入力欄で Ctrl+V（Mac は ⌘V）で貼り付けてください。",
+  pasteFallbackHint:"ブラウザがクリップボードへのアクセスを遮断しました。下の入力欄で Ctrl+V（Mac は ⌘V）を押すと、原稿に自動挿入されます。",
+  pasteFallbackPh:"ここで Ctrl+V / ⌘V を押してください…",
+  pasteFallbackInsert:"原稿に挿入",
+  pasteFallbackCancel:"キャンセル",
   editPasteOk:"カーソル位置に貼り付けました。続けて貼り付けられます",
   editNoScroll:"原稿が1画面に収まるため、まだスクロールする内容がありません。長くなってから ▶ を押してください",
   resetDone:"先頭に戻りました。▶ で再再生できます",
@@ -1148,12 +1195,16 @@ const I18N = {
   shareChat:"채팅으로 공유",
   creditsNotice:"크레딧 및 구매 안내",
   defaultScript:"여기에 대본을 붙여넣으세요……\n\n오른쪽 아래 ⚙를 눌러 설정에서 대본·글자 크기·속도를 편집하세요.\n\n준비되면 왼쪽 위 ▶를 눌러 스크롤을 시작하세요.",
-  editHint:"위 글자를 탭하면 바로 삭제·붙여넣기·입력할 수 있습니다. 파일 가져오기도 가능합니다.",
+  editHint:"위 글자를 탭하면 바로 삭제·붙여넣기·입력할 수 있습니다. 긴 대본은 표시 영역 안에서 스크롤됩니다. 파일 가져오기도 가능합니다.",
   editPlaceholder:"대본이 비어 있습니다. 여기를 탭해 입력하거나 복사한 글을 붙여넣고, 아래에서 파일을 가져올 수도 있습니다.",
   editPaste:"📋 붙여넣기",
   editClear:"🗑 비우기",
   editDone:"완료",
-  editPasteFail:"클립보드를 읽을 수 없습니다. 글자를 길게 눌러 시스템 메뉴에서 붙여넣으세요.",
+  editPasteFail:"클립보드를 읽을 수 없습니다. 아래 입력란에서 Ctrl+V(Mac은 ⌘V)로 붙여넣으세요.",
+  pasteFallbackHint:"브라우저가 클립보드 접근을 차단했습니다. 아래 입력란에서 Ctrl+V(Mac은 ⌘V)를 누르면 대본에 자동으로 삽입됩니다.",
+  pasteFallbackPh:"여기서 Ctrl+V / ⌘V 를 누르세요…",
+  pasteFallbackInsert:"대본에 삽입",
+  pasteFallbackCancel:"취소",
   editPasteOk:"커서 위치에 붙여넣었습니다. 계속 붙여넣을 수 있습니다",
   editNoScroll:"대본이 한 화면에 담겨 아직 스크롤할 내용이 없습니다. 길어진 뒤에 ▶ 를 누르세요",
   resetDone:"처음으로 돌아갔습니다. ▶ 를 눌러 다시 재생하세요",
@@ -1322,12 +1373,16 @@ const I18N = {
   shareChat:"Поделиться",
   creditsNotice:"Кредиты и условия покупки",
   defaultScript:"Вставьте сценарий здесь…\n\nНажмите ⚙ справа внизу, чтобы открыть настройки и изменить текст, размер шрифта и скорость.\n\nКогда всё готово, нажмите ▶ слева вверху, чтобы начать прокрутку.",
-  editHint:"Нажмите на текст выше, чтобы удалять, вставлять и вводить текст напрямую. Также можно импортировать файл.",
+  editHint:"Нажмите на текст выше, чтобы удалять, вставлять и вводить текст напрямую. Длинный сценарий прокручивается внутри области; также можно импортировать файл.",
   editPlaceholder:"Сценарий пуст. Нажмите здесь, чтобы ввести текст, вставить скопированное или импортировать файл ниже.",
   editPaste:"📋 Вставить",
   editClear:"🗑 Очистить",
   editDone:"Готово",
-  editPasteFail:"Не удалось прочитать буфер обмена. Нажмите и удерживайте текст, затем вставьте через системное меню.",
+  editPasteFail:"Не удалось прочитать буфер обмена. Вставьте текст в поле ниже через Ctrl+V / ⌘V.",
+  pasteFallbackHint:"Браузер заблокировал доступ к буферу обмена. Нажмите Ctrl+V (⌘V на Mac) в поле ниже — текст автоматически добавится в сценарий.",
+  pasteFallbackPh:"Нажмите здесь Ctrl+V / ⌘V…",
+  pasteFallbackInsert:"Вставить в сценарий",
+  pasteFallbackCancel:"Отмена",
   editPasteOk:"Вставлено в позицию курсора. Можно вставлять ещё",
   editNoScroll:"Сценарий помещается на одном экране — прокручивать пока нечего. Нажмите ▶, когда текст станет длиннее",
   resetDone:"Возврат к началу. Нажмите ▶, чтобы воспроизвести снова",
@@ -1995,16 +2050,23 @@ function loop(ts){
   rafId = requestAnimationFrame(loop);
 }
 function updatePlayBtn(){ btnPlay.textContent = playing ? '⏸' : '▶'; }
+/* 顶层版「退出主屏编辑态」：leaveEditMode 定义在 init() 内部，顶层取不到。
+   统一走 DOM，保证播放 / 刷新时滚动容器、工具条、剪贴板兜底面板状态一致。 */
+function exitMainEditModeDOM(){
+  const eb = document.getElementById('editBar');
+  if (eb) eb.classList.add('hidden');
+  const pf = document.getElementById('pasteFallback');
+  if (pf) pf.classList.add('hidden');
+  const ap = document.getElementById('app');
+  if (ap) ap.classList.remove('editing');
+  if (document.activeElement === scrollText) scrollText.blur();
+}
 function togglePlay(){
   if (voiceFollowing){ stopVoiceFollow(); return; }
   // 点播放即进入「播放模式」：先退出主屏编辑态。否则 iOS 把焦点还给 contenteditable 时
   // 会触发 focus，编辑态又把 playing 关掉，表现为「再点播放没反应」。
   // 注意：leaveEditMode 定义在 init() 内部，这里在顶层取不到，直接操作 DOM。
-  if (!playing){
-    const eb = document.getElementById('editBar');
-    if (eb) eb.classList.add('hidden');
-    if (document.activeElement === scrollText) scrollText.blur();
-  }
+  if (!playing) exitMainEditModeDOM();
   playing = !playing;
   if (playing){
     const max = Math.max(0, scrollText.offsetHeight - viewport.clientHeight);
@@ -2020,9 +2082,7 @@ function togglePlay(){
 }
 function resetScroll(){
   // 与播放按钮一致：先退出主屏编辑态，避免 iOS 焦点回弹把这次点击吞掉
-  const eb = document.getElementById('editBar');
-  if (eb) eb.classList.add('hidden');
-  if (document.activeElement === scrollText) scrollText.blur();
+  exitMainEditModeDOM();
   if (voiceFollowing && typeof stopVoiceFollow === 'function') stopVoiceFollow();
   offset = 0; playing = false; readCounted = false; lastTs = null;
   updatePlayBtn(); applyPrompterStyle();
@@ -3134,11 +3194,10 @@ function init(){
   }
   function enterEditMode(){
     if (editBar) editBar.classList.remove('hidden');
+    const ap = document.getElementById('app');
+    if (ap) ap.classList.add('editing'); // 长稿改为提词区内部滚动，绝不撑破布局
   }
-  function leaveEditMode(){
-    if (editBar) editBar.classList.add('hidden');
-    if (scrollText && document.activeElement === scrollText) scrollText.blur();
-  }
+  function leaveEditMode(){ exitMainEditModeDOM(); }
   function insideEditor(node){
     return !!(scrollText && node && (node === scrollText || scrollText.contains(node)));
   }
@@ -3205,31 +3264,74 @@ function init(){
       if (e.key === 'Escape') { e.preventDefault(); leaveEditMode(); }
     });
   }
+  /* ---------- 剪贴板兜底：浏览器拒绝 readText 时用系统原生 Ctrl+V 完成粘贴 ----------
+     navigator.clipboard.readText() 在 iframe / 内嵌预览 / 非安全上下文里会被权限策略拒绝，
+     桌面端表现就是「无法读取剪贴板」。系统原生粘贴不依赖该 API，任何环境都可用。 */
+  const pasteFallback = document.getElementById('pasteFallback');
+  const pasteFallbackInput = document.getElementById('pasteFallbackInput');
+  const btnPasteInsert = document.getElementById('btnPasteInsert');
+  const btnPasteCancel = document.getElementById('btnPasteCancel');
+  function closePasteFallback(){
+    if (pasteFallback) pasteFallback.classList.add('hidden');
+    if (pasteFallbackInput) pasteFallbackInput.value = '';
+  }
+  function openPasteFallback(){
+    if (!pasteFallback || !pasteFallbackInput){ toast(t('editPasteFail')); return; }
+    pasteFallback.classList.remove('hidden');
+    pasteFallbackInput.value = '';
+    enterEditMode();
+    try { pasteFallbackInput.focus(); } catch (e) {}
+  }
+  function insertFromFallback(txt){
+    if (!txt) { toast(t('pasteFallbackHint')); return; }
+    if (scrollText) scrollText.focus();
+    restoreSelection();
+    insertTextAtCaret(txt);
+    closePasteFallback();
+    toast(t('editPasteOk'));
+    enterEditMode();
+  }
+  if (pasteFallbackInput) {
+    pasteFallbackInput.addEventListener('paste', function(e){
+      const txt = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
+      if (!txt) return;  // 拿不到就放行原生粘贴，用户还能点「插入讲稿」
+      e.preventDefault();
+      insertFromFallback(txt);
+    });
+    pasteFallbackInput.addEventListener('keydown', function(e){
+      if (e.key === 'Escape'){ e.preventDefault(); closePasteFallback(); }
+    });
+  }
+  if (btnPasteInsert) btnPasteInsert.addEventListener('click', function(){
+    insertFromFallback(pasteFallbackInput ? pasteFallbackInput.value : '');
+  });
+  if (btnPasteCancel) btnPasteCancel.addEventListener('click', closePasteFallback);
+
   if (quickPaste) {
     // 点按钮会让 contenteditable 失焦；提前记下光标/选区，异步读剪贴板后仍插回原处
     quickPaste.addEventListener('mousedown', rememberSelection);
     quickPaste.addEventListener('touchstart', rememberSelection, { passive: true });
     quickPaste.addEventListener('click', function(){
-      let cp;
+      closePasteFallback();
+      let reading;
       try {
-        cp = navigator.clipboard;
+        const cp = navigator.clipboard;
         if (!cp || typeof cp.readText !== 'function') throw new Error('clipboard unsupported');
+        // readText 必须在用户手势内同步发起；iOS 可能弹一次「允许粘贴」
+        reading = cp.readText();
       } catch (err) {
-        toast(t('editPasteFail')); enterEditMode(); return;
+        openPasteFallback(); return;
       }
-      // readText 必须在用户手势内同步发起；iOS 可能弹一次「允许粘贴」
-      cp.readText().then(function(txt){
-        if (!txt) { toast(t('editPasteFail')); return; }
+      Promise.resolve(reading).then(function(txt){
+        if (!txt) { openPasteFallback(); return; }
         scrollText.focus();       // 恢复焦点（DOM 插入不需要手势）
         restoreSelection();
         insertTextAtCaret(txt);   // 在光标处插入，可连续点、连续粘
         toast(t('editPasteOk'));
         enterEditMode();
       }).catch(function(){
-        // 读不到剪贴板也不卡住：系统长按粘贴现在已可用
-        toast(t('editPasteFail'));
-        if (scrollText) scrollText.focus();
-        enterEditMode();
+        // 关键：读不到剪贴板不再只报错，弹出可用原生 Ctrl+V 的兜底输入框
+        openPasteFallback();
       });
     });
   }

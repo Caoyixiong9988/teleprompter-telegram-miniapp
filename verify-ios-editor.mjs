@@ -25,8 +25,8 @@ check('六个控制按钮都在 DOM', ['btnPlay','btnReset','btnSettings','btnCa
 
 // --- 2. 五语新键 ---
 const sizes = ['zh','en','ja','ko','ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-check('五语各 185 键且一致', sizes.every(n => n === 185), JSON.stringify(sizes));
-check('新增 4 键五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable'].every(k=>!!I18N[l][k]))`));
+check('五语各 189 键且一致', sizes.every(n => n === 189), JSON.stringify(sizes));
+check('编辑/播放/语音/兜底新增键五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel'].every(k=>!!I18N[l][k]))`));
 
 // --- 3. 系统粘贴不被吞掉（paste 不 preventDefault，内容同步进数据模型）---
 const st = doc.getElementById('scrollText');
@@ -106,6 +106,59 @@ check('Android 非 Pro 仍提示升级 Pro', doc.getElementById('voiceNeed').tex
 check('Android 开始按钮可用', doc.getElementById('btnVoiceToggle').disabled === false);
 ev('startVoiceFollow();');
 check('Android 非 Pro 点开始仍会打开升级界面', !doc.getElementById('proSheet').classList.contains('hidden'));
+
+// --- 10. 桌面端：长稿内部滚动 + 剪贴板被拒时的原生粘贴兜底 ---
+const appEl = doc.getElementById('app');
+const vpEl = doc.getElementById('viewport');
+check('viewport 有 min-height:0，不会被长稿撑破', /#viewport\{[^}]*min-height:0/.test(css));
+check('编辑态提词区可上下滚动且滚动条可见', /#app\.editing #viewport\{[^}]*overflow-y:scroll/.test(css) && /#app\.editing #viewport::-webkit-scrollbar-thumb/.test(css));
+check('工具条移出 viewport，成为独立 flex 行', doc.getElementById('editBar').parentElement === appEl && vpEl.querySelector('#editBar') === null && /\.edit-bar\{[^}]*flex-shrink:0/.test(css) && !/\.edit-bar\{[^}]*position:absolute/.test(css));
+check('兜底面板也在 viewport 之外', doc.getElementById('pasteFallback').parentElement === appEl);
+
+appEl.classList.remove('editing');
+st.dispatchEvent(new window.FocusEvent('focus'));
+check('聚焦提词区会开启可滚动编辑态', appEl.classList.contains('editing'));
+doc.getElementById('btnReset').click();
+check('刷新按钮退出编辑态并还原滚动容器', !appEl.classList.contains('editing'));
+
+const pf = doc.getElementById('pasteFallback');
+const pfi = doc.getElementById('pasteFallbackInput');
+check('兜底面板默认隐藏', pf.classList.contains('hidden'));
+Object.defineProperty(window.navigator, 'clipboard', { value: { readText: () => Promise.reject(new Error('denied')) }, configurable: true });
+doc.getElementById('btnQuickPaste').click();
+await new Promise(r => setTimeout(r, 20));
+check('readText 被拒绝时弹出兜底框（不再只报错）', !pf.classList.contains('hidden'));
+check('兜底框有明确操作提示', doc.querySelector('#pasteFallback .paste-hint').textContent === ev('t("pasteFallbackHint")'));
+
+// 重建光标，避免沿用前面测试留下的旧 Range
+st.textContent = '原稿';
+const sel10 = window.getSelection();
+const rr10 = doc.createRange();
+rr10.selectNodeContents(st); rr10.collapse(false);
+sel10.removeAllRanges(); sel10.addRange(rr10);
+st.dispatchEvent(new window.Event('input', { bubbles: true }));
+const ppe = new window.Event('paste', { bubbles: true, cancelable: true });
+Object.defineProperty(ppe, 'clipboardData', { value: { getData: () => '手动粘贴内容' } });
+pfi.dispatchEvent(ppe);
+check('在兜底框按 Ctrl+V 会把内容插入讲稿', ev('activeScript().content').includes('手动粘贴内容'), ev('activeScript().content'));
+check('插入后兜底框自动关闭并清空', pf.classList.contains('hidden') && pfi.value === '');
+
+// paste 事件拿不到 clipboardData 的环境，仍可手动点「插入讲稿」
+doc.getElementById('btnQuickPaste').click();
+await new Promise(r => setTimeout(r, 20));
+pfi.value = '按钮插入内容';
+doc.getElementById('btnPasteInsert').click();
+check('兜底框「插入讲稿」按钮同样可用', ev('activeScript().content').includes('按钮插入内容'), ev('activeScript().content'));
+doc.getElementById('btnQuickPaste').click();
+await new Promise(r => setTimeout(r, 20));
+doc.getElementById('btnPasteCancel').click();
+check('取消按钮关闭兜底框', pf.classList.contains('hidden'));
+
+// readText 正常时保持原有自动粘贴路径
+Object.defineProperty(window.navigator, 'clipboard', { value: { readText: () => Promise.resolve('OKTEXT') }, configurable: true });
+doc.getElementById('btnQuickPaste').click();
+await new Promise(r => setTimeout(r, 20));
+check('readText 可用时走原有自动粘贴、不弹兜底框', pf.classList.contains('hidden') && ev('activeScript().content').includes('OKTEXT'));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
