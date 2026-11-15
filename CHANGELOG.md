@@ -8,6 +8,23 @@
 
 ---
 
+## 2026-11-15 · fix(ios) — 主屏提词区在 iPhone 上可删 / 可粘 / 可输入 / 可导入文件
+
+**为什么**：用户在 iPhone Safari 做第 0 步真机试用时发现，屏幕上那段「在这里粘贴你的讲稿……」既删不掉、也粘不进、打不了字，还打不开约定格式的文件。三层原因：① 那段文字是 `#scrollText` 的 `textContent`（只读展示区），主屏根本没有输入入口，导入按钮只藏在设置抽屉里；② `<meta viewport>` 带 `maximum-scale=1, user-scalable=no`，而设置面板输入框字号只有 15px，iOS 聚焦时的强制缩放与「禁止缩放」冲突，键盘弹起后文本框错位、点不中；③ 隐藏的文件输入用 `position:absolute; left:-9999px` 放在 `overflow:auto` 抽屉里，iOS 上系统文件选择器可能弹不出来。
+
+**改了什么**
+- 主屏提词区改为 `contenteditable`，点一下即可直接删改、粘贴、输入；`input` 时只把内容同步进数据模型与设置面板 textarea，**绝不回写 DOM**（否则 iOS 中文输入法合成中光标被打回开头，表现为「打不出字」）。
+- 新增主屏编辑工具条：`📋 粘贴`（用户手势内读剪贴板，失败退回系统长按粘贴）、`📂 从文件导入讲稿`（`<label for>` 原生触发，复用既有 TXT/MD/CSV/SRT/VTT/DOCX/ODT/XLSX 解析与 3 篇额度门禁）、`🗑 清空`、`完成`；进入编辑自动暂停滚动。
+- 空稿改用伪元素占位提示，不再是真实内容；修掉成片卡里 `getActiveContent() || defaultScript` 的回退，删掉后不会自己冒回来。
+- viewport 去掉 `maximum-scale` / `user-scalable=no`，补 `viewport-fit=cover`；输入控件统一 `font-size:16px !important`；文件输入改 `position:fixed` 到视口角落。
+- 五语各新增 6 个编辑键（175 → 181），同步更新三个测试里硬编码的键数。
+
+**怎么验证**：`npm test` 126/126、`node test_i18n_real.mjs` 32/32、`npm run smoke:worker` 18/18；另用 jsdom 临时脚本验证 23 项（contenteditable、输入双向同步、清空占位、纯文本粘贴、导入 label、五语键齐全、无运行错误）。真机复测：iPhone Safari 打开 Pages 地址，点大字段直接删改 / 长按粘贴 / 打字，再点「从文件导入讲稿」选一个 `.txt` 或 `.docx`。
+
+**涉及文件**：`index.html`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-15 · fix(docs) — 修正阶段 1.2 登录命令与本机 wrangler 版本不匹配
 
 **为什么**：上一条写入的 `wrangler login --device` 是 4.x 专属功能；本机实测 `npx wrangler login --help`（3.114.17）只有 `--browser` / `--scopes` / `--scopes-list`，照抄会直接报错。用户已在电脑端登录 Dashboard，但 `wrangler whoami` 仍显示未认证，需要一个 3.x 能跑通的授权步骤。

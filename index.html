@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<!-- iOS Safari：去掉 maximum-scale / user-scalable=no。它们会与「输入框字号<16px 自动放大」冲突，
+     键盘弹起后文本框被顶歪、点不中、无法粘贴或输入；同时补 viewport-fit=cover 适配刘海屏。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#ffffff" />
 <title>ScriptDeck · Teleprompter</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -34,7 +36,32 @@
     white-space:pre-wrap; word-break:break-word; padding:28px 22px;
     font-size:44px; line-height:1.55; color:var(--text); text-align:center;
     transform-origin:center center; will-change:transform;
+    /* 主屏就地编辑：允许 iOS 长按选字、弹出「粘贴」菜单 */
+    -webkit-user-select:text; user-select:text; -webkit-touch-callout:default;
+    outline:none; cursor:text; min-height:60px;
   }
+  /* 空稿占位提示是伪元素，不是真实内容：点一下就能直接输入，删掉后不会自己冒回来 */
+  #scrollText.is-empty:empty::before{
+    content:attr(data-placeholder); color:var(--muted); opacity:.8;
+    font-size:.5em; line-height:1.6; pointer-events:none;
+  }
+  /* iOS Safari 经典坑：可输入控件字号 <16px 会在聚焦时强制缩放页面。
+     用 !important 覆盖若干个历史 inline style，保证键盘弹起后仍能点选/粘贴/输入。 */
+  .field textarea, .field input[type=text], .field select,
+  #setScriptTitle, #reportDetail, #langSelect{
+    font-size:16px !important; -webkit-user-select:text; user-select:text;
+  }
+  /* 主屏编辑工具条：粘贴 / 导入文件 / 清空 / 完成 */
+  .edit-bar{
+    position:absolute; left:0; right:0; bottom:0; z-index:20;
+    display:flex; flex-wrap:wrap; gap:8px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.97); border-top:1px solid var(--line);
+    box-shadow:0 -6px 18px rgba(20,24,33,.08);
+  }
+  .edit-bar.hidden{display:none;}
+  .edit-bar .btn{font-size:14px; min-height:42px; padding:8px 12px; cursor:pointer;}
+  .edit-hint{flex:1 1 100%; font-size:12px; color:var(--muted); line-height:1.5;}
   #controlBar{
     display:flex; align-items:center; gap:10px;
     padding:10px 12px; border-top:1px solid var(--line); background:var(--panel);
@@ -177,7 +204,14 @@
   </header>
 
   <div id="viewport">
-    <div id="scrollText"></div>
+    <div id="scrollText" contenteditable="true" role="textbox" aria-multiline="true" aria-label="讲稿编辑区" spellcheck="false" autocapitalize="off" data-i18n-title="editHint"></div>
+    <div id="editBar" class="edit-bar hidden">
+      <div class="edit-hint" data-i18n="editHint">点一下上面的文字就能直接删改、粘贴、输入；也可以从文件导入讲稿。</div>
+      <button class="btn" type="button" id="btnQuickPaste" data-i18n="editPaste">📋 粘贴</button>
+      <label class="btn" for="importFile" data-i18n="importBtn">📂 从文件导入讲稿</label>
+      <button class="btn" type="button" id="btnQuickClear" data-i18n="editClear">🗑 清空</button>
+      <button class="btn primary" type="button" id="btnQuickDone" data-i18n="editDone">完成</button>
+    </div>
   </div>
 
   <div id="controlBar">
@@ -218,7 +252,9 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;">
           <button class="btn" type="button" id="btnImportFile" data-i18n="importBtn">从文件导入讲稿</button>
           <span class="hint" data-i18n="importHint" style="flex:1 1 190px;min-width:180px;">讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。</span>
-          <input type="file" id="importFile" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.docx,.odt,.xlsx" style="position:absolute;width:1px;height:1px;opacity:0;left:-9999px;" />
+          <!-- iOS Safari：文件输入不要放在 left:-9999px 的绝对定位里（会被 overflow 容器裁掉，
+               系统文件选择器弹不出来）。改 fixed 到视口角落，用 <label for> 原生触发最稳。 -->
+          <input type="file" id="importFile" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.docx,.odt,.xlsx" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;z-index:1;border:0;padding:0;overflow:hidden;" />
         </div>
         <div class="hint" data-i18n="importFormats" style="margin-top:6px;">支持 TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX；不支持旧版 .doc 与 PDF，请先另存为 .docx 或 .txt。导入会新建一篇讲稿，不会覆盖现有内容。</div>
       </div>
@@ -579,6 +615,12 @@ const I18N = {
   shareChat:"分享到聊天",
   creditsNotice:"积分与购买须知",
   defaultScript:"在这里粘贴你的讲稿……\n\n点击右下角 ⚙ 打开设置，编辑脚本、调整字号与速度。\n\n准备好后点左上角 ▶ 开始滚动提词。",
+  editHint:"点一下上面的文字就能直接删改、粘贴、输入；也可以从文件导入讲稿。",
+  editPlaceholder:"讲稿是空的。点这里直接输入，或粘贴已复制的文字，也可以从下方导入文件。",
+  editPaste:"📋 粘贴",
+  editClear:"🗑 清空",
+  editDone:"完成",
+  editPasteFail:"无法自动读取剪贴板，请长按文字后从系统菜单粘贴",
   cardBrand:"ScriptDeck",
   cardTagline:"流畅提词 · 解放双眼",
   cardGeneratedBy:"由 ScriptDeck 生成",
@@ -743,6 +785,12 @@ const I18N = {
   shareChat:"Share to Chat",
   creditsNotice:"Credits & Purchase Notice",
   defaultScript:"Paste your script here…\n\nTap ⚙ at the bottom right to open settings and edit the script, font size, and speed.\n\nWhen ready, tap ▶ at the top left to start scrolling.",
+  editHint:"Tap the text above to edit, delete, paste or type directly. You can also import a file.",
+  editPlaceholder:"Empty script. Tap here to type, paste copied text, or import a file below.",
+  editPaste:"📋 Paste",
+  editClear:"🗑 Clear",
+  editDone:"Done",
+  editPasteFail:"Clipboard unavailable. Long-press the text and paste from the system menu.",
   cardBrand:"ScriptDeck",
   cardTagline:"Smooth scrolling, free your eyes",
   cardGeneratedBy:"Generated by ScriptDeck",
@@ -907,6 +955,12 @@ const I18N = {
   shareChat:"チャットで共有",
   creditsNotice:"クレジットと購入について",
   defaultScript:"ここに原稿を貼り付け……\n\n右下の ⚙ で設定を開き、原稿・文字サイズ・速度を編集できます。\n\n準備ができたら左上の ▶ でスクロールを開始。",
+  editHint:"上の文字をタップすると、削除・貼り付け・直接入力ができます。ファイルの読み込みも可能です。",
+  editPlaceholder:"原稿が空です。ここをタップして入力、コピーした文字を貼り付け、または下からファイルを読み込めます。",
+  editPaste:"📋 貼り付け",
+  editClear:"🗑 クリア",
+  editDone:"完了",
+  editPasteFail:"クリップボードを読み取れません。文字を長押ししてシステムメニューから貼り付けてください。",
   cardBrand:"ScriptDeck",
   cardTagline:"スムーズなスクロールで目を解放",
   cardGeneratedBy:"ScriptDeck で生成",
@@ -1071,6 +1125,12 @@ const I18N = {
   shareChat:"채팅으로 공유",
   creditsNotice:"크레딧 및 구매 안내",
   defaultScript:"여기에 대본을 붙여넣으세요……\n\n오른쪽 아래 ⚙를 눌러 설정에서 대본·글자 크기·속도를 편집하세요.\n\n준비되면 왼쪽 위 ▶를 눌러 스크롤을 시작하세요.",
+  editHint:"위 글자를 탭하면 바로 삭제·붙여넣기·입력할 수 있습니다. 파일 가져오기도 가능합니다.",
+  editPlaceholder:"대본이 비어 있습니다. 여기를 탭해 입력하거나 복사한 글을 붙여넣고, 아래에서 파일을 가져올 수도 있습니다.",
+  editPaste:"📋 붙여넣기",
+  editClear:"🗑 비우기",
+  editDone:"완료",
+  editPasteFail:"클립보드를 읽을 수 없습니다. 글자를 길게 눌러 시스템 메뉴에서 붙여넣으세요.",
   cardBrand:"ScriptDeck",
   cardTagline:"부드러운 스크롤로 눈을 자유롭게",
   cardGeneratedBy:"ScriptDeck으로 생성됨",
@@ -1235,6 +1295,12 @@ const I18N = {
   shareChat:"Поделиться",
   creditsNotice:"Кредиты и условия покупки",
   defaultScript:"Вставьте сценарий здесь…\n\nНажмите ⚙ справа внизу, чтобы открыть настройки и изменить текст, размер шрифта и скорость.\n\nКогда всё готово, нажмите ▶ слева вверху, чтобы начать прокрутку.",
+  editHint:"Нажмите на текст выше, чтобы удалять, вставлять и вводить текст напрямую. Также можно импортировать файл.",
+  editPlaceholder:"Сценарий пуст. Нажмите здесь, чтобы ввести текст, вставить скопированное или импортировать файл ниже.",
+  editPaste:"📋 Вставить",
+  editClear:"🗑 Очистить",
+  editDone:"Готово",
+  editPasteFail:"Не удалось прочитать буфер обмена. Нажмите и удерживайте текст, затем вставьте через системное меню.",
   cardBrand:"ScriptDeck",
   cardTagline:"Плавная прокрутка · свободные глаза",
   cardGeneratedBy:"Создано в ScriptDeck",
@@ -1719,6 +1785,7 @@ function loadActiveIntoEditor(){
   if (st) st.value = s ? s.title : '';
   const isDefault = Object.values(I18N).some(function (d) { return d.defaultScript === content; });
   if (scrollText) scrollText.dataset.isDefault = isDefault ? '1' : '0';
+  if (typeof refreshEmptyHint === 'function') refreshEmptyHint();
 }
 // 渲染讲稿库列表（高亮当前、可切换/删除）
 function renderScriptList(){
@@ -2296,7 +2363,7 @@ function generateCard(){
   ctx.fillText(rkBadge.icon + ' ' + rankNameOf(rkBadge), 1000, 120);
   ctx.textAlign = 'left';
   // 讲稿片段
-  const raw = (getActiveContent() || t('defaultScript')).replace(/\s+$/,'');
+  const raw = String(getActiveContent() || '').replace(/\s+$/,'');
   const snippet = raw.slice(0, 240);
   ctx.fillStyle = '#1f2430'; ctx.font = '40px sans-serif'; ctx.textAlign = 'left';
   const lines = wrapText(ctx, snippet, 920);
@@ -2953,6 +3020,97 @@ function init(){
       handleImportFile(f);
     });
   }
+
+  /* ---------- 主屏提词区就地编辑（可删 / 可粘 / 可输入 / 可导入文件）----------
+     设计要点：input 时绝不回写 scrollText.textContent，否则 iOS 中文输入法合成中
+     光标会被打回开头，表现为「打不出字 / 删不掉」。只把内容同步进数据模型与设置面板。 */
+  const editBar = document.getElementById('editBar');
+  const quickPaste = document.getElementById('btnQuickPaste');
+  const quickClear = document.getElementById('btnQuickClear');
+  const quickDone = document.getElementById('btnQuickDone');
+  let mainComposing = false;
+
+  // contenteditable 会把换行写成 <div>/<br>，用 innerText 才能还原成纯文本换行
+  function mainEditorText(){
+    if (!scrollText) return '';
+    const v = (typeof scrollText.innerText === 'string') ? scrollText.innerText : (scrollText.textContent || '');
+    return v.replace(/\r\n/g, '\n');
+  }
+  function refreshEmptyHint(){
+    if (!scrollText) return;
+    const empty = !String(getActiveContent() || '').length;
+    scrollText.classList.toggle('is-empty', empty);
+    if (empty) scrollText.setAttribute('data-placeholder', t('editPlaceholder'));
+    else scrollText.removeAttribute('data-placeholder');
+  }
+  function commitMainEdit(text){
+    setActiveContent(text);
+    if (setScript) setScript.value = text;
+    if (scrollText) scrollText.dataset.isDefault = '0';
+    refreshEmptyHint();
+    offset = 0; applyPrompterStyle();
+    debounceSave(); maybeSyncDebounced();
+  }
+  function enterEditMode(){
+    if (playing) { playing = false; updatePlayBtn(); }  // 编辑时先停滚动，避免文字边动边改
+    if (editBar) editBar.classList.remove('hidden');
+  }
+  function leaveEditMode(){
+    if (editBar) editBar.classList.add('hidden');
+    if (scrollText && document.activeElement === scrollText) scrollText.blur();
+  }
+  if (scrollText) {
+    scrollText.addEventListener('focus', enterEditMode);
+    scrollText.addEventListener('compositionstart', function(){ mainComposing = true; });
+    scrollText.addEventListener('compositionend', function(){ mainComposing = false; commitMainEdit(mainEditorText()); });
+    scrollText.addEventListener('input', function(){ if (!mainComposing) commitMainEdit(mainEditorText()); });
+    scrollText.addEventListener('paste', function(e){
+      // 只粘纯文本，避免把 Word / 网页的富文本 HTML 带进提词区
+      const txt = e.clipboardData && e.clipboardData.getData('text/plain');
+      if (txt == null) return;
+      e.preventDefault();
+      if (typeof document.execCommand === 'function') {
+        document.execCommand('insertText', false, txt);
+      } else {
+        const sel = window.getSelection && window.getSelection();
+        if (sel && sel.rangeCount) {
+          const r = sel.getRangeAt(0); r.deleteContents();
+          r.insertNode(document.createTextNode(txt)); sel.collapseToEnd();
+        } else {
+          scrollText.textContent += txt;
+        }
+      }
+      commitMainEdit(mainEditorText());
+    });
+    scrollText.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { e.preventDefault(); leaveEditMode(); }
+    });
+  }
+  if (quickPaste) quickPaste.addEventListener('click', function(){
+    // iOS 允许在用户手势里读剪贴板；不支持时退回系统长按粘贴并给提示
+    try {
+      const cp = navigator.clipboard;
+      if (!cp || typeof cp.readText !== 'function') throw new Error('clipboard unsupported');
+      cp.readText().then(function(txt){
+        if (!txt) { toast(t('editPasteFail')); return; }
+        if (scrollText) scrollText.textContent = txt;
+        commitMainEdit(txt);
+        if (scrollText) scrollText.focus();
+      }).catch(function(){
+        toast(t('editPasteFail')); if (scrollText) scrollText.focus();
+      });
+    } catch (err) {
+      toast(t('editPasteFail'));
+      if (scrollText) { scrollText.focus(); enterEditMode(); }
+    }
+  });
+  if (quickClear) quickClear.addEventListener('click', function(){
+    if (scrollText) scrollText.textContent = '';
+    commitMainEdit('');
+    if (scrollText) scrollText.focus();
+  });
+  if (quickDone) quickDone.addEventListener('click', leaveEditMode);
+  refreshEmptyHint();
 
   // 遥控（Pro）：打开/关闭/角色切换/创建/停止/复制/分享/连接/断开/播放/暂停/调速
   const remoteSheet = document.getElementById('remoteSheet');
