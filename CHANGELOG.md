@@ -8,6 +8,21 @@
 
 ---
 
+## 2026-11-15 · fix(docs) — 修正阶段 1.2 登录命令与本机 wrangler 版本不匹配
+
+**为什么**：上一条写入的 `wrangler login --device` 是 4.x 专属功能；本机实测 `npx wrangler login --help`（3.114.17）只有 `--browser` / `--scopes` / `--scopes-list`，照抄会直接报错。用户已在电脑端登录 Dashboard，但 `wrangler whoami` 仍显示未认证，需要一个 3.x 能跑通的授权步骤。
+
+**改了什么**
+- 阶段 1.2 改为 `npx wrangler login --browser=false` + `npx wrangler whoami`：打印 OAuth 链接 → 粘贴到已登录的浏览器 → 点 Allow → `localhost:8976` 回调。
+- 明确「Dashboard 登录 ≠ CLI 已授权」；标注 `--device` 仅 4.x 可用，且**不要为登录升级 wrangler**（会破坏 `wrangler.dev.toml` / `smoke:worker` 兼容性）。
+- 凭据边界补上 OAuth 链接里的 `state` / `code_challenge` 同样不可外发；备用 API Token 方案的触发条件改为「授权页打不开或回调失败」。
+
+**怎么验证**：`npx wrangler --version` → 3.114.17；`npx wrangler login --help` → 无 `--device`；`npx wrangler whoami` → 授权前显示 `You are not authenticated`。纯文档改动，未动代码。
+
+**涉及文件**：`【上线清单】从账号到真机收银台_2026-11-15.md`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-15 · docs — 上线清单阶段 1.2 补 Wrangler 手机授权流与凭据边界
 
 **为什么**：用户已在手机完成 Cloudflare 注册，但本机 `dash.cloudflare.com` 的 Turnstile 曾出现 Challenge loop；清单原写的 `wrangler login`（默认开电脑浏览器做 OAuth）在这台机器上很可能走不通。官方 Wrangler 文档提供 `--device` 设备授权流，可在手机上完成批准，正好绕开该障碍。
