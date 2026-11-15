@@ -25,8 +25,8 @@ check('六个控制按钮都在 DOM', ['btnPlay','btnReset','btnSettings','btnCa
 
 // --- 2. 五语新键 ---
 const sizes = ['zh','en','ja','ko','ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-check('五语各 183 键且一致', sizes.every(n => n === 183), JSON.stringify(sizes));
-check('editPasteOk / editNoScroll 五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>!!I18N[l].editPasteOk && !!I18N[l].editNoScroll)`));
+check('五语各 185 键且一致', sizes.every(n => n === 185), JSON.stringify(sizes));
+check('新增 4 键五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable'].every(k=>!!I18N[l][k]))`));
 
 // --- 3. 系统粘贴不被吞掉（paste 不 preventDefault，内容同步进数据模型）---
 const st = doc.getElementById('scrollText');
@@ -75,6 +75,37 @@ check('仅聚焦定位光标不打断播放', ev('playing') === true);
 st.textContent = '新内容';
 st.dispatchEvent(new window.Event('input', { bubbles: true }));
 check('真正输入才暂停滚动', ev('playing') === false);
+
+// --- 7. 刷新按钮：真的回到开头 + 明确反馈 + 退出编辑态 ---
+doc.getElementById('editBar').classList.remove('hidden');
+ev('playing=true; offset=250; readCounted=true;');
+doc.getElementById('btnReset').click();
+check('刷新按钮把 offset 归零并暂停', ev('offset') === 0 && ev('playing') === false, 'offset=' + ev('offset') + ' playing=' + ev('playing'));
+check('刷新按钮给出 toast 反馈（不再像没反应）', doc.getElementById('toast').textContent === ev('t("resetDone")'), doc.getElementById('toast').textContent);
+check('刷新按钮退出编辑态', doc.getElementById('editBar').classList.contains('hidden'));
+
+// --- 8. iOS 语音跟随：显示「苹果暂无、安卓可用」，不弹升级会员 ---
+Object.defineProperty(window.navigator, 'userAgent', { value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', configurable: true });
+ev('state.isPro=false; renderVoiceUI();');
+const iosBox = doc.getElementById('voiceIosBox');
+check('iOS 免费用户不再看到「请先开通 Pro」', doc.getElementById('voiceNeed').textContent !== ev('t("voiceNeedPro")'), doc.getElementById('voiceNeed').textContent);
+check('iOS 面板显示「当前环境不支持」', doc.getElementById('voiceNeed').textContent === ev('t("voiceStatusUnsupported")'));
+check('iOS 说明块可见且写明 iPhone 不可用 / Android 可用', iosBox.hidden === false && /iPhone/.test(iosBox.textContent) && /Android/.test(iosBox.textContent), iosBox.textContent.slice(0, 60));
+check('不支持时「开始语音跟随」按钮禁用', doc.getElementById('btnVoiceToggle').disabled === true);
+check('🎤 图标 title 带 iOS 说明', /iPhone/.test(doc.getElementById('btnVoice').title || ''));
+doc.getElementById('proSheet').classList.add('hidden');
+ev('startVoiceFollow();');
+check('点开始不再弹出升级会员界面', doc.getElementById('proSheet').classList.contains('hidden'));
+check('点开始后 iOS 说明仍在', doc.getElementById('voiceIosBox').hidden === false);
+
+// --- 9. 支持语音且非 Pro 时，原有付费门禁仍生效 ---
+Object.defineProperty(window.navigator, 'userAgent', { value: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile', configurable: true });
+window.SpeechRecognition = function(){};
+ev('state.isPro=false; renderVoiceUI();');
+check('Android 非 Pro 仍提示升级 Pro', doc.getElementById('voiceNeed').textContent === ev('t("voiceNeedPro")'), doc.getElementById('voiceNeed').textContent);
+check('Android 开始按钮可用', doc.getElementById('btnVoiceToggle').disabled === false);
+ev('startVoiceFollow();');
+check('Android 非 Pro 点开始仍会打开升级界面', !doc.getElementById('proSheet').classList.contains('hidden'));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);

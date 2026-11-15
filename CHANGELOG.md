@@ -8,6 +8,21 @@
 
 ---
 
+## 2026-11-15 · fix(ios) — 第三轮真机问题：刷新按钮 / iOS 语音跟随误弹升级会员
+
+**为什么**：iPhone Safari 复测又报两项：① ▶ 旁边的 ↺ 刷新按钮点了没反应；② 🎤 语音跟随点开是「升级会员」界面，没有说明苹果手机暂无此功能、安卓手机可用。
+
+**根因与改法**
+- ① `resetScroll()` 逻辑本身正确（`offset=0` + 暂停），但短稿或本来就在开头时视觉上零变化；而且 `commitMainEdit()` 每次输入都会把 `offset` 归零，刷新按钮经常「无事可做」；iOS 焦点在 contenteditable 时第一次点击还可能被吞。现在点 ↺ 会先退出编辑态（隐藏工具条 + blur）、停止语音跟随、清 `lastTs`，并给 `resetDone` toast「已回到开头。点 ▶ 可重新播放」。
+- ② `renderVoiceUI()` 原先把 `if (!isPro())` 排在 `!speechSupported()` 之前：免费 iOS 用户只看到「语音跟随为 Pro 权益」，而已经写好的 `voiceIosHint`（iPhone / iPad 不支持、请改用 Android 或桌面 Chrome）被 `hidden` 永远挡住；点「开始语音跟随」又走 `startVoiceFollow()` 的 `!isPro()` 分支直接 `openProSheetSafe()` 弹出升级界面。现在**设备可用性判断优先于付费门禁**：iOS / 无 Web Speech API 的设备打开面板即显示「当前环境不支持语音识别」+ 醒目黄色说明卡（明确苹果暂无、安卓可用），开始按钮禁用并改为「此设备暂不可用」，点开始**绝不弹升级界面**；Android Chrome + 非 Pro 仍走原有付费门禁，不影响后续商业化。
+- 五语新增 `resetDone` / `voiceUnavailable` 两键（183→185，三个测试硬编码键数同步更新）；🎤 图标 title 在 iOS 下带完整说明；两个不支持提示框改为醒目卡片样式。
+
+**怎么验证**：`npm run test:ios` **31/31**（新增 13 项断言：刷新归零/反馈/退出编辑态、iOS 不显示升级文案、iOS 说明块含 iPhone 与 Android、按钮禁用、点开始不弹升级、Android 非 Pro 付费门禁仍生效）；`npm test` **126/126**；`test_i18n_real.mjs` **32/32**；`smoke:worker` **18/18**。**仍需 iPhone 真机复测**。
+
+**涉及文件**：`index.html`、`verify-ios-editor.mjs`、三个测试文件、`【上线清单】…md`。
+
+---
+
 ## 2026-11-15 · fix(ios) — 第二轮真机问题：播放 / 粘贴 / 底部按钮
 
 **为什么**：第一轮修复部署后用户在 iPhone Safari 复测又报 5 项：① 输入后点播放、再把光标放回开头、再点播放没反应；② iOS 在光标旁弹出的系统「粘贴」预览点了无效；③ 粘贴按钮连点第二次没反应；④ 粘贴按钮像是只唤起 iOS 系统粘贴，必须长按再选；⑤ 右下角只露出半个 ⚙。
