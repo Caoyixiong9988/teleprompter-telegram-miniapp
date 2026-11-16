@@ -255,10 +255,10 @@
         <button type="button" id="btnFontUp" aria-label="font size up" title="A+" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A+</button>
       </div>
       <select id="langSelect" aria-label="language" style="font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid #d8dde6;background:#fff;color:#222;">
-        <option value="zh">中文</option>
         <option value="en">EN</option>
-        <option value="de">Deutsch</option>
         <option value="fr">Français</option>
+        <option value="zh">中文</option>
+        <option value="de">Deutsch</option>
         <option value="ja">日本語</option>
         <option value="ko">한국어</option>
         <option value="ru">Русский</option>
@@ -3016,19 +3016,17 @@ function clampOffset(v){
   const m = maxOffset();
   return Math.max(0, Math.min(Number.isFinite(v) ? v : 0, m));
 }
-/* 播放起点专用钳制：允许负值。
-   阅读头固定在视口 20%（READ_HEAD_RATIO），而文稿第一个词在内容盒顶部
-   （padding≈28px）。若把起点 offset 钳在 0，阅读头就落在视口 20% 处，
-   命中第 2~3 行——表现为「刷新后从头播放却从第三行开始」。
-   允许 offset 为负 = 文稿先下移，让第一个词正好落在阅读头，之后再匀速
-   上滚。这正是提词器「文稿从阅读线滚上来」的标准行为，且不影响匀速。
-   下限 = -视口×READ_HEAD_RATIO，恰好让内容盒顶部能对齐阅读头。 */
-function minPlayOffset(){ return -viewport.clientHeight * READ_HEAD_RATIO; }
-function clampPlayOffset(v){
-  const lo = minPlayOffset(), hi = maxOffset();
-  if (!Number.isFinite(v)) return 0;
-  return Math.max(lo, Math.min(v, hi));
-}
+/* 阅读头锚点：高亮"正在读哪个词"由阅读头在内容坐标中的位置决定。
+   原实现把阅读头固定在视口 20% 屏幕处（headContentY = offset + 视口×0.2），
+   为了让第一个词对齐它，只能把 offset 设成负值把文稿往下推——视觉上就是
+   「点播放时文稿突然跳一下、起点从顶端移到中间」。
+
+   新实现改为可变锚点 readHeadContentY（内容坐标，相对 scrollText 顶部）：
+   - 播放推进时 offset 与 readHeadContentY 同步 += 速度×dt，速率相同 → 仍匀速；
+   - 从某起点开始时，文稿不动（offset 保持 0），只把锚点设成起点词的内容坐标，
+     于是该词立即在它当前位置被高亮，文稿零跳变。
+   这样既满足「文稿不跳」，又满足「从第一个词高亮」，还保住匀速。 */
+let readHeadContentY = 0;
 function applyPrompterStyle(){
   scrollText.style.fontSize = state.fontSize + 'px';
   scrollText.style.color = state.color;
@@ -3051,10 +3049,11 @@ let readTokens = null;        // [{node,start,end,left,top,w,h}]
 let readLines = null;         // [{start,end,top,height}] —— readTokens 按视觉行分组的连续区间
 let readTokensDirty = true;
 let readTokensText = '';
-/* 阅读头固定在视口高度的 20%（与点击定位 seekAtClientY 一致）。
-   固定屏幕位置是关键：文本以 V px/s 从阅读头下经过，高亮推进速率就恒等于 V，
-   与文稿长度无关。若用旧式 offset/maxOffset×总词数，速率会被放大
-   contentH/maxOffset 倍（短稿最高 6 倍），这才是「高亮跑得过快」的真因。 */
+/* 阅读头相对视口的高度比例，仅用于"点击空白处、未命中词元"的兜底定位。
+   匀速的关键不再是固定屏幕位置，而是 readHeadContentY 与 offset 同步推进：
+   文本以 V px/s 上滚，阅读头锚点也以 V px/s 在内容坐标里前进，高亮速率恒等于 V，
+   与文稿长度无关。旧式 offset/maxOffset×总词数 会放大 contentH/maxOffset 倍
+   （短稿最高 6 倍），那才是「高亮跑得过快」的真因。 */
 const READ_HEAD_RATIO = 0.2;
 function hideReadMark(){
   if (readMarkEl) readMarkEl.style.display = 'none';
@@ -3119,8 +3118,8 @@ function caretOffsetToWord(){
   if (best >= 0) return best;
   return readTokens.length - 1;                // caret 在末尾之后 → 最后一个词
 }
-/* 从 caret 计算播放起点 offset：命中词元 → 反算让阅读头选中它（与 seekAtClientY 同一公式）。
-   返回 true 表示已设置 offset。 */
+/* 从 caret 设定播放起点：命中词元 → 把阅读头锚点对齐到它（文稿 offset 不动）。
+   返回 true 表示已锚定。 */
 function seekToCaret(){
   if (readTokensDirty || !readTokens || !readLines){
     const txt = scrollText ? (scrollText.textContent || '') : '';
@@ -3128,13 +3127,10 @@ function seekToCaret(){
   }
   const ti = caretOffsetToWord();
   if (ti < 0 || !readLines || !readLines.length) return false;
-  let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
-  const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
-  const headY = ln.top + ((w + 0.5) / n) * ln.height;
-  offset = clampPlayOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
+  const ok = anchorReadHeadToToken(ti);
   readCounted = false;
   reachedEnd = false;
-  return true;
+  return ok;
 }
 function buildReadTokens(){
   const list = tokenizeForRead();
@@ -3175,6 +3171,16 @@ function buildReadTokens(){
   readTokensText = scrollText.textContent || '';
   readTokensDirty = false;
 }
+/* 把阅读头锚点对齐到词元 ti 的内容坐标（让这个词在它当前位置立刻被高亮），
+   但完全不动 offset —— 文稿保持在用户看到的位置，零跳变。
+   行内推进公式与 updateReadMark 一致：headY = line.top + (w+.5)/n * line.height。 */
+function anchorReadHeadToToken(ti){
+  if (ti < 0 || !readLines || !readLines.length) return false;
+  let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
+  const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
+  readHeadContentY = ln.top + ((w + 0.5) / n) * ln.height;
+  return true;
+}
 function updateReadMark(force){
   if (!readMarkEl) return;
   if (!playing || !state.readMark || state.mirror) { hideReadMark(); return; }
@@ -3194,7 +3200,9 @@ function updateReadMark(force){
        短稿可放大 6 倍——这才是「高亮跑得比朗读快」的根因，纯主观之外的真 bug。
        改为：先按内容坐标定位阅读头所在行，再在该行内按横向进度推进词序，
        这样高亮速度恒等于文本滚动速度，且与文稿长短无关。 */
-    const headContentY = offset + viewport.clientHeight * READ_HEAD_RATIO;
+    // 用可变阅读头锚点（内容坐标）。播放中 loop() 会让它与 offset 同步前进，
+    // 起点处由 anchorReadHeadToToken 对齐到起点词——高亮匀速且文稿不跳。
+    const headContentY = readHeadContentY;
     let li = 0;
     while (li < readLines.length - 1 && headContentY > readLines[li].top + readLines[li].height) li++;
     const curLine = readLines[li];
@@ -3225,9 +3233,7 @@ function setPlaying(on){
     viewport.scrollTop = 0;                 // 位移交给 transform
     lastTs = null;
   } else {
-    // 用 clampPlayOffset（非 clampOffset）：从开头播放的负起点在暂停时要保留，
-    // 否则文稿会跳回顶部，与"第一个词对齐阅读头"的播放视图不连续。
-    viewport.scrollTop = clampPlayOffset(offset); // 把播放位置还原成原生滚动位置
+    viewport.scrollTop = clampOffset(offset); // 把播放位置还原成原生滚动位置
   }
   applyPrompterStyle();
   updatePlayBtn();
@@ -3281,7 +3287,8 @@ function seekAtClientY(clientY, clientX){
   if (max <= 0) return false;
   const rect = scrollText.getBoundingClientRect();
   const contentY = clientY - rect.top;
-  let target = contentY - viewport.clientHeight * READ_HEAD_RATIO; // 兜底：按 Y 定位
+  // 阅读头内容坐标：命中词元用词的坐标，否则用点击处的内容 Y
+  let headAt = contentY;
   // 暂停/未播放时也可能从未构建过词缓存；按需构建，保证第一次点击就能精确定位
   if (readTokensDirty || !readTokens || !readLines){
     const txt = scrollText.textContent || '';
@@ -3293,11 +3300,13 @@ function seekAtClientY(clientY, clientX){
       let li=0; while (li<readLines.length-1 && ti>readLines[li].end) li++;
       const ln=readLines[li], n=Math.max(1, ln.end-ln.start+1), w=Math.max(0,Math.min(n-1,ti-ln.start));
       // 让 updateReadMark 的 frac 命中第 w 个词：headY=line.top+(w+.5)/n*line.height
-      const headY = ln.top + ((w+0.5)/n)*ln.height;
-      target = headY - viewport.clientHeight * READ_HEAD_RATIO;
+      headAt = ln.top + ((w+0.5)/n)*ln.height;
     }
   }
-  offset = clampPlayOffset(target);
+  // 文稿滚到让 headAt 落在视口 20%（非负钳制：点第一行不会把文稿往下推）。
+  // 阅读头锚点同步设为 headAt，于是高亮正好命中它——两者口径一致。
+  offset = clampOffset(headAt - viewport.clientHeight * READ_HEAD_RATIO);
+  readHeadContentY = headAt;
   readCounted = false;
   reachedEnd = false; // 显式定位后不再是"自然读完"，避免下次 ▶ 被误判回开头
   if (playing){
@@ -3318,7 +3327,9 @@ function loop(ts){
   lastTs = ts;
   if (playing){
     const max = maxOffset();
-    offset += pxPerSec() * dt;
+    const step = pxPerSec() * dt;
+    offset += step;
+    readHeadContentY += step;   // 锚点与文稿同步前进 → 高亮速率恒等于滚速（匀速）
     if (offset >= max){
       offset = max;
       reachedEnd = true;   // 只有真正滚到底才标记"读完"，供下次 ▶ 决定重头播放
@@ -3383,17 +3394,22 @@ function togglePlay(){
         }
         if (ti < 0) ti = best >= 0 ? best : readTokens.length - 1;
       }
-      if (ti >= 0 && readLines && readLines.length){
-        let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
-        const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
-      const headY = ln.top + ((w + 0.5) / n) * ln.height;
-      offset = clampPlayOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
+      // 只把阅读头锚点对齐到起点词，文稿 offset 保持不动——零跳变
+      if (ti >= 0) anchorReadHeadToToken(ti);
       reachedEnd = false; readCounted = false;
     }
-  }
-  // 若 max 变小（改稿/字号变化）导致 offset 越界，只做钳制，不回开头。
-  if (offset > max){ offset = max; }
-  if (reachedEnd){ offset = minPlayOffset(); readCounted = false; reachedEnd = false; }
+    // 若 max 变小（改稿/字号变化）导致 offset 越界，只做钳制，不回开头。
+    if (offset > max){ offset = max; }
+    if (reachedEnd){
+      // 读完重播：文稿回到顶端，阅读头锚点对齐第一个词
+      offset = 0;
+      if (readTokensDirty || !readTokens || !readLines){
+        const txt = scrollText ? (scrollText.textContent || '') : '';
+        if (txt) buildReadTokens();
+      }
+      anchorReadHeadToToken(0);
+      readCounted = false; reachedEnd = false;
+    }
     setPlaying(true);
     toast(t('playResumed'));
   } else {

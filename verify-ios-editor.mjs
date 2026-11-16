@@ -87,8 +87,8 @@ Object.defineProperty(doc.getElementById('viewport'), 'clientHeight', { value: 3
 // 用显式 reachedEnd 标志模拟"自然滚到底"；仅 offset=max 不再足以判定（那正是暂停定位 bug 的根因）
 ev('offset=700; playing=false; reachedEnd=true;');
 doc.getElementById('btnPlay').click();
-// 从头播放的起点是 minPlayOffset()（负值，让第一个词对齐阅读头），不是 0
-check('已滚到底时再点播放会回到开头', ev('offset') === -60 && ev('playing') === true, 'offset=' + ev('offset') + ' playing=' + ev('playing'));
+// 从头播放：文稿回顶端 offset=0，阅读头锚点对齐第一个词（不再负偏移推文稿）
+check('已滚到底时再点播放会回到开头', ev('offset') === 0 && ev('playing') === true, 'offset=' + ev('offset') + ' playing=' + ev('playing'));
 ev('playing=false; reachedEnd=false;');
 
 // --- 6. 只定位光标不打断播放，真正改内容才暂停 ---
@@ -283,7 +283,7 @@ for (const [label, clientY] of [['中间', 300], ['末尾附近', 580]]) {
 }
 ev('offset=3000; reachedEnd=true; setPlaying(false); viewport.scrollTop=3000;');
 ev('togglePlay();');
-check('自然播放到底后 ▶ 才从头重播', ev('offset') === -60 && ev('playing') === true, 'offset=' + ev('offset'));
+check('自然播放到底后 ▶ 才从头重播', ev('offset') === 0 && ev('playing') === true, 'offset=' + ev('offset'));
 ev('setPlaying(false);');
 
 // --- 15. 暂停→点击定位→续播：高亮必须精确落在所点词，不跳行尾/下一行（第十二轮）---
@@ -304,7 +304,7 @@ ev('setPlaying(false);');
   };
   // 选词公式（与 updateReadMark 一致）
   const pick = () => ev(`(function(){
-    const hy=offset+viewport.clientHeight*0.2, L=readLines; let li=0;
+    const hy=readHeadContentY, L=readLines; let li=0;
     while(li<L.length-1 && hy>L[li].top+L[li].height) li++;
     const cur=L[li], n=cur.end-cur.start+1;
     const f=Math.max(0,Math.min(1,(hy-cur.top)/Math.max(1,cur.height)));
@@ -359,7 +359,7 @@ ev('setPlaying(false);');
     ev('readTokens=' + JSON.stringify(toks) + '; readLines=' + JSON.stringify(lines) + '; readTokensDirty=false; readTokensText=scrollText.textContent;');
   };
   const pick = () => ev(`(function(){
-    const hy=offset+viewport.clientHeight*0.2, L=readLines; let li=0;
+    const hy=readHeadContentY, L=readLines; let li=0;
     while(li<L.length-1 && hy>L[li].top+L[li].height) li++;
     const c=L[li], n=c.end-c.start+1;
     const f=Math.max(0,Math.min(1,(hy-c.top)/Math.max(1,c.height)));
@@ -393,7 +393,7 @@ ev('setPlaying(false);');
   placeCaret(0);
   doc.getElementById('btnPlay').click();
   inject();
-  check('问题2：caret 在开头时从第一个词播放、不被旧位置覆盖', ev('offset') < 0 && pick() === 0,
+  check('问题2：caret 在开头时从第一个词播放（文稿不跳，offset 保持）', pick() === 0,
     'offset=' + ev('offset') + ' playWord=' + pick());
   ev('setPlaying(false);');
 
@@ -404,10 +404,10 @@ ev('setPlaying(false);');
   ev('caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
 }
 
-// --- 17. 桌面大视口：刷新→播放必须从第一个词开始（第十四轮）---
-// 根因：阅读头固定在视口20%（大视口≈160px），文稿首个词在内容盒顶部≈28px，
-//       旧 clampOffset 把起点负值钳成 0 → 阅读头落到第2~3行（词索引19）。
-// 修复：播放起点允许负 offset（clampPlayOffset），让首个词对齐阅读头。
+// --- 17. 桌面大视口：刷新→播放从第一个词开始且文稿不跳变（第十四/十五轮）---
+// 第十四轮用负 offset 推文稿去对齐固定视口20%阅读头 → 文稿"突然刷新"跳到中间（第十五轮用户反馈）。
+// 第十五轮修复：改为可变阅读头锚点 readHeadContentY —— 起点时锚点对齐首词、offset 不动（文稿零跳变），
+// 播放中锚点与 offset 同步 += 速度（匀速保持）。
 {
   const VH = 800, LINE = 68, TOP = 28, PER = 10;
   Object.defineProperty(vpEl, 'clientHeight', { value: VH, configurable: true });
@@ -421,7 +421,7 @@ ev('setPlaying(false);');
     ev('readTokens=' + JSON.stringify(toks) + '; readLines=' + JSON.stringify(lines) + '; readTokensDirty=false; readTokensText=scrollText.textContent;');
   };
   const pick = () => ev(`(function(){
-    const hy=offset+viewport.clientHeight*0.2, L=readLines; let li=0;
+    const hy=readHeadContentY, L=readLines; let li=0;
     while(li<L.length-1 && hy>L[li].top+L[li].height) li++;
     const c=L[li], n=c.end-c.start+1;
     const f=Math.max(0,Math.min(1,(hy-c.top)/Math.max(1,c.height)));
@@ -431,27 +431,46 @@ ev('setPlaying(false);');
   // 完整用户流程：播放 → 暂停 → 刷新(光标回起点) → 再播放
   ev('offset=400; reachedEnd=false; setPlaying(true);');
   doc.getElementById('btnPlay').click();          // 暂停
-  doc.getElementById('btnReset').click();         // 刷新
+  doc.getElementById('btnReset').click();         // 刷新（offset=0, 光标回开头）
   inject();
   check('大视口刷新后 caret 意图指向开头', ev('caretSeekOffset') === 0, 'caretSeekOffset=' + ev('caretSeekOffset'));
+  const offBefore = ev('offset');                 // 播放前文稿位置 = 0
   doc.getElementById('btnPlay').click();          // 再播放
   inject();
   check('大视口刷新→播放命中第一个词（不再是第三行）', pick() === 0,
     'offset=' + ev('offset') + ' playWord=' + pick());
-  check('从头播放的起点为负 offset（首个词对齐阅读头）', ev('offset') < 0, 'offset=' + ev('offset'));
+  check('从头播放文稿不跳变：offset 保持播放前位置（0）', ev('offset') === offBefore,
+    'before=' + offBefore + ' after=' + ev('offset'));
+  check('锚点对齐首词内容坐标（约 padding 28px + 半行）',
+    ev('readHeadContentY') > 0 && ev('readHeadContentY') < 100, 'anchor=' + ev('readHeadContentY'));
   ev('setPlaying(false);');
 
-  // 暂停态保留负起点，不跳回顶部
-  ev('offset=-128; setPlaying(false);');
-  check('负起点暂停时 scrollTop 不被钳成 0 造成跳变', vpEl.scrollTop === -128 || vpEl.scrollTop === 0,
-    'scrollTop=' + vpEl.scrollTop);
+  // 匀速：推进 1 秒，锚点与 offset 必须同步 += 速度
+  ev('state.speedUnit="px"; state.speedPx=90; remoteSpeedMul=1; voiceFollowing=false;');
+  ev('offset=200; readHeadContentY=230; setPlaying(true); lastTs=0;');
+  inject();
+  const a0 = ev('readHeadContentY'), o0 = ev('offset');
+  let _t17 = 0; for (let i=0;i<60;i++){ _t17 += 1000/60; ev('loop(' + _t17 + ')'); }
+  const a1 = ev('readHeadContentY'), o1 = ev('offset');
+  check('播放中锚点与文稿同步前进（匀速保持）', Math.abs((o1-o0)-(a1-a0)) < 0.01,
+    'offsetΔ=' + (o1-o0).toFixed(1) + ' anchorΔ=' + (a1-a0).toFixed(1));
+  ev('setPlaying(false);');
 
-  // 源码守卫：播放起点用 clampPlayOffset 而非 clampOffset
-  check('caret/点击/重播起点均用 clampPlayOffset',
-    (html.match(/offset\s*=\s*clampPlayOffset\(/g) || []).length >= 3,
-    'count=' + (html.match(/offset\s*=\s*clampPlayOffset\(/g) || []).length);
-  check('重播不再用 offset=0（改为 minPlayOffset）', /reachedEnd\)\{\s*offset\s*=\s*minPlayOffset\(\)/.test(html));
+  // 源码守卫
+  check('起点用 anchorReadHeadToToken（不改 offset 推文稿）',
+    (html.match(/anchorReadHeadToToken\(/g) || []).length >= 3,
+    'count=' + (html.match(/anchorReadHeadToToken\(/g) || []).length);
+  check('loop 中锚点与 offset 同步推进', /readHeadContentY\s*\+=\s*step/.test(html));
+  check('已移除负起点 clampPlayOffset/minPlayOffset', !/clampPlayOffset|minPlayOffset/.test(html));
   ev('caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
+}
+
+// --- 18. 语言下拉：非汉语用户优先，中文移到 EN / Français 下面 ---
+{
+  const opts = [...doc.getElementById('langSelect').querySelectorAll('option')].map(o => o.value);
+  check('语言顺序 EN → fr → zh 在前三', opts.slice(0,3).join(',') === 'en,fr,zh', opts.join(','));
+  check('七语仍齐全', ['zh','en','de','fr','ja','ko','ru'].every(l => opts.includes(l)));
+  check('SUPPORTED_LANGS 校验未受影响', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 }
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
