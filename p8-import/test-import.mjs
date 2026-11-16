@@ -84,10 +84,10 @@ test('页面无运行时错误，导入入口存在且是免费功能', () => {
   assert.equal(ev('state.isPro'), false, '默认应为免费用户');
 });
 
-test('五语新增 10 个导入键齐全，投稿提示已清除', () => {
+test('七语新增 10 个导入键齐全，投稿提示已清除', () => {
   const keys = ['importBtn','importHint','importFormats','importOk','importFailType',
     'importFailSize','importFailParse','importFailBig','importFailUnsupported','importFailEmpty'];
-  for (const lang of ['zh','en','ja','ko','ru']) {
+  for (const lang of ['zh','en','de','fr','ja','ko','ru']) {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }

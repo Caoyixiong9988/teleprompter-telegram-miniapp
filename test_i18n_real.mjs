@@ -45,8 +45,8 @@ const scrollRu = doc.getElementById('scrollText').textContent;
 const pickRuOk = doc.getElementById('langSelect').value === 'ru';
 const htmlLangRu = doc.documentElement.lang === 'ru';
 
-// ---- 五语键集一致性（防止某语言漏键回退成中文）----
-const langList = ['zh', 'en', 'ja', 'ko', 'ru'];
+// ---- 七语键集一致性（防止某语言漏键回退成中文）----
+const langList = ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru'];
 const keySets = {};
 for (const l of langList) keySets[l] = new Set(JSON.parse(window.eval(`JSON.stringify(Object.keys(I18N['${l}']))`)));
 const keyCount = keySets.zh.size;

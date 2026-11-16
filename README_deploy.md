@@ -479,16 +479,16 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 
 ---
 
-## 13. P7 合规 + 多语言（EN/JP/KR/RU）+ 平台对账 + 举报
+## 13. P7 合规 + 多语言（ZH/EN/DE/FR/JA/KO/RU）+ 平台对账 + 举报
 
-> 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/ja/ko/ru；② 可见的强免责声明（设置页 + 独立"关于"页，五语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
+> 范围：把"美国 App Store 合规红线"落到代码与界面——① 多语框架 zh/en/de/fr/ja/ko/ru（前端七语；de / fr 于 2026-11-16 新增）；② 可见的强免责声明（设置页 + 独立"关于"页，七语）；③ 平台侧"收到的 Stars"对账（ADMIN_SECRET 门禁的只读仪表盘 + JSON 汇总）；④ 举报 / 反馈入口。
 > 口径：纯工具定位——只显示并滚动用户输入的文字，不替用户创作、发布或评价内容；讲稿归用户所有，默认只存本机，我方不读取 / 不上传 / 不备份；按「现状」提供，不对录制效果或使用后果作保证。积分 ≠ Stars ≠ 法币；无 P2P 转账、无赌博。
 > 代码位置：`p7-compliance/`。**本地测试已通过（`node --test p7-compliance/test-compliance.mjs`，6/6）**，待统一单体部署（见 §3）。
 
 ### 13.1 交付清单
 | 文件 | 作用 |
 |---|---|
-| `p7-compliance/i18n.js` | 五语文案框架（zh/en/ja/ko/ru）+ `t()` / `getLang()`（也供其他项目复用） |
+| `p7-compliance/i18n.js` | 五语文案框架（zh/en/ja/ko/ru）+ `t()` / `getLang()`（也供其他项目复用）。⚠️ 前端 `index.html` 已扩到**七语（+de/fr）**；本后端模块仍为五语，因 `CONFIG.COMPLIANCE_URL` 默认为空、前端不调用它，故不影响德语/法语界面。将来启用该接口时需补 de/fr。 |
 | `p7-compliance/compliance-core.js` | 免责声明五语文案 + `submitReport`（举报记录） |
 | `p7-compliance/compliance-worker.js` | Cloudflare Worker（Modules + D1）：`/compliance/disclaimer`、`/compliance/report` |
 | `p7-compliance/inmemory-compliance-store.js` | 测试用内存 Store |
@@ -497,8 +497,8 @@ node --test  p6-enhance/test-speech.mjs p6-enhance/test-scripts.mjs p6-enhance/t
 | `p7-compliance/test-compliance.mjs` | 本地测试（五语声明 / 未知语言回落 / 举报记录 / 空 detail 拒）5 项 |
 
 ### 13.2 前端已落地（index.html 内联）
-- **多语切换器**：右上角语言下拉（中文 / EN / 日本語 / 한국어 / Русский），选择持久化到 localStorage，自动渲染全站文案。
-- **可见免责声明**：设置页内嵌声明块 + 独立"关于"页，三语随语言切换；明确"积分 ≠ Stars ≠ 法币，不可提现 / 转账 / 交易"。
+- **多语切换器**：右上角语言下拉（中文 / EN / Deutsch / Français / 日本語 / 한국어 / Русский，七语），选择持久化到 localStorage，自动渲染全站文案；Telegram 客户端语言为 `de` / `fr` 的用户首开即见母语。
+- **可见免责声明**：设置页内嵌声明块 + 独立"关于"页，七语随语言切换；明确"积分 ≠ Stars ≠ 法币，不可提现 / 转账 / 交易"。
 - **举报 / 反馈**：设置页文本域 + 提交按钮，调用合规 Worker `/compliance/report`（未配 `CONFIG.COMPLIANCE_URL` 时仅本地提示）。
 
 ### 13.3 平台 Stars 对账（"管理收到的 Stars"）

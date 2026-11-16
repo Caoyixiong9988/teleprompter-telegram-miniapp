@@ -26,10 +26,28 @@ check('速度区 DOM 排在 6 个按钮之后', [...doc.getElementById('controlB
 check('底部安全区 padding', /calc\(10px \+ env\(safe-area-inset-bottom\)\)/.test(css));
 check('六个控制按钮都在 DOM', ['btnPlay','btnReset','btnSettings','btnCard','btnRemote','btnVoice'].every(id => !!doc.getElementById(id)));
 
-// --- 2. 五语新键 ---
-const sizes = ['zh','en','ja','ko','ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-check('五语各 193 键且一致', sizes.every(n => n === 193), JSON.stringify(sizes));
-check('编辑/播放/语音/兜底/定位新增键五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
+// --- 2. 七语新键（含新增 de / fr）---
+const LANGS = ['zh','en','de','fr','ja','ko','ru'];
+const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
+check('七语各 193 键且一致', sizes.every(n => n === 193), JSON.stringify(sizes));
+check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
+check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
+const langSel = doc.getElementById('langSelect');
+check('语言下拉含 Deutsch 与 Français',
+  !!langSel.querySelector('option[value="de"]') && !!langSel.querySelector('option[value="fr"]'),
+  [...langSel.options].map(o => o.value).join(','));
+const speedEl = doc.querySelector('[data-i18n="speed"]');
+langSel.value = 'de'; langSel.dispatchEvent(new window.Event('change'));
+check('切德语：html lang=de、UI 渲染德语、占位符保留',
+  doc.documentElement.lang === 'de' && speedEl.textContent === 'Tempo' && ev(`I18N.de.scriptLimitToast.includes('{max}')`),
+  speedEl.textContent);
+langSel.value = 'fr'; langSel.dispatchEvent(new window.Event('change'));
+check('切法语：html lang=fr、UI 渲染法语、占位符保留',
+  doc.documentElement.lang === 'fr' && speedEl.textContent === 'Vitesse' && ev(`I18N.fr.rankDone.includes('{n}')`),
+  speedEl.textContent);
+check('德语/法语关键文案无中文残留', ev(`I18N.de.settings==='Einstellungen' && I18N.fr.settings==='Paramètres' && I18N.de.voiceTitle==='Sprachführung' && I18N.fr.voiceTitle==='Guidage vocal'`));
+langSel.value = 'zh'; langSel.dispatchEvent(new window.Event('change'));
+check('切回中文后 UI 恢复', doc.documentElement.lang === 'zh' && speedEl.textContent === '速度', speedEl.textContent);
 
 // --- 3. 系统粘贴不被吞掉（paste 不 preventDefault，内容同步进数据模型）---
 const st = doc.getElementById('scrollText');

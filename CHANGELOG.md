@@ -8,6 +8,24 @@
 
 ---
 
+## 2026-11-16 · feat(i18n) — 语言从五语扩到七语，新增德语 / 法语
+
+**为什么**：用户判断德语区与法语区（德国、奥地利、瑞士、法国、比利时、加拿大魁北克、西非法语区）是值得覆盖的增量市场，希望在语言选择里加入 Deutsch 与 Français。
+
+**做了什么**：
+
+1. `I18N` 新增 `de` / `fr` 两个语言包，**各 193 键，与 zh 完全同集**（无漏键、无空值、无多余键），全部按德语 / 法语习惯重写而非机翻占位：德语用「du」称呼、欧元区常见措辞与 `Strg+V` 快捷键；法语用「vous」、`Ctrl+V / ⌘V`，并保留 `« »` 与 `’` 排版符号。`{n}` / `{max}` / `{m}` / `{next}` / `{name}` 五类占位符全部保留。
+2. `SUPPORTED_LANGS` 扩为 `['zh','en','de','fr','ja','ko','ru']`；语言下拉按 `中文 / EN / Deutsch / Français / 日本語 / 한국어 / Русский` 排列。`pickSupported()` 与 `detectLang()` 自动生效 —— Telegram 客户端语言为 `de` / `fr`（含 `de-AT`、`fr-CA` 等变体）的用户**首开即见母语**，无需手动切换。
+3. 合规口径不变：七语免责声明、Pro 购买须知、14 天退款条款、语音跟随「iOS 不可用」说明逐条对应，未放宽任何文案。
+
+**体积影响（回答"会占很多 Cloudflare 空间吗"）**：`index.html` 由 **195,456 → 223,844 字节（+28,388，约 +13.9%，gzip 后约 +7 KB）**。Cloudflare Pages 免费档：单文件上限 25 MiB、每月 500 次部署、静态请求不限量不计费 —— 218 KB 相对 25 MiB 只占 **0.85%**，且只影响首次加载，对额度与成本**没有实质影响**。代价只有"多两个语言包要同步维护"，已由 `npm run test:ios` 的七语键集断言兜住。
+
+**怎么验证**：`npm run test:ios` **75/75**（新增 6 项：七语各 193 键一致、SUPPORTED_LANGS 顺序、下拉含 Deutsch/Français、切德语 html lang 与 UI 渲染、切法语同理、切回中文恢复）；`npm test` **126/126**；`node test_i18n_real.mjs` **32/32**（键集一致性循环改为七语）；`npm run smoke:worker` **18/18**。
+
+**涉及文件**：`index.html`、`verify-ios-editor.mjs`、`test_i18n_real.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`README.md`、`README_deploy.md`、`CHANGELOG.md`、`【上线清单】…md`。
+
+---
+
 ## 2026-11-16 · feat(player) — 控制条重排 / 常显滚动条 / 暂停继续 / 刷新归零 / 点击任意行定位
 
 **为什么**：电脑端复测一次报 5 项：① 底部按钮遮挡速度（像素）选择区；② 提词内容区没有滚动条；③ 只能从头播到尾，无法播放中暂停再继续；④ 刷新后不能确保「刷新 + 播放」从头开始；⑤ 不能点击内容任意位置从该处开始播放。根因是**阅读位置没有统一模型**：播放用 transform、滚动条只在编辑态出现、每次输入都把 `offset` 归零。
