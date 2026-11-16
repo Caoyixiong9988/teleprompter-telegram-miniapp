@@ -31,8 +31,18 @@
   header .title{font-size:17px; font-weight:700; letter-spacing:.5px;}
   header .sub{font-size:11px; color:var(--muted);}
   #viewport{
-    flex:1; min-height:0; position:relative; overflow:hidden; background:#ffffff;
+    flex:1; min-height:0; position:relative; background:#ffffff;
+    /* 默认（浏览 / 暂停 / 编辑）常显滚动条：长稿可自由滚动查看全部内容；
+       仅播放中由 #app.playing 关掉，改用 transform 平滑滚动。 */
+    overflow-x:hidden; overflow-y:scroll;
+    -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
   }
+  #viewport::-webkit-scrollbar{width:10px;}
+  #viewport::-webkit-scrollbar-track{background:#f3f5f9;}
+  #viewport::-webkit-scrollbar-thumb{
+    background:#c2cad8; border-radius:8px; border:2px solid #f3f5f9;
+  }
+  #app.playing #viewport{overflow:hidden;}
   #scrollText{
     white-space:pre-wrap; word-break:break-word; padding:28px 22px;
     font-size:44px; line-height:1.55; color:var(--text); text-align:center;
@@ -52,16 +62,8 @@
   #setScriptTitle, #reportDetail, #langSelect{
     font-size:16px !important; -webkit-user-select:text; user-select:text;
   }
-  /* 主屏编辑态：长稿只在提词区内部滚动，绝不撑破布局、溢出到工具条/控制条之外。
-     min-height:0 在 #viewport 上配合 overflow-y:scroll，避免 flex 子项被内容顶开。 */
-  #app.editing #viewport{
-    overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
-  }
-  #app.editing #viewport::-webkit-scrollbar{width:10px;}
-  #app.editing #viewport::-webkit-scrollbar-track{background:#f3f5f9;}
-  #app.editing #viewport::-webkit-scrollbar-thumb{
-    background:#c2cad8; border-radius:8px; border:2px solid #f3f5f9;
-  }
+  /* .editing 只表示「编辑工具条可见」；滚动能力由 #viewport 默认提供，
+     播放态由 #app.playing 关闭，两者互不干扰。 */
   /* 主屏编辑工具条：作为 #app 的独立 flex 行，永远贴在提词区下方，不随长稿滚走 */
   .edit-bar{
     flex-shrink:0; display:flex; flex-wrap:wrap; gap:8px;
@@ -87,13 +89,16 @@
   }
   .paste-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
   .paste-actions .btn{flex:0 0 auto; font-size:14px; min-height:42px;}
-  /* 底部控制条：禁止被 flex 压缩；窄屏换行，保证 6 个按钮一个都不被裁掉半个 */
+  /* 底部控制条：固定 6 列网格 + 速度条独占一整行。
+     不再用 flex 抢宽度，速度滑块与「像素/秒」数值永远不会被右侧按钮挤压或遮挡。 */
   #controlBar{
-    display:flex; align-items:center; flex-wrap:wrap; gap:8px; flex-shrink:0;
+    display:grid; grid-template-columns:repeat(6, minmax(0,1fr));
+    align-items:center; gap:8px; flex-shrink:0;
     padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top:1px solid var(--line); background:var(--panel);
   }
-  #controlBar > .btn{flex:0 0 auto;}
+  #controlBar > .btn{width:100%; min-width:0; padding:10px 4px;}
+  #controlBar > .btn.icon{font-size:20px;}
   .btn{
     border:none; border-radius:12px; background:#eef1f7; color:var(--text);
     font-size:15px; font-weight:600; padding:10px 12px; cursor:pointer; user-select:none;
@@ -103,15 +108,19 @@
   .btn.primary{background:var(--primary); color:#fff;}
   .btn.primary:active{background:var(--primary-press);}
   .btn.icon{font-size:20px;}
-  #speedWrap{flex:1; display:flex; align-items:center; gap:8px; min-width:0;}
-  #speedWrap label{font-size:12px; color:var(--muted); white-space:nowrap;}
-  #speedBar{flex:1; accent-color:var(--primary);}
-  #speedBarLabel{font-size:12px; color:var(--primary); font-weight:700; min-width:64px; text-align:right;}
-  @media (max-width:480px){
-    /* 速度条独占第二行，第一行只放 6 个按钮；flex-wrap 保证再窄也只是换行、绝不裁切 */
-    #speedWrap{order:10; flex:1 1 100%;}
-    #controlBar > .btn{min-width:44px; min-height:44px; font-size:19px;}
-    #speedBarLabel{min-width:58px;}
+  /* 速度区独占整行：标签 / 滑块 / 数值三段互不压缩，数值强制单行显示 */
+  #speedWrap{
+    grid-column:1 / -1; display:flex; align-items:center; gap:8px; min-width:0;
+  }
+  #speedWrap label{flex:0 0 auto; font-size:12px; color:var(--muted); white-space:nowrap;}
+  #speedBar{flex:1 1 auto; min-width:0; accent-color:var(--primary);}
+  #speedBarLabel{
+    flex:0 0 auto; white-space:nowrap; font-size:12px; color:var(--primary);
+    font-weight:700; min-width:76px; text-align:right;
+  }
+  @media (max-width:360px){
+    /* 极窄屏：6 个按钮改 3×2，仍保证每个按钮完整可点 */
+    #controlBar{grid-template-columns:repeat(3, minmax(0,1fr));}
   }
 
   /* Sheet (modal bottom panel) */
@@ -262,15 +271,16 @@
   <div id="controlBar">
     <button class="btn primary icon" id="btnPlay" data-i18n-title="playPause">▶</button>
     <button class="btn icon" id="btnReset" data-i18n-title="reset">↺</button>
+    <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
+    <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>
+    <button class="btn icon" id="btnRemote" data-i18n-title="remoteTitle">📡</button>
+    <button class="btn icon" id="btnVoice" data-i18n-title="voiceTitle">🎤</button>
+    <!-- 速度区放在最后：网格里独占第二整行，滑块与像素数值不会被按钮挤压 -->
     <div id="speedWrap">
       <label data-i18n="speed">速度</label>
       <input type="range" id="speedBar" min="20" max="400" value="90" />
       <span id="speedBarLabel">90像素/秒</span>
     </div>
-    <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
-    <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>
-    <button class="btn icon" id="btnRemote" data-i18n-title="remoteTitle">📡</button>
-    <button class="btn icon" id="btnVoice" data-i18n-title="voiceTitle">🎤</button>
   </div>
 
   <!-- Settings sheet -->
@@ -674,6 +684,10 @@ const I18N = {
   editPasteOk:"已粘贴到光标处，可继续粘贴或编辑",
   editNoScroll:"讲稿不足一屏，暂时无需滚动；内容变长后再点 ▶ 即可",
   resetDone:"已回到开头。点 ▶ 可重新播放",
+  playPaused:"已暂停。可滚动或点击任意一行定位，再点 ▶ 从该处继续",
+  playResumed:"继续播放",
+  seekDone:"已定位到这一行，点 ▶ 从这里开始播放",
+  seekPlaying:"已从此行继续播放",
   voiceUnavailable:"此设备暂不可用",
   cardBrand:"ScriptDeck",
   cardTagline:"流畅提词 · 解放双眼",
@@ -852,6 +866,10 @@ const I18N = {
   editPasteOk:"Pasted at the cursor. Tap again to paste more.",
   editNoScroll:"Script fits on one screen — nothing to scroll yet. Tap ▶ once it is longer.",
   resetDone:"Back to the start. Tap ▶ to play again.",
+  playPaused:"Paused. Scroll or tap a line to set the start point, then tap ▶ to continue.",
+  playResumed:"Playing",
+  seekDone:"Start point set. Tap ▶ to play from here.",
+  seekPlaying:"Playing from this line",
   voiceUnavailable:"Not available on this device",
   cardBrand:"ScriptDeck",
   cardTagline:"Smooth scrolling, free your eyes",
@@ -1030,6 +1048,10 @@ const I18N = {
   editPasteOk:"カーソル位置に貼り付けました。続けて貼り付けられます",
   editNoScroll:"原稿が1画面に収まるため、まだスクロールする内容がありません。長くなってから ▶ を押してください",
   resetDone:"先頭に戻りました。▶ で再再生できます",
+  playPaused:"一時停止しました。スクロールまたは行をタップして開始位置を決め、▶ で再開できます。",
+  playResumed:"再生を再開",
+  seekDone:"この行に移動しました。▶ でここから再生します。",
+  seekPlaying:"この行から再生中",
   voiceUnavailable:"この端末では利用できません",
   cardBrand:"ScriptDeck",
   cardTagline:"スムーズなスクロールで目を解放",
@@ -1208,6 +1230,10 @@ const I18N = {
   editPasteOk:"커서 위치에 붙여넣었습니다. 계속 붙여넣을 수 있습니다",
   editNoScroll:"대본이 한 화면에 담겨 아직 스크롤할 내용이 없습니다. 길어진 뒤에 ▶ 를 누르세요",
   resetDone:"처음으로 돌아갔습니다. ▶ 를 눌러 다시 재생하세요",
+  playPaused:"일시정지했습니다. 스크롤하거나 줄을 탭해 시작 위치를 정한 뒤 ▶ 로 이어서 재생하세요.",
+  playResumed:"재생 재개",
+  seekDone:"이 줄로 이동했습니다. ▶ 를 누르면 여기서부터 재생됩니다.",
+  seekPlaying:"이 줄부터 재생 중",
   voiceUnavailable:"이 기기에서는 사용할 수 없습니다",
   cardBrand:"ScriptDeck",
   cardTagline:"부드러운 스크롤로 눈을 자유롭게",
@@ -1386,6 +1412,10 @@ const I18N = {
   editPasteOk:"Вставлено в позицию курсора. Можно вставлять ещё",
   editNoScroll:"Сценарий помещается на одном экране — прокручивать пока нечего. Нажмите ▶, когда текст станет длиннее",
   resetDone:"Возврат к началу. Нажмите ▶, чтобы воспроизвести снова",
+  playPaused:"Пауза. Прокрутите или нажмите на строку, чтобы задать начало, затем ▶ для продолжения.",
+  playResumed:"Продолжить воспроизведение",
+  seekDone:"Начало установлено. Нажмите ▶, чтобы играть отсюда.",
+  seekPlaying:"Воспроизведение с этой строки",
   voiceUnavailable:"На этом устройстве недоступно",
   cardBrand:"ScriptDeck",
   cardTagline:"Плавная прокрутка · свободные глаза",
@@ -2026,30 +2056,95 @@ function pxPerSec(){
   const cw = measureCharWidth(state.fontSize);
   return (state.speedCpm / 60) * cw * remoteSpeedMul;
 }
+/* ---------- 阅读位置：播放 / 暂停 / 滚动 / 点击定位共用同一个 offset ----------
+   - 播放中：#app.playing 关掉原生滚动条，用 transform 平滑上移（offset 递增）。
+   - 非播放：#viewport 原生滚动条常显，scrollTop 镜像 offset，可自由滚动查看。
+   切换时视觉位置保持连续，编辑文字也不再「一改就回开头」。 */
+function maxOffset(){ return Math.max(0, scrollText.offsetHeight - viewport.clientHeight); }
+function clampOffset(v){
+  const m = maxOffset();
+  return Math.max(0, Math.min(Number.isFinite(v) ? v : 0, m));
+}
 function applyPrompterStyle(){
   scrollText.style.fontSize = state.fontSize + 'px';
   scrollText.style.color = state.color;
   scrollText.style.textAlign = state.align;
   const scale = state.mirror ? -1 : 1;
-  scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';
+  // 非播放态由原生 scrollTop 承担位移，transform 必须归零，否则文字会被推离滚动区
+  const y = playing ? -offset : 0;
+  scrollText.style.transform = 'translateY(' + y + 'px) scaleX(' + scale + ')';
+}
+function setPlaying(on){
+  playing = !!on;
+  const ap = document.getElementById('app');
+  if (ap) ap.classList.toggle('playing', playing);
+  if (playing){
+    viewport.scrollTop = 0;                 // 位移交给 transform
+    lastTs = null;
+  } else {
+    viewport.scrollTop = clampOffset(offset); // 把播放位置还原成原生滚动位置
+  }
+  applyPrompterStyle();
+  updatePlayBtn();
+}
+function placeCaretAtStartDOM(){
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || !scrollText) return;
+    const r = document.createRange();
+    r.selectNodeContents(scrollText); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+  } catch (e) {}
+}
+function resetReadPosition(){
+  offset = 0; readCounted = false;
+  if (viewport) viewport.scrollTop = 0;
+  setPlaying(false);
+  placeCaretAtStartDOM();
+}
+/* 点击提词内容任意一行 → 从该行开始播放。
+   getBoundingClientRect() 在播放态已含 -offset 变换、浏览态已含 scrollTop，
+   两种模式都能反推出同一个「内容坐标」。 */
+function seekAtClientY(clientY){
+  const max = maxOffset();
+  if (max <= 0) return false;
+  const rect = scrollText.getBoundingClientRect();
+  const contentY = clientY - rect.top;
+  offset = clampOffset(contentY - viewport.clientHeight * 0.2); // 让所点行落在视口上 1/5 处
+  readCounted = false;
+  if (playing){
+    viewport.scrollTop = 0;
+    lastTs = null;
+    toast(t('seekPlaying'));
+  } else {
+    viewport.scrollTop = offset;
+    applyPrompterStyle();
+    toast(t('seekDone'));
+  }
+  return true;
 }
 function loop(ts){
   if (lastTs == null) lastTs = ts;
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
   if (playing){
-    const max = Math.max(0, scrollText.offsetHeight - viewport.clientHeight);
+    const max = maxOffset();
     offset += pxPerSec() * dt;
     if (offset >= max){
-      offset = max; playing = false; updatePlayBtn();
+      offset = max;
+      setPlaying(false);   // 到底：回到可滚动浏览态并停在末尾，滚动条恢复
       if (max > 0 && !readCounted){ readCounted = true; onReadComplete(); }
+    } else {
+      const scale = state.mirror ? -1 : 1;
+      scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';
     }
-    const scale = state.mirror ? -1 : 1;
-    scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';
   }
   rafId = requestAnimationFrame(loop);
 }
-function updatePlayBtn(){ btnPlay.textContent = playing ? '⏸' : '▶'; }
+function updatePlayBtn(){
+  btnPlay.textContent = playing ? '⏸' : '▶';
+  btnPlay.title = t('playPause');
+}
 /* 顶层版「退出主屏编辑态」：leaveEditMode 定义在 init() 内部，顶层取不到。
    统一走 DOM，保证播放 / 刷新时滚动容器、工具条、剪贴板兜底面板状态一致。 */
 function exitMainEditModeDOM(){
@@ -2063,30 +2158,31 @@ function exitMainEditModeDOM(){
 }
 function togglePlay(){
   if (voiceFollowing){ stopVoiceFollow(); return; }
-  // 点播放即进入「播放模式」：先退出主屏编辑态。否则 iOS 把焦点还给 contenteditable 时
-  // 会触发 focus，编辑态又把 playing 关掉，表现为「再点播放没反应」。
-  // 注意：leaveEditMode 定义在 init() 内部，这里在顶层取不到，直接操作 DOM。
-  if (!playing) exitMainEditModeDOM();
-  playing = !playing;
-  if (playing){
-    const max = Math.max(0, scrollText.offsetHeight - viewport.clientHeight);
+  if (!playing){
+    // 开始 / 继续播放：先退出编辑态，避免 iOS 焦点回弹把点击吞掉
+    exitMainEditModeDOM();
+    const max = maxOffset();
     if (max <= 0){
-      // 内容不足一屏：没有可滚动距离。给明确提示，不要表现为点了没反应
-      playing = false; offset = 0; applyPrompterStyle(); updatePlayBtn();
+      // 内容不足一屏：没有可滚动距离，给明确提示而不是表现为点了没反应
+      offset = 0; setPlaying(false);
       toast(t('editNoScroll')); return;
     }
-    if (offset >= max - 1){ offset = 0; readCounted = false; } // 上次已滚到底 → 重头开始
-    lastTs = null; applyPrompterStyle();
+    if (offset >= max - 1){ offset = 0; readCounted = false; } // 上次已到底 → 重头开始
+    setPlaying(true);
+    toast(t('playResumed'));
+  } else {
+    // 暂停：保留 offset 并进入可滚动浏览态；再点 ▶ 从当前位置继续，不回开头
+    setPlaying(false);
+    toast(t('playPaused'));
   }
-  updatePlayBtn();
 }
 function resetScroll(){
-  // 与播放按钮一致：先退出主屏编辑态，避免 iOS 焦点回弹把这次点击吞掉
+  // 先退出主屏编辑态，避免 iOS 焦点回弹把这次点击吞掉
   exitMainEditModeDOM();
   if (voiceFollowing && typeof stopVoiceFollow === 'function') stopVoiceFollow();
-  offset = 0; playing = false; readCounted = false; lastTs = null;
-  updatePlayBtn(); applyPrompterStyle();
-  // 讲稿不足一屏 / 本来就在开头时，视觉上毫无变化；必须给明确反馈，否则像「点了没反应」
+  lastTs = null;
+  // offset=0 + scrollTop=0 + 暂停 + 输入光标回到开头 → 「刷新 + ▶」必定从头播放
+  resetReadPosition();
   toast(t('resetDone'));
 }
 
@@ -2202,14 +2298,14 @@ function voiceOnResult(res){
   const manualPx = state.speedUnit === 'px' ? state.speedPx
     : (state.speedCpm / 60) * measureCharWidth(state.fontSize);
   voiceScrollPx = voiceMapSpeed(ratePerMin, voiceBaseRate(), manualPx);
-  if (!playing){ playing = true; lastTs = null; updatePlayBtn(); }
+  if (!playing) setPlaying(true);
   setVoiceStatus(t('voiceStatusListening'));
 }
 function voiceSilenceCheck(){
   if (!voiceFollowing) return;
   const now = Date.now();
   if (playing && (now - voiceLastSpeechAt) > VOICE_SILENCE_MS){
-    playing = false; updatePlayBtn();
+    setPlaying(false);
     setVoiceStatus(t('voiceStatusPaused'));
   }
 }
@@ -2228,7 +2324,7 @@ function startVoiceFollow(){
   voiceScrollPx = null;
   voiceWindow = [];
   voiceLastSpeechAt = Date.now();
-  playing = true; lastTs = null; updatePlayBtn();
+  setPlaying(true);
   voiceRecog = createSpeechRecognition({
     lang: voiceLangCode(),
     onResult: voiceOnResult,
@@ -2246,7 +2342,7 @@ function stopVoiceFollow(){
   if (voiceSilenceTimer){ clearInterval(voiceSilenceTimer); voiceSilenceTimer = null; }
   if (voiceRecog){ try { voiceRecog.stop(); } catch(e){} voiceRecog = null; }
   voiceScrollPx = null; voiceWindow = [];
-  playing = false; updatePlayBtn();
+  setPlaying(false);
   setVoiceStatus(t('voiceStatusIdle'));
   renderVoiceUI();
 }
@@ -2818,6 +2914,16 @@ document.addEventListener('keydown', function (e) {
   }
 });
 
+/* 浏览态手动滚动 → 同步阅读位置：滚到哪里，再点 ▶ 就从哪里开始 */
+viewport.addEventListener('scroll', function(){
+  if (!playing){ offset = clampOffset(viewport.scrollTop); readCounted = false; }
+}, { passive: true });
+/* 点击提词内容任意一行 → 定位播放起点。拖选文字时不触发，避免误跳 */
+scrollText.addEventListener('click', function(e){
+  const sel = window.getSelection && window.getSelection();
+  if (sel && !sel.isCollapsed) return;
+  if (typeof e.clientY === 'number') seekAtClientY(e.clientY);
+});
 btnPlay.addEventListener('click', togglePlay);
 btnReset.addEventListener('click', resetScroll);
 btnSettings.addEventListener('click', function(){ settingsSheet.classList.remove('hidden'); });
@@ -2836,7 +2942,9 @@ setScript.addEventListener('input', function(e){
   setActiveContent(e.target.value);
   scrollText.textContent = getActiveContent();
   scrollText.dataset.isDefault = '0'; // 用户已编辑，视为自定义内容，不再随语言切换示例稿
-  offset = 0; applyPrompterStyle();
+  offset = clampOffset(offset);
+  if (!playing) viewport.scrollTop = offset;
+  applyPrompterStyle();
   debounceSave();
   maybeSyncDebounced();
 });
@@ -2943,8 +3051,8 @@ let remoteConnectToken = null; // 控制端已连接的令牌
 // 把一条指令应用到本机提词器（播放端调用）
 function applyRemoteCommand(cmdObj){
   if (!cmdObj || !cmdObj.cmd) return;
-  if (cmdObj.cmd === 'play'){ playing = true; updatePlayBtn(); }
-  else if (cmdObj.cmd === 'pause'){ playing = false; updatePlayBtn(); }
+  if (cmdObj.cmd === 'play'){ setPlaying(true); }
+  else if (cmdObj.cmd === 'pause'){ setPlaying(false); }
   else if (cmdObj.cmd === 'speed'){
     const v = Number(cmdObj.value);
     if (!isNaN(v)) remoteSpeedMul = Math.max(0.25, Math.min(4, v));
@@ -3184,12 +3292,15 @@ function init(){
   }
   function commitMainEdit(text){
     // 真正改动内容才暂停滚动；单纯点一下文字定位光标不该打断播放
-    if (playing) { playing = false; updatePlayBtn(); }
+    if (playing) setPlaying(false);
     setActiveContent(text);
     if (setScript) setScript.value = text;
     if (scrollText) scrollText.dataset.isDefault = '0';
     refreshEmptyHint();
-    offset = 0; applyPrompterStyle();
+    // 保持当前阅读位置，不再「一改字就跳回开头」；内容变短时做一次钳制
+    offset = clampOffset(offset);
+    if (!playing) viewport.scrollTop = offset;
+    applyPrompterStyle();
     debounceSave(); maybeSyncDebounced();
   }
   function enterEditMode(){

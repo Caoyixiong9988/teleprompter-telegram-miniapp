@@ -8,6 +8,25 @@
 
 ---
 
+## 2026-11-16 · feat(player) — 控制条重排 / 常显滚动条 / 暂停继续 / 刷新归零 / 点击任意行定位
+
+**为什么**：电脑端复测一次报 5 项：① 底部按钮遮挡速度（像素）选择区；② 提词内容区没有滚动条；③ 只能从头播到尾，无法播放中暂停再继续；④ 刷新后不能确保「刷新 + 播放」从头开始；⑤ 不能点击内容任意位置从该处开始播放。根因是**阅读位置没有统一模型**：播放用 transform、滚动条只在编辑态出现、每次输入都把 `offset` 归零。
+
+**具体实现方式**：
+
+1. **底部布局** — `#controlBar` 由 `flex + flex-wrap` 改为 CSS Grid `repeat(6, minmax(0,1fr))`，6 个按钮等宽排第一行；`#speedWrap` 从中间移到 DOM 末尾并设 `grid-column:1 / -1` 独占第二整行。三段分别固定：标签 `flex:0 0 auto`、滑块 `flex:1 1 auto; min-width:0`、像素数值 `flex:0 0 auto; white-space:nowrap; min-width:76px`。≤360px 降为 3 列。速度滑块与「像素/秒」数值不再被右侧按钮挤压、遮挡或折行。
+2. **内容区滚动条** — `#viewport` 默认 `overflow-x:hidden; overflow-y:scroll` 并配可见的 `::-webkit-scrollbar` 样式；只有 `#app.playing #viewport{overflow:hidden}` 在播放时关掉，改用 transform 平滑滚动。初始、暂停、编辑三种状态都可自由滚动查看全文。
+3. **暂停 / 继续** — 新增 `setPlaying(on)`：切 `.playing` class、同步 `viewport.scrollTop`、按状态重算 transform、更新 ▶/⏸ 文案；原先散落的 7 处 `playing = ...`（语音跟随 4、遥控 2、编辑提交 1）全部收敛到它。`togglePlay()` 播放中点击 → 暂停、保留 `offset`、恢复滚动条并提示；再点 → 从 `offset` 继续，不回开头。滚到底自动 `setPlaying(false)` 停在末尾。
+4. **刷新归零** — 新增 `resetReadPosition()`：`offset=0` + `viewport.scrollTop=0` + `setPlaying(false)` + `placeCaretAtStartDOM()`（把输入光标/选区放到讲稿开头）。`resetScroll()` 调它后给 `resetDone` 提示，保证「刷新 + ▶」必定从头播放。
+5. **点击定位** — 新增 `seekAtClientY(clientY)`：用 `scrollText.getBoundingClientRect().top` 反推内容坐标（播放态已含 `-offset` 变换、浏览态已含 `scrollTop`，两种模式都成立），`offset = clamp(contentY - viewport.clientHeight * 0.2, 0, maxOffset())`，让所点行落在视口上 1/5 处。浏览态同步 `scrollTop` 并提示「点 ▶ 从这里开始」；播放态保持播放、直接跳到新位置并提示。拖选文字（selection 非折叠）时跳过以免误跳。另加 `viewport` 的 `scroll` 监听，把非播放态的手动滚动同步回 `offset`。
+   **配套**：删掉 `commitMainEdit()` 与设置面板 `setScript input` 里「一改字就 `offset=0`」的旧逻辑，改为 `clampOffset(offset)` 保持阅读位置。
+
+**怎么验证**：`npm run test:ios` **69/69**（本轮新增 24 项：Grid 布局、DOM 顺序、⏸ 入口、暂停保位、暂停恢复滚动条、继续播放、滚动同步、点击定位换算 / 提示 / 播放中定位、刷新归零 + 光标回开头 + 刷新+▶）、`npm test` **126/126**、`node test_i18n_real.mjs` **32/32**、`npm run smoke:worker` **18/18**。五语新增 4 键（189→193），三个测试硬编码键数同步。
+
+**涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`CHANGELOG.md`、`【上线清单】…md`。
+
+---
+
 ## 2026-11-15 · fix(desktop) — 长稿溢出无滚动条 / 桌面剪贴板被拒时粘贴失败
 
 **为什么**：电脑端（WorkBuddy 内置预览面板）复测报两项：① 主屏提词区输入内容多时没有滚动条，文字溢出到编辑工具条和底部控制条区域；② 复制文字后点「📋 粘贴」被提示「无法读取剪贴板的内容」。

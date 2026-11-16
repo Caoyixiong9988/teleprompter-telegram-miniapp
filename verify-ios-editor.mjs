@@ -15,18 +15,21 @@ let pass = 0, fail = 0;
 const check = (name, ok, extra = '') => { if (ok) { pass++; console.log('  OK  ' + name); } else { fail++; console.log('  FAIL ' + name + (extra ? ' | ' + extra : '')); } };
 const ev = s => window.eval(s);
 
-// --- 1. 布局：控制条不压缩、可换行、窄屏速度条另起一行 ---
+// --- 1. 布局：6 列网格 + 速度区独占整行，所有控件不重叠不遮挡 ---
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
-check('controlBar flex-wrap + flex-shrink:0', /#controlBar\{[^}]*flex-wrap:wrap[^}]*flex-shrink:0/.test(css));
-check('窄屏 media 把速度条移到第二行', /@media \(max-width:480px\)\{[\s\S]*?#speedWrap\{order:10; flex:1 1 100%;\}/.test(css));
-check('controlBar 按钮不被 flex 压缩', /#controlBar > \.btn\{flex:0 0 auto;\}/.test(css));
+check('controlBar 改为 6 列网格', /#controlBar\{[^}]*display:grid[^}]*grid-template-columns:repeat\(6/.test(css));
+check('速度区独占整行（grid-column:1 / -1）', /#speedWrap\{[^}]*grid-column:1 \/ -1/.test(css));
+check('像素数值强制单行且不压缩', /#speedBarLabel\{[^}]*white-space:nowrap[^}]*min-width:76px/.test(css));
+check('按钮等宽、不再被 flex 压缩', /#controlBar > \.btn\{width:100%; min-width:0;/.test(css));
+check('极窄屏降为 3 列仍可完整点按', /@media \(max-width:360px\)\{[\s\S]*?repeat\(3/.test(css));
+check('速度区 DOM 排在 6 个按钮之后', [...doc.getElementById('controlBar').children].map(e => e.id).indexOf('speedWrap') === 6);
 check('底部安全区 padding', /calc\(10px \+ env\(safe-area-inset-bottom\)\)/.test(css));
 check('六个控制按钮都在 DOM', ['btnPlay','btnReset','btnSettings','btnCard','btnRemote','btnVoice'].every(id => !!doc.getElementById(id)));
 
 // --- 2. 五语新键 ---
 const sizes = ['zh','en','ja','ko','ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-check('五语各 189 键且一致', sizes.every(n => n === 189), JSON.stringify(sizes));
-check('编辑/播放/语音/兜底新增键五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel'].every(k=>!!I18N[l][k]))`));
+check('五语各 193 键且一致', sizes.every(n => n === 193), JSON.stringify(sizes));
+check('编辑/播放/语音/兜底/定位新增键五语齐全', ev(`['zh','en','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 
 // --- 3. 系统粘贴不被吞掉（paste 不 preventDefault，内容同步进数据模型）---
 const st = doc.getElementById('scrollText');
@@ -111,7 +114,8 @@ check('Android 非 Pro 点开始仍会打开升级界面', !doc.getElementById('
 const appEl = doc.getElementById('app');
 const vpEl = doc.getElementById('viewport');
 check('viewport 有 min-height:0，不会被长稿撑破', /#viewport\{[^}]*min-height:0/.test(css));
-check('编辑态提词区可上下滚动且滚动条可见', /#app\.editing #viewport\{[^}]*overflow-y:scroll/.test(css) && /#app\.editing #viewport::-webkit-scrollbar-thumb/.test(css));
+check('提词区默认常显滚动条，可滚动查看全部内容', /#viewport\{[^}]*overflow-y:scroll/.test(css) && /#viewport::-webkit-scrollbar-thumb/.test(css));
+check('播放态隐藏原生滚动条改用平滑滚动', /#app\.playing #viewport\{[^}]*overflow:hidden/.test(css));
 check('工具条移出 viewport，成为独立 flex 行', doc.getElementById('editBar').parentElement === appEl && vpEl.querySelector('#editBar') === null && /\.edit-bar\{[^}]*flex-shrink:0/.test(css) && !/\.edit-bar\{[^}]*position:absolute/.test(css));
 check('兜底面板也在 viewport 之外', doc.getElementById('pasteFallback').parentElement === appEl);
 
@@ -159,6 +163,59 @@ Object.defineProperty(window.navigator, 'clipboard', { value: { readText: () => 
 doc.getElementById('btnQuickPaste').click();
 await new Promise(r => setTimeout(r, 20));
 check('readText 可用时走原有自动粘贴、不弹兜底框', pf.classList.contains('hidden') && ev('activeScript().content').includes('OKTEXT'));
+
+// --- 11. 播放控制：暂停/继续、滚动条、刷新归零、点击任意行定位 ---
+const cbIds = [...doc.getElementById('controlBar').children].map(e => e.id);
+check('控制条顺序：6 按钮在前、速度区最后', cbIds.slice(0, 6).join(',') === 'btnPlay,btnReset,btnSettings,btnCard,btnRemote,btnVoice' && cbIds[6] === 'speedWrap', cbIds.join(','));
+
+// 伪造长稿尺寸，让「有可滚动距离」成立
+Object.defineProperty(st, 'offsetHeight', { value: 1000, configurable: true });
+Object.defineProperty(vpEl, 'clientHeight', { value: 300, configurable: true });
+
+// 播放 → 暂停 → 位置保持 → 继续
+ev('offset=200; setPlaying(true);');
+check('播放中按钮显示 ⏸（明确的暂停入口）', doc.getElementById('btnPlay').textContent === '⏸');
+check('播放态给 #app 加 playing（关闭原生滚动条）', appEl.classList.contains('playing'));
+doc.getElementById('btnPlay').click();
+check('播放中点击可暂停', ev('playing') === false);
+check('暂停保留阅读位置，而不是回到开头', ev('offset') === 200, 'offset=' + ev('offset'));
+check('暂停后恢复原生滚动条', !appEl.classList.contains('playing'));
+check('暂停有明确提示', doc.getElementById('toast').textContent === ev('t("playPaused")'));
+check('暂停时容器滚动位置等于阅读位置', vpEl.scrollTop === 200, 'scrollTop=' + vpEl.scrollTop);
+doc.getElementById('btnPlay').click();
+check('再点 ▶ 从原位置继续播放', ev('playing') === true && ev('offset') === 200, 'offset=' + ev('offset'));
+ev('setPlaying(false);');
+
+// 浏览态手动滚动 → 同步阅读位置
+vpEl.scrollTop = 360;
+vpEl.dispatchEvent(new window.Event('scroll'));
+check('手动滚动会同步阅读位置', ev('offset') === 360, 'offset=' + ev('offset'));
+
+// 浏览态点击定位
+Object.defineProperty(st, 'getBoundingClientRect', { value: () => ({ top: 100, left: 0, width: 300, height: 1000, bottom: 1100, right: 300 }), configurable: true });
+st.dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientY: 400 }));
+check('点击文字定位到对应行', ev('offset') === 240, 'offset=' + ev('offset')); // 400-100-300*0.2
+check('点击定位给出提示', doc.getElementById('toast').textContent === ev('t("seekDone")'));
+check('定位后容器滚动位置同步', vpEl.scrollTop === 240, 'scrollTop=' + vpEl.scrollTop);
+
+// 播放中点击定位：继续播放、不中断
+ev('offset=100; setPlaying(true);');
+st.dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientY: 500 }));
+check('播放中点击可从该行继续播放', ev('playing') === true && ev('offset') === 340, 'offset=' + ev('offset'));
+check('播放中定位提示正确', doc.getElementById('toast').textContent === ev('t("seekPlaying")'));
+
+// 刷新：阅读位置 / 滚动条 / 输入光标全部回开头 → 「刷新 + ▶」从头播放
+ev('offset=500; setPlaying(true);');
+vpEl.scrollTop = 500;
+doc.getElementById('btnReset').click();
+check('刷新把阅读位置与滚动条归零', ev('offset') === 0 && vpEl.scrollTop === 0, 'offset=' + ev('offset') + ' scrollTop=' + vpEl.scrollTop);
+check('刷新后暂停并显示 ▶', ev('playing') === false && doc.getElementById('btnPlay').textContent === '▶');
+const sel11 = window.getSelection();
+check('刷新后输入光标回到讲稿开头', sel11.anchorOffset === 0 && st.contains(sel11.anchorNode), 'anchorOffset=' + sel11.anchorOffset);
+check('刷新提示正确', doc.getElementById('toast').textContent === ev('t("resetDone")'));
+doc.getElementById('btnPlay').click();
+check('刷新 + ▶ 从头开始播放', ev('playing') === true && ev('offset') === 0);
+ev('setPlaying(false);');
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
