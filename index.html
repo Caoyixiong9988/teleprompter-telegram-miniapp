@@ -3016,6 +3016,19 @@ function clampOffset(v){
   const m = maxOffset();
   return Math.max(0, Math.min(Number.isFinite(v) ? v : 0, m));
 }
+/* 播放起点专用钳制：允许负值。
+   阅读头固定在视口 20%（READ_HEAD_RATIO），而文稿第一个词在内容盒顶部
+   （padding≈28px）。若把起点 offset 钳在 0，阅读头就落在视口 20% 处，
+   命中第 2~3 行——表现为「刷新后从头播放却从第三行开始」。
+   允许 offset 为负 = 文稿先下移，让第一个词正好落在阅读头，之后再匀速
+   上滚。这正是提词器「文稿从阅读线滚上来」的标准行为，且不影响匀速。
+   下限 = -视口×READ_HEAD_RATIO，恰好让内容盒顶部能对齐阅读头。 */
+function minPlayOffset(){ return -viewport.clientHeight * READ_HEAD_RATIO; }
+function clampPlayOffset(v){
+  const lo = minPlayOffset(), hi = maxOffset();
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(lo, Math.min(v, hi));
+}
 function applyPrompterStyle(){
   scrollText.style.fontSize = state.fontSize + 'px';
   scrollText.style.color = state.color;
@@ -3118,7 +3131,7 @@ function seekToCaret(){
   let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
   const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
   const headY = ln.top + ((w + 0.5) / n) * ln.height;
-  offset = clampOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
+  offset = clampPlayOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
   readCounted = false;
   reachedEnd = false;
   return true;
@@ -3212,7 +3225,9 @@ function setPlaying(on){
     viewport.scrollTop = 0;                 // 位移交给 transform
     lastTs = null;
   } else {
-    viewport.scrollTop = clampOffset(offset); // 把播放位置还原成原生滚动位置
+    // 用 clampPlayOffset（非 clampOffset）：从开头播放的负起点在暂停时要保留，
+    // 否则文稿会跳回顶部，与"第一个词对齐阅读头"的播放视图不连续。
+    viewport.scrollTop = clampPlayOffset(offset); // 把播放位置还原成原生滚动位置
   }
   applyPrompterStyle();
   updatePlayBtn();
@@ -3282,7 +3297,7 @@ function seekAtClientY(clientY, clientX){
       target = headY - viewport.clientHeight * READ_HEAD_RATIO;
     }
   }
-  offset = clampOffset(target);
+  offset = clampPlayOffset(target);
   readCounted = false;
   reachedEnd = false; // 显式定位后不再是"自然读完"，避免下次 ▶ 被误判回开头
   if (playing){
@@ -3371,14 +3386,14 @@ function togglePlay(){
       if (ti >= 0 && readLines && readLines.length){
         let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
         const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
-        const headY = ln.top + ((w + 0.5) / n) * ln.height;
-        offset = clampOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
-        reachedEnd = false; readCounted = false;
-      }
+      const headY = ln.top + ((w + 0.5) / n) * ln.height;
+      offset = clampPlayOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
+      reachedEnd = false; readCounted = false;
     }
-    // 若 max 变小（改稿/字号变化）导致 offset 越界，只做钳制，不回开头。
-    if (offset > max){ offset = max; }
-    if (reachedEnd){ offset = 0; readCounted = false; reachedEnd = false; }
+  }
+  // 若 max 变小（改稿/字号变化）导致 offset 越界，只做钳制，不回开头。
+  if (offset > max){ offset = max; }
+  if (reachedEnd){ offset = minPlayOffset(); readCounted = false; reachedEnd = false; }
     setPlaying(true);
     toast(t('playResumed'));
   } else {
