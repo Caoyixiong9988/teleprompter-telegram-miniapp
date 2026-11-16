@@ -43,6 +43,13 @@
     background:#c2cad8; border-radius:8px; border:2px solid #f3f5f9;
   }
   #app.playing #viewport{overflow:hidden;}
+  /* 逐词跟随标记：固定在视口阅读点（上 1/5），由 JS 把词/字的屏幕坐标写进来。
+     pointer-events:none 保证它永远不会挡住点按定位与文字编辑。 */
+  #readMark{
+    position:absolute; left:0; top:0; display:none; z-index:5;
+    background:rgba(255,196,46,.38); border-bottom:2px solid #e8a000;
+    border-radius:3px; pointer-events:none;
+  }
   #scrollText{
     white-space:pre-wrap; word-break:break-word; padding:28px 22px;
     font-size:44px; line-height:1.55; color:var(--text); text-align:center;
@@ -254,6 +261,8 @@
 
   <div id="viewport">
     <div id="scrollText" contenteditable="true" role="textbox" aria-multiline="true" aria-label="讲稿编辑区" spellcheck="false" autocapitalize="off" data-i18n-title="editHint"></div>
+    <!-- 逐词跟随高亮：独立覆盖层，不拆 scrollText 的 DOM，编辑能力完全不受影响 -->
+    <div id="readMark" aria-hidden="true"></div>
   </div>
 
   <!-- 工具条与兜底面板放在 #viewport 之外：长稿只在 viewport 内滚动，
@@ -352,6 +361,12 @@
         <label style="margin:0;" data-i18n="mirrorLabel">镜像模式（接物理提词支架时开启）</label>
         <input type="checkbox" id="setMirror" />
       </div>
+
+      <div class="field switch">
+        <label style="margin:0;" data-i18n="readMarkLabel">逐词跟随高亮</label>
+        <input type="checkbox" id="setReadMark" />
+      </div>
+      <div class="hint" data-i18n="readMarkHint">播放时用底色标出当前该读的词／字，随速度自动跳到下一个；只在播放时显示，不影响编辑。</div>
 
       <div class="field">
         <label data-i18n="scrollSpeed">滚动速度</label>
@@ -635,6 +650,7 @@ const I18N = {
   importHint:"讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。",
   importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入会新建一篇讲稿，不会覆盖现有内容。",
   importOk:"已导入为新讲稿",
+  importInserted:"已插入到光标位置，原有内容保留",
   importFailType:"不支持的文件类型，请用 TXT / DOC / DOCX 等文本格式",
   importFailSize:"文件过大（上限 2 MB），请拆分后再导入",
   importFailParse:"文件解析失败，请另存为 .txt 或 .docx 后重试",
@@ -659,6 +675,8 @@ const I18N = {
   alignCenter:"居中",
   alignRight:"右对齐",
   mirrorLabel:"镜像模式（接物理提词支架时开启）",
+  readMarkLabel:"逐词跟随高亮",
+  readMarkHint:"播放时用底色标出当前该读的词／字，随速度自动跳到下一个；只在播放时显示，不影响编辑。",
   scrollSpeed:"滚动速度",
   switchUnit:"切换单位",
   speedHint:"单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。",
@@ -818,6 +836,7 @@ const I18N = {
   importHint:"Already wrote your script in Word or Notepad? Import it here instead of copy-pasting.",
   importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF and WPS-only formats must be saved in another format first. Each import creates a new script and never overwrites existing ones.",
   importOk:"Imported as a new script",
+  importInserted:"Inserted at the cursor; original text kept",
   importFailType:"Unsupported file type. Use TXT, DOC or DOCX.",
   importFailSize:"File too large (2 MB limit). Split it and try again.",
   importFailParse:"Could not read this file. Save as .txt or .docx and retry.",
@@ -842,6 +861,8 @@ const I18N = {
   alignCenter:"Center",
   alignRight:"Right",
   mirrorLabel:"Mirror mode (enable when using a physical teleprompter rig)",
+  readMarkLabel:"Word-by-word highlight",
+  readMarkHint:"During playback the current word is highlighted and moves to the next one at your set speed. Shown only while playing; editing is unaffected.",
   scrollSpeed:"Scroll Speed",
   switchUnit:"Switch Unit",
   speedHint:"Units: pixels/second (px/s) or characters/minute (CPM, estimated from current font size).",
@@ -1014,6 +1035,7 @@ const I18N = {
   importHint:'Dein Skript liegt schon in Word oder im Editor? Hier direkt importieren – kein Kopieren und Einfügen nötig.',
   importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF; PDF und WPS-Formate bitte vorher anders speichern. Der Import erstellt ein neues Skript und überschreibt keine vorhandenen Inhalte.',
   importOk:'Als neues Skript importiert',
+  importInserted:'An der Cursorposition eingefügt – vorhandener Text bleibt erhalten',
   importFailType:'Dateityp nicht unterstützt. Bitte TXT, DOC oder DOCX verwenden.',
   importFailSize:'Datei zu groß (max. 2 MB). Bitte aufteilen und erneut importieren.',
   importFailParse:'Datei konnte nicht gelesen werden. Bitte als .txt oder .docx speichern und erneut versuchen.',
@@ -1038,6 +1060,8 @@ const I18N = {
   alignCenter:'Zentriert',
   alignRight:'Rechtsbündig',
   mirrorLabel:'Spiegelmodus (bei physischem Teleprompter-Gestell einschalten)',
+  readMarkLabel:'Wort-für-Wort-Hervorhebung',
+  readMarkHint:'Während der Wiedergabe wird das aktuelle Wort markiert und wandert im eingestellten Tempo weiter. Nur beim Abspielen sichtbar – die Bearbeitung bleibt unberührt.',
   scrollSpeed:'Scrollgeschwindigkeit',
   switchUnit:'Einheit wechseln',
   speedHint:'Einheit: Pixel pro Sekunde (px/s) oder Zeichen pro Minute (CPM, anhand der aktuellen Schriftgröße geschätzt).',
@@ -1210,6 +1234,7 @@ const I18N = {
   importHint:'Votre script est déjà dans Word ou dans un éditeur ? Importez-le directement ici, sans copier-coller.',
   importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF ; le PDF et les formats WPS doivent d’abord être enregistrés autrement. L’import crée un nouveau script et n’écrase pas le contenu existant.',
   importOk:'Importé comme nouveau script',
+  importInserted:'Inséré à la position du curseur ; le texte existant est conservé',
   importFailType:'Type de fichier non pris en charge. Utilisez TXT, DOC ou DOCX.',
   importFailSize:'Fichier trop volumineux (2 Mo max). Divisez-le puis réessayez.',
   importFailParse:'Impossible de lire le fichier. Enregistrez-le en .txt ou .docx puis réessayez.',
@@ -1234,6 +1259,8 @@ const I18N = {
   alignCenter:'Centré',
   alignRight:'Droite',
   mirrorLabel:'Mode miroir (à activer avec un support de téléprompteur physique)',
+  readMarkLabel:'Surlignage mot par mot',
+  readMarkHint:'Pendant la lecture, le mot en cours est surligné et passe au suivant à la vitesse choisie. Visible uniquement pendant la lecture, sans effet sur la saisie.',
   scrollSpeed:'Vitesse de défilement',
   switchUnit:'Changer d’unité',
   speedHint:'Unité : pixels par seconde (px/s) ou caractères par minute (CPM, estimés selon la taille de police actuelle).',
@@ -1393,6 +1420,7 @@ const I18N = {
   importHint:"Word やメモ帳で原稿を書いてありますか？コピペせずにここから直接読み込めます。",
   importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF。PDF と WPS 専用形式は先に別形式で保存してください。読み込みは新しい原稿として追加され、既存の内容は上書きしません。",
   importOk:"新しい原稿として読み込みました",
+  importInserted:"カーソル位置に挿入しました。既存の文字は保持されます",
   importFailType:"対応していないファイル形式です。TXT / DOC / DOCX をご利用ください",
   importFailSize:"ファイルが大きすぎます（上限 2 MB）。分割して再度お試しください",
   importFailParse:"ファイルを読み込めませんでした。.txt または .docx で保存し直してください",
@@ -1417,6 +1445,8 @@ const I18N = {
   alignCenter:"中央",
   alignRight:"右揃え",
   mirrorLabel:"ミラーモード（物理提词台を使う場合はオン）",
+  readMarkLabel:"単語追従ハイライト",
+  readMarkHint:"再生中に現在読む語／字を背景色で示し、設定した速度で次の語へ移ります。編集中は表示されません。",
   scrollSpeed:"スクロール速度",
   switchUnit:"単位切替",
   speedHint:"単位：ピクセル/秒（px/s）または 文字/分（CPM、現在の文字サイズから算出）。",
@@ -1576,6 +1606,7 @@ const I18N = {
   importHint:"Word나 메모장에 이미 대본을 써 두셨나요? 복사·붙여넣기 없이 여기서 바로 가져오세요.",
   importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF와 WPS 전용 형식은 먼저 다른 형식으로 저장해 주세요. 가져오기는 새 대본으로 추가되며 기존 내용을 덮어쓰지 않습니다.",
   importOk:"새 대본으로 가져왔습니다",
+  importInserted:"커서 위치에 삽입했습니다. 기존 내용은 유지됩니다",
   importFailType:"지원하지 않는 파일 형식입니다. TXT / DOC / DOCX를 사용해 주세요",
   importFailSize:"파일이 너무 큽니다(최대 2 MB). 나누어 다시 시도해 주세요",
   importFailParse:"파일을 읽을 수 없습니다. .txt 또는 .docx로 다시 저장해 주세요",
@@ -1600,6 +1631,8 @@ const I18N = {
   alignCenter:"가운데",
   alignRight:"오른쪽",
   mirrorLabel:"미러 모드（물리적提词 거치대 사용 시 켜기）",
+  readMarkLabel:"단어 따라가기 강조",
+  readMarkHint:"재생 중 현재 읽을 단어를 배경색으로 표시하고 설정한 속도에 따라 다음 단어로 이동합니다. 편집에는 영향이 없습니다.",
   scrollSpeed:"스크롤 속도",
   switchUnit:"단위 전환",
   speedHint:"단위: 픽셀/초（px/s） 또는 자/분（CPM, 현재 글자 크기 기준 추정）.",
@@ -1759,6 +1792,7 @@ const I18N = {
   importHint:"Текст уже написан в Word или Блокноте? Загрузите его здесь без копирования.",
   importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF и форматы WPS нужно сначала сохранить в другом формате. Импорт создаёт новый сценарий и не перезаписывает существующие.",
   importOk:"Импортировано как новый сценарий",
+  importInserted:"Вставлено в позицию курсора; исходный текст сохранён",
   importFailType:"Неподдерживаемый формат. Используйте TXT, DOC или DOCX",
   importFailSize:"Файл слишком большой (лимит 2 МБ). Разделите его",
   importFailParse:"Не удалось прочитать файл. Сохраните как .txt или .docx",
@@ -1783,6 +1817,8 @@ const I18N = {
   alignCenter:"По центру",
   alignRight:"По правому краю",
   mirrorLabel:"Зеркальный режим (включайте при работе с физическим суфлёром)",
+  readMarkLabel:"Подсветка по словам",
+  readMarkHint:"Во время воспроизведения текущее слово подсвечивается и переходит к следующему с заданной скоростью. Показывает только при воспроизведении, не мешает редактированию.",
   scrollSpeed:"Скорость прокрутки",
   switchUnit:"Ед. изм.",
   speedHint:"Единицы: пиксели в секунду (px/s) или символы в минуту (CPM, оценка по текущему размеру шрифта).",
@@ -2017,6 +2053,7 @@ const defaultState = {
   color: '#1f2430',
   align: 'center',
   mirror: false,
+  readMark: true, // 逐词跟随高亮（默认开；镜像模式与不支持该 API 的设备自动降级隐藏）
   speedPx: 90,
   speedCpm: 220,
   speedUnit: 'px', // 'px' | 'cpm'
@@ -2700,13 +2737,74 @@ function importTextAsNewScript(title, content){
   return s;
 }
 
+/* ---------- 导入位置：有光标就插入，没光标才新建 ----------
+ * 用户实测：先在提词区输入 AAAAAA、把光标放到第三个 A 后，再导入 4.docx，
+ * 期望文件内容插到光标处并保留原有的 6 个 A；旧实现一律新建，原稿「消失」。
+ * 点按钮会让 contenteditable 失焦，所以选区必须在 mousedown / touchstart
+ * 阶段先抓下来（和粘贴按钮同一套做法）。 */
+let importCaretRange = null;
+function captureImportCaret(){
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || !sel.rangeCount || !scrollText) return; // 抓不到就保留上一次的
+    const r = sel.getRangeAt(0);
+    if (scrollText === r.commonAncestorContainer || scrollText.contains(r.commonAncestorContainer)) {
+      importCaretRange = r.cloneRange();
+    }
+  } catch (e) {}
+}
+function importCaretValid(){
+  if (!importCaretRange || !scrollText) return false;
+  try {
+    const n = importCaretRange.commonAncestorContainer;
+    return !!(scrollText === n || scrollText.contains(n));
+  } catch (e) { return false; }
+}
+function mainEditorTextDOM(){
+  if (!scrollText) return '';
+  const v = (typeof scrollText.innerText === 'string') ? scrollText.innerText : (scrollText.textContent || '');
+  return v.replace(/\r\n/g, '\n');
+}
+function commitImportedEdit(text){
+  if (playing) setPlaying(false);
+  setActiveContent(text);
+  if (setScript) setScript.value = text;
+  if (scrollText) {
+    scrollText.dataset.isDefault = '0';
+    const empty = !String(text || '').length;
+    scrollText.classList.toggle('is-empty', empty);
+    if (empty) scrollText.setAttribute('data-placeholder', t('editPlaceholder'));
+    else scrollText.removeAttribute('data-placeholder');
+  }
+  offset = clampOffset(offset);
+  if (!playing && viewport) viewport.scrollTop = offset;
+  applyPrompterStyle();
+  debounceSave(); maybeSyncDebounced();
+}
+// 返回 true 表示已插入光标处；false 表示没有有效光标，调用方应新建讲稿。
+function insertImportedTextAtCaret(text){
+  if (!importCaretValid()) return false;
+  try {
+    const r = importCaretRange.cloneRange();
+    r.deleteContents();
+    const node = document.createTextNode(text);
+    r.insertNode(node);
+    r.setStartAfter(node); r.collapse(true);
+    const sel = window.getSelection && window.getSelection();
+    if (sel) { sel.removeAllRanges(); sel.addRange(r); }
+    importCaretRange = r.cloneRange();
+  } catch (e) { return false; }
+  commitImportedEdit(mainEditorTextDOM());
+  return true;
+}
+
 async function handleImportFile(file){
   if (!file) return;
-  if (guardScriptLimit()) return; // 选文件前先拦，避免白解析一遍才提示
   try {
     const r = await parseImportFile(file);
-    if (!importTextAsNewScript(r.title, r.text)) return;
-    toast(t('importOk'));
+    // 插入不增加讲稿篇数，不受免费 3 篇限制；只有「新建」分支才需要 guardScriptLimit。
+    if (insertImportedTextAtCaret(r.text)) toast(t('importInserted'));
+    else if (importTextAsNewScript(r.title, r.text)) toast(t('importOk'));
   } catch (err) {
     // 失败原因要留够时间看清：文案本身长，2 秒容易被忽略成「点了没反应」
     toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'), 4600);
@@ -2786,6 +2884,8 @@ const setFontSizeLabel = document.getElementById('setFontSizeLabel');
 const setColor = document.getElementById('setColor');
 const setAlign = document.getElementById('setAlign');
 const setMirror = document.getElementById('setMirror');
+const setReadMark = document.getElementById('setReadMark');
+const readMarkEl = document.getElementById('readMark');
 const setSpeed = document.getElementById('setSpeed');
 const setSpeedLabel = document.getElementById('setSpeedLabel');
 const btnSpeedUnit = document.getElementById('btnSpeedUnit');
@@ -2908,6 +3008,76 @@ function applyPrompterStyle(){
   const y = playing ? -offset : 0;
   scrollText.style.transform = 'translateY(' + y + 'px) scaleX(' + scale + ')';
 }
+/* ---------- 逐词跟随高亮 ----------
+ * 不拆 scrollText 的 DOM：用浏览器原生 caretRangeFromPoint 找到「视口阅读点」
+ * 正下方的字符，扩成一个词（中文按字、英文按词），把屏幕坐标写进独立覆盖层
+ * #readMark。文字继续按 offset 上移，下一帧定位到下一词，高亮随之跳过去，
+ * 旧词自动恢复——用户始终有明确落眼点。不支持该 API 的 WebView 静默隐藏。 */
+let lastReadMarkTs = 0;
+function hideReadMark(){
+  if (readMarkEl) readMarkEl.style.display = 'none';
+}
+function readWordRange(caret){
+  if (!caret || !scrollText) return null;
+  let node = caret.startContainer;
+  if (node.nodeType !== 3) {
+    const kids = node.childNodes || [];
+    node = kids[caret.startOffset] || kids[caret.startOffset - 1] || null;
+    if (!node || node.nodeType !== 3) return null;
+  }
+  if (!(scrollText === node || scrollText.contains(node))) return null;
+  const s = String(node.nodeValue || '');
+  if (!s.length) return null;
+  const off = Math.max(0, Math.min(caret.startOffset | 0, s.length - 1));
+  const ch = s.charAt(off);
+  let a = off, b = off + 1;
+  if (/[A-Za-z0-9'_]/.test(ch)) { // 英文/数字按词，中文与标点按字
+    while (a > 0 && /[A-Za-z0-9'_]/.test(s.charAt(a - 1))) a--;
+    while (b < s.length && /[A-Za-z0-9'_]/.test(s.charAt(b))) b++;
+  }
+  try {
+    const r = document.createRange();
+    r.setStart(node, a); r.setEnd(node, b);
+    return r;
+  } catch (e) { return null; }
+}
+function updateReadMark(force){
+  if (!readMarkEl) return;
+  if (!playing || !state.readMark || state.mirror) { hideReadMark(); return; }
+  const ts = Date.now();
+  if (!force && ts - lastReadMarkTs < 45) return; // 约 22fps，够跟且不浪费
+  lastReadMarkTs = ts;
+  try {
+    const vp = viewport.getBoundingClientRect();
+    const st = scrollText.getBoundingClientRect();
+    let x = state.align === 'left' ? st.left + 24
+          : state.align === 'right' ? st.right - 24
+          : st.left + st.width / 2;
+    x = Math.max(vp.left + 2, Math.min(x, vp.right - 2));
+    const y = vp.top + Math.max(8, viewport.clientHeight * 0.2); // 与点击定位落点一致
+
+    let caret = null;
+    if (typeof document.caretRangeFromPoint === 'function') caret = document.caretRangeFromPoint(x, y);
+    if (!caret && typeof document.caretPositionFromPoint === 'function') {
+      const p = document.caretPositionFromPoint(x, y);
+      if (p) {
+        caret = document.createRange();
+        caret.setStart(p.offsetNode, p.offset); caret.collapse(true);
+      }
+    }
+    const r = readWordRange(caret);
+    if (!r) { hideReadMark(); return; }
+    const rects = r.getClientRects();
+    if (!rects.length) { hideReadMark(); return; }
+    const box = rects[0];
+    if (box.bottom < vp.top || box.top > vp.bottom) { hideReadMark(); return; }
+    readMarkEl.style.left = (box.left - vp.left) + 'px';
+    readMarkEl.style.top = (box.top - vp.top) + 'px';
+    readMarkEl.style.width = Math.max(2, box.width) + 'px';
+    readMarkEl.style.height = Math.max(2, box.height) + 'px';
+    readMarkEl.style.display = 'block';
+  } catch (e) { hideReadMark(); }
+}
 function setPlaying(on){
   playing = !!on;
   const ap = document.getElementById('app');
@@ -2920,6 +3090,7 @@ function setPlaying(on){
   }
   applyPrompterStyle();
   updatePlayBtn();
+  if (playing) updateReadMark(true); else hideReadMark();
 }
 function placeCaretAtStartDOM(){
   try {
@@ -2949,6 +3120,7 @@ function seekAtClientY(clientY){
   if (playing){
     viewport.scrollTop = 0;
     lastTs = null;
+    updateReadMark(true);
     toast(t('seekPlaying'));
   } else {
     viewport.scrollTop = offset;
@@ -2971,6 +3143,7 @@ function loop(ts){
     } else {
       const scale = state.mirror ? -1 : 1;
       scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';
+      updateReadMark(); // 跟随速度自动切到下一个词/字
     }
   }
   rafId = requestAnimationFrame(loop);
@@ -3799,6 +3972,12 @@ setFontSize.addEventListener('input', function(e){
 setColor.addEventListener('input', function(e){ state.color = e.target.value; applyPrompterStyle(); saveState(); });
 setAlign.addEventListener('change', function(e){ state.align = e.target.value; applyPrompterStyle(); saveState(); });
 setMirror.addEventListener('change', function(e){ state.mirror = e.target.checked; applyPrompterStyle(); saveState(); });
+setReadMark.addEventListener('change', function(e){
+  state.readMark = e.target.checked;
+  if (!state.readMark) hideReadMark();
+  else if (playing) updateReadMark(true);
+  saveState();
+});
 setReferral.addEventListener('input', function(e){ state.referralCode = e.target.value.trim(); saveState(); });
 setBotUser.addEventListener('input', function(e){ state.botUser = e.target.value.trim(); saveState(); });
 
@@ -4028,6 +4207,7 @@ function init(){
   setColor.value = state.color;
   setAlign.value = state.align;
   setMirror.checked = !!state.mirror;
+  setReadMark.checked = !!state.readMark;
   setReferral.value = state.referralCode || '';
   setBotUser.value = state.botUser || '';
 
@@ -4094,12 +4274,21 @@ function init(){
     importInput.click();
   }
   const importBtn = document.getElementById('btnImportFile');
-  if (importBtn) importBtn.addEventListener('click', pickImportFile);
+  if (importBtn) {
+    // 点按钮会让提词区失焦，先记住光标；有光标→插入，无光标→新建
+    importBtn.addEventListener('mousedown', captureImportCaret);
+    importBtn.addEventListener('touchstart', captureImportCaret, { passive: true });
+    importBtn.addEventListener('click', pickImportFile);
+  }
   const quickImportBtn = document.getElementById('btnQuickImport');
-  if (quickImportBtn) quickImportBtn.addEventListener('click', function (e) {
-    e.preventDefault();
-    pickImportFile();
-  });
+  if (quickImportBtn) {
+    quickImportBtn.addEventListener('mousedown', captureImportCaret);
+    quickImportBtn.addEventListener('touchstart', captureImportCaret, { passive: true });
+    quickImportBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      pickImportFile();
+    });
+  }
   if (importInput) {
     importInput.addEventListener('change', function (e) {
       const f = e.target.files && e.target.files[0];

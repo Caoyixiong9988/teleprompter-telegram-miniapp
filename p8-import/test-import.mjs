@@ -147,14 +147,14 @@ test('页面无运行时错误，导入入口存在且是免费功能', () => {
   assert.equal(ev('state.isPro'), false, '默认应为免费用户');
 });
 
-test('七语新增 11 个导入键齐全，投稿提示已清除', () => {
-  const keys = ['importBtn','importHint','importFormats','importOk','importFailType',
+test('七语新增 12 个导入键齐全，投稿提示已清除', () => {
+  const keys = ['importBtn','importHint','importFormats','importOk','importInserted','importFailType',
     'importFailSize','importFailParse','importFailLocked','importFailBig','importFailUnsupported','importFailEmpty'];
   for (const lang of ['zh','en','de','fr','ja','ko','ru']) {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }
-  assert.equal(ev('Object.keys(I18N.zh).length'), 194);
+  assert.equal(ev('Object.keys(I18N.zh).length'), 197);
 });
 
 test('文件输入不藏在设置面板里，且接受 .doc / .rtf', () => {
@@ -417,6 +417,70 @@ test('模拟用户选一个 .doc：change 事件走完整条链路，讲稿真�
   assert.equal(ev('state.scripts[state.scripts.length - 1].content'), 'Hello 中文讲');
   assert.equal(ev('state.scripts[state.scripts.length - 1].title'), '会议纪要');
   assert.equal(input.value, '', 'change 后应清空 input，允许连续选同一个文件');
+});
+
+// ── 6c. 有光标时导入 = 插入，不再清空已输入内容 ──────────────────────
+test('光标在第三个 A 后导入：六个 A 保留，内容插在中间且可连续插入', () => {
+  const st = w.document.getElementById('scrollText');
+  st.textContent = 'AAAAAA';
+  const sel = w.getSelection();
+  const r = w.document.createRange();
+  r.setStart(st.firstChild, 3); r.collapse(true);
+  sel.removeAllRanges(); sel.addRange(r);
+  ev('captureImportCaret()');
+
+  const beforeCount = ev('state.scripts.length');
+  assert.equal(ev('insertImportedTextAtCaret("【文件内容】")'), true, '有效光标应插入成功');
+  assert.equal(st.textContent, 'AAA【文件内容】AAA');
+  assert.equal(ev('getActiveContent()'), 'AAA【文件内容】AAA', '数据模型要同步');
+  assert.equal(ev('state.scripts.length'), beforeCount, '插入不应新建讲稿');
+
+  // 连续导入应接在上一份之后，仍然不覆盖原稿
+  assert.equal(ev('insertImportedTextAtCaret("第二份")'), true);
+  assert.equal(st.textContent, 'AAA【文件内容】第二份AAA');
+  assert.equal(ev('getActiveContent()'), 'AAA【文件内容】第二份AAA');
+  sel.removeAllRanges();
+});
+
+test('光标失效（讲稿已切换/选区被清空）时退回新建，不误插', () => {
+  const st = w.document.getElementById('scrollText');
+  st.textContent = '旧稿';
+  // 模拟 loadActiveIntoEditor 换了 DOM 节点：旧 Range 指向已被移出文档的节点
+  ev(`importCaretRange = (function () {
+    const r = document.createRange();
+    const detached = document.createElement('div');
+    r.selectNodeContents(detached);
+    return r;
+  })()`);
+  const before = ev('state.scripts.length');
+  assert.equal(ev('insertImportedTextAtCaret("不应插入")'), false);
+  assert.equal(st.textContent, '旧稿', '失效光标不得改动内容');
+  assert.equal(ev('state.scripts.length'), before);
+});
+
+// ── 6d. 逐词跟随高亮 ────────────────────────────────────────────────
+test('逐词高亮：覆盖层与七语文案齐备，无定位 API 时安全降级', () => {
+  assert.ok(w.document.getElementById('readMark'), '缺少 #readMark 覆盖层');
+  assert.ok(w.document.getElementById('setReadMark'), '缺少设置开关');
+  for (const lang of ['zh','en','de','fr','ja','ko','ru']) {
+    assert.ok(ev(`I18N.${lang}.readMarkLabel`), `${lang} 缺 readMarkLabel`);
+    assert.ok(ev(`I18N.${lang}.readMarkHint`), `${lang} 缺 readMarkHint`);
+  }
+  assert.equal(ev('state.readMark'), true, '默认开启');
+  assert.doesNotThrow(() => ev('updateReadMark(true)'));
+  assert.equal(w.document.getElementById('readMark').style.display, 'none', '环境不支持时应隐藏');
+});
+
+test('readWordRange：英文按整词、中文按单字取高亮范围', () => {
+  const got = ev(`(function () {
+    const st = document.getElementById('scrollText');
+    st.textContent = 'hello 世界 abc';
+    const node = st.firstChild;
+    const en = document.createRange(); en.setStart(node, 2); en.collapse(true);
+    const cn = document.createRange(); cn.setStart(node, 6); cn.collapse(true);
+    return readWordRange(en).toString() + '|' + readWordRange(cn).toString();
+  })()`);
+  assert.equal(got, 'hello|世');
 });
 
 // ── 7. 悬赏运行时已下线 ──────────────────────────────────────────────
