@@ -6,11 +6,14 @@
  *       数据以数组字面量传入，避免跨 realm 的 TypedArray 兼容问题。
  *       ZIP 用手工构造的 STORED 条目（method 0），因此不需要 DecompressionStream，
  *       可在 jsdom 环境里完整跑通 docx / odt / xlsx 的解析链路。
+ *       旧版 .doc 由 tools/make-doc-fixture.mjs 现造合法的 OLE2 复合文档（CFB + FIB + 分片表），
+ *       二进制用 base64 传入，避免把上万字节拼成数字字面量。
  */
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { readFileSync } from 'node:fs';
+import { buildWord97Doc, buildWord97DocMini } from '../tools/make-doc-fixture.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const workerSrc = readFileSync(new URL('../worker.js', import.meta.url), 'utf8');
@@ -84,22 +87,33 @@ test('页面无运行时错误，导入入口存在且是免费功能', () => {
   assert.equal(ev('state.isPro'), false, '默认应为免费用户');
 });
 
-test('七语新增 10 个导入键齐全，投稿提示已清除', () => {
+test('七语新增 11 个导入键齐全，投稿提示已清除', () => {
   const keys = ['importBtn','importHint','importFormats','importOk','importFailType',
-    'importFailSize','importFailParse','importFailBig','importFailUnsupported','importFailEmpty'];
+    'importFailSize','importFailParse','importFailLocked','importFailBig','importFailUnsupported','importFailEmpty'];
   for (const lang of ['zh','en','de','fr','ja','ko','ru']) {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }
-  assert.equal(ev('Object.keys(I18N.zh).length'), 193);
+  assert.equal(ev('Object.keys(I18N.zh).length'), 194);
+});
+
+test('文件输入不藏在设置面板里，且接受 .doc / .rtf', () => {
+  const input = w.document.getElementById('importFile');
+  const accept = input.getAttribute('accept') || '';
+  for (const ext of ['.txt', '.doc', '.dot', '.docx', '.rtf']) {
+    assert.ok(accept.includes(ext), 'accept 缺少 ' + ext);
+  }
+  assert.equal(input.closest('.sheet'), null, 'input 不应位于 display:none 的设置面板内');
+  assert.equal(input.parentElement, w.document.body, 'input 应挂在 body 级');
+  assert.ok(w.document.getElementById('btnQuickImport'), '编辑条也要有导入入口');
 });
 
 // ── 2. 格式白名单 ────────────────────────────────────────────────────
-test('支持两档格式，明确拒绝 .doc / .pdf / .rtf 等「别碰」类型', () => {
-  for (const ext of ['txt','text','md','markdown','csv','srt','vtt','log','docx','odt','xlsx']) {
+test('支持纯文本 / 打包文档 / 旧版 .doc / RTF，仍明确拒绝 PDF 与可执行文件', () => {
+  for (const ext of ['txt','text','md','markdown','csv','srt','vtt','log','docx','odt','xlsx','doc','dot','rtf']) {
     assert.equal(ev(`importIsSupported(${JSON.stringify(ext)})`), true, ext);
   }
-  for (const ext of ['doc','pdf','rtf','pages','wps','exe','png','', 'DOCX1']) {
+  for (const ext of ['pdf','pages','wps','exe','png','', 'DOCX1']) {
     assert.equal(ev(`importIsSupported(${JSON.stringify(ext)})`), false, ext);
   }
   assert.equal(ev('importExtOf("讲稿.DOCX")'), 'docx');
@@ -166,6 +180,27 @@ function parseFail(name, bytes) {
     try { await parseImportFile(file); return null; } catch (e) { return e && e.code; }
   })()`);
 }
+// 二进制样本（.doc）走 base64，避免把上万字节拼成 JS 数字字面量
+function parseB64(name, buf) {
+  const b64 = Buffer.from(buf).toString('base64');
+  return ev(`(async () => {
+    const bin = atob(${JSON.stringify(b64)});
+    const a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    const file = { name: ${JSON.stringify(name)}, size: a.length, arrayBuffer: async () => a.buffer };
+    return await parseImportFile(file);
+  })()`);
+}
+function parseFailB64(name, buf) {
+  const b64 = Buffer.from(buf).toString('base64');
+  return ev(`(async () => {
+    const bin = atob(${JSON.stringify(b64)});
+    const a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    const file = { name: ${JSON.stringify(name)}, size: a.length, arrayBuffer: async () => a.buffer };
+    try { await parseImportFile(file); return null; } catch (e) { return e && e.code; }
+  })()`);
+}
 
 test('TXT 端到端：标题取文件名，正文正确', async () => {
   const r = await parse('我的讲稿.txt', Array.from(Buffer.from('这是正文内容', 'utf8')));
@@ -185,12 +220,86 @@ test('DOCX 端到端：STORED ZIP 走完解析链路', async () => {
   assert.equal(r.title, '稿件');
 });
 
-test('「别碰」格式与大文件/空文件/超长正文都被明确拒绝', async () => {
-  assert.equal(await parseFail('old.doc', [1, 2, 3]), 'type');
+// ── 5b. 旧版 .doc（Word 97-2003 二进制）──────────────────────────────
+test('.doc 端到端：CFB 容器 + 分片表，压缩 ASCII 与 UTF-16 中文都能读出', async () => {
+  const r = await parseB64('讲话稿.doc', buildWord97Doc());
+  assert.equal(r.text, 'Hello 中文讲');
+  assert.equal(r.title, '讲话稿');
+});
+
+test('.doc 里的 Word 控制符：段落/单元格翻译正确，域代码被丢弃', async () => {
+  const s = '前\u0013 PAGE \u00141\u0015后\u000D第二段\u0007单元格';
+  assert.equal(ev(`docCleanWordControl(${JSON.stringify(s)})`), '前1后\n第二段\t单元格');
+  const r = await parseB64('分行.doc', buildWord97Doc({ text: { ascii: 'A\rB\r', cjk: '末段' } }));
+  assert.equal(r.text, 'A\nB\n末段');
+});
+
+test('设了打开密码的 .doc 明确报 locked，不静默失败', async () => {
+  assert.equal(await parseFailB64('锁定.doc', buildWord97Doc({ encrypted: true })), 'locked');
+});
+
+test('小文档走 mini stream（流 < 4096 时的真实布局），并跳过 Clx 前的 Prc 属性块', async () => {
+  // 真实 Word 保存的短稿：WordDocument / 1Table 都在根存储的 mini stream 里
+  const r = await parseB64('短稿.doc', buildWord97DocMini());
+  assert.equal(r.text, 'Short 短稿');
+  const r2 = await parseB64('多段短稿.doc', buildWord97DocMini({ text: { ascii: 'Opening\r', cjk: '正文结束' } }));
+  assert.equal(r2.text, 'Opening\n正文结束');
+});
+
+test('不是 Word 的 OLE 容器（找不到 WordDocument 流）报 parse', async () => {
+  const b = buildWord97Doc();
+  // 目录第 2 项是 WordDocument（offset 1024 + 128），把首字母 W 改成 X
+  b[1152] = 0x58;
+  assert.equal(await parseFailB64('别的东西.doc', b), 'parse');
+});
+
+test('扩展名只是提示：.doc 里其实是 docx / RTF / HTML 也能导入', async () => {
+  const asDocx = await parse('名字带doc其实是docx.doc', makeStoredZip('word/document.xml', DOCX_XML));
+  assert.equal(asDocx.text, '第一段讲稿\n第二段讲稿');
+  const asDoc = await parse('旧稿.docx', buildWord97Doc());   // 反向：docx 后缀 + .doc 内容
+  assert.equal(asDoc.text, 'Hello 中文讲');
+});
+
+test('纯文本内容的 .doc（有些系统导出的「Word」其实是纯文本）照常导入', async () => {
+  const r = await parse('直接是文字.doc', Array.from(Buffer.from('第一行\n第二行', 'utf8')));
+  assert.equal(r.text, '第一行\n第二行');
+});
+
+// ── 5c. RTF 与伪装成 .doc 的 HTML ────────────────────────────────────
+const RTF_SAMPLE =
+  '{\\rtf1\\ansi\\ansicpg936\\deff0{\\fonttbl{\\f0\\fnil\\fcharset134 \\\'cb\\\'ce\\\'cc\\\'e5;}}' +
+  '{\\*\\generator Riched20 10.0;}\\pard ' +
+  '\\\'b5\\\'da\\\'d2\\\'bb\\\'b6\\\'ce\\par \\\'b5\\\'da\\\'b6\\\'fe\\\'b6\\\'ce}';
+
+test('RTF 按 ansicpg936 解码中文，字体表与生成器信息不进正文', async () => {
+  const bytes = Array.from(Buffer.from(RTF_SAMPLE, 'latin1'));
+  const r = await parse('讲稿.rtf', bytes);
+  assert.equal(r.text, '第一段\n第二段');
+  const disguised = await parse('伪装成doc.doc', bytes);
+  assert.equal(disguised.text, '第一段\n第二段', '后缀写成 .doc 的 RTF 也要能导入');
+});
+
+test('RTF 的 \\uN 转义与段落控制字', () => {
+  const rtf = '{\\rtf1\\ansi \\u20013?\\u25991?\\u35762?\\par 第二行}';
+  assert.equal(ev(`rtfExtractText(${JSON.stringify(rtf)})`).trim(), '中文讲\n第二行');
+});
+
+test('伪装成 .doc 的 HTML 去标签取文字，样式与脚本不混进讲稿', async () => {
+  const html = '<html><head><meta charset="utf-8"><style>p{color:red}</style></head>' +
+    '<body><p>第一段</p><p>第二段&nbsp;结束</p><script>alert(1)</script></body></html>';
+  const r = await parse('导出稿.doc', Array.from(Buffer.from(html, 'utf8')));
+  assert.equal(r.text, '第一段\n第二段 结束');
+});
+
+test('仍不支持的格式 / 二进制乱码 / 大文件 / 空文件 / 超长正文都被明确拒绝', async () => {
   assert.equal(await parseFail('a.pdf', [1, 2, 3]), 'type');
-  assert.equal(await parseFail('a.rtf', [1, 2, 3]), 'type');
+  assert.equal(await parseFail('a.wps', [1, 2, 3]), 'type');
+  // .doc / .rtf 是支持的扩展名，但内容既非容器也非文本 → 报解析失败而不是灌乱码
+  assert.equal(await parseFail('old.doc', [1, 2, 3]), 'parse');
+  assert.equal(await parseFail('a.rtf', [1, 2, 3]), 'parse');
   assert.equal(await parseFail('empty.txt', []), 'empty');
   assert.equal(await parseFail('broken.docx', [0x50, 0x4B, 0x03, 0x04, 1, 2]), 'parse');
+  assert.equal(await parseFail('坏掉的.doc', [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, 0, 0]), 'parse', 'CFB 头截断应报解析失败');
   // 大数组在 eval 内构造，避免把 2MB 数字拼成字符串
   const bigCode = ev(`(async () => {
     const a = new Uint8Array(2 * 1024 * 1024 + 1); a.fill(65);
@@ -216,6 +325,22 @@ test('免费用户导入后新建讲稿，原有稿件内容不变', () => {
   assert.equal(ev('state.scripts[0].content'), original, '原稿不得被覆盖');
   assert.equal(ev('getActiveContent()'), '新的内容');
   assert.equal(ev('state.isPro'), false, '全程无需 Pro');
+});
+
+// ── 6b. 真实交互链路：选文件 → change → 新建讲稿 ─────────────────────
+test('模拟用户选一个 .doc：change 事件走完整条链路，讲稿真的落库', async () => {
+  // 先把讲稿数压到 1 篇，避免免费额度把这次导入拦在门口
+  ev('state.scripts = state.scripts.slice(0, 1); state.activeScriptId = state.scripts[0].id;');
+  const input = w.document.getElementById('importFile');
+  const file = new w.File([buildWord97Doc()], '会议纪要.doc', { type: 'application/msword' });
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  const before = ev('state.scripts.length');
+  input.dispatchEvent(new w.Event('change'));
+  await new Promise(r => setTimeout(r, 300));
+  assert.equal(ev('state.scripts.length'), before + 1, '应新增一篇讲稿');
+  assert.equal(ev('state.scripts[state.scripts.length - 1].content'), 'Hello 中文讲');
+  assert.equal(ev('state.scripts[state.scripts.length - 1].title'), '会议纪要');
+  assert.equal(input.value, '', 'change 后应清空 input，允许连续选同一个文件');
 });
 
 // ── 7. 悬赏运行时已下线 ──────────────────────────────────────────────

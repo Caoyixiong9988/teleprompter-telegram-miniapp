@@ -228,6 +228,10 @@
 </style>
 </head>
 <body>
+<!-- 文件选择入口：必须放在主脚本之前（init() 里要绑定它），且挂在 body 级、不藏进
+     display:none 的设置面板——否则部分浏览器（iOS WebView / Safari）点按钮弹不出选择器。
+     设置面板按钮与编辑条按钮共用这一个 input。 -->
+<input type="file" id="importFile" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.doc,.dot,.docx,.odt,.xlsx,.rtf" tabindex="-1" aria-hidden="true" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;overflow:hidden;" />
 <div id="app">
   <header>
     <div>
@@ -257,7 +261,7 @@
   <div id="editBar" class="edit-bar hidden">
     <div class="edit-hint" data-i18n="editHint">点一下上面的文字就能直接删改、粘贴、输入；内容较长时可在提词区内上下滚动。也可以从文件导入讲稿。</div>
     <button class="btn" type="button" id="btnQuickPaste" data-i18n="editPaste">📋 粘贴</button>
-    <label class="btn" for="importFile" data-i18n="importBtn">📂 从文件导入讲稿</label>
+    <button class="btn" type="button" id="btnQuickImport" data-i18n="importBtn">📂 从文件导入讲稿</button>
     <button class="btn" type="button" id="btnQuickClear" data-i18n="editClear">🗑 清空</button>
     <button class="btn primary" type="button" id="btnQuickDone" data-i18n="editDone">完成</button>
   </div>
@@ -309,11 +313,8 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;">
           <button class="btn" type="button" id="btnImportFile" data-i18n="importBtn">从文件导入讲稿</button>
           <span class="hint" data-i18n="importHint" style="flex:1 1 190px;min-width:180px;">讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。</span>
-          <!-- iOS Safari：文件输入不要放在 left:-9999px 的绝对定位里（会被 overflow 容器裁掉，
-               系统文件选择器弹不出来）。改 fixed 到视口角落，用 <label for> 原生触发最稳。 -->
-          <input type="file" id="importFile" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.docx,.odt,.xlsx" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;z-index:1;border:0;padding:0;overflow:hidden;" />
         </div>
-        <div class="hint" data-i18n="importFormats" style="margin-top:6px;">支持 TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX；不支持旧版 .doc 与 PDF，请先另存为 .docx 或 .txt。导入会新建一篇讲稿，不会覆盖现有内容。</div>
+        <div class="hint" data-i18n="importFormats" style="margin-top:6px;">支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入会新建一篇讲稿，不会覆盖现有内容。</div>
       </div>
 
       <div class="field">
@@ -632,11 +633,12 @@ const I18N = {
   zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
   importBtn:"从文件导入讲稿",
   importHint:"讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。",
-  importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX；不支持旧版 .doc 与 PDF，请先另存为 .docx 或 .txt。导入会新建一篇讲稿，不会覆盖现有内容。",
+  importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入会新建一篇讲稿，不会覆盖现有内容。",
   importOk:"已导入为新讲稿",
-  importFailType:"不支持的文件类型，请用 TXT / DOCX 等文本格式",
+  importFailType:"不支持的文件类型，请用 TXT / DOC / DOCX 等文本格式",
   importFailSize:"文件过大（上限 2 MB），请拆分后再导入",
   importFailParse:"文件解析失败，请另存为 .txt 或 .docx 后重试",
+  importFailLocked:"这个文档设了打开密码，请先取消密码保护再导入",
   importFailBig:"内容过长，请拆分后再导入",
   importFailUnsupported:"当前设备无法解析该格式，请另存为 .txt 后导入",
   importFailEmpty:"文件里没有可导入的文字",
@@ -814,11 +816,12 @@ const I18N = {
   en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   importBtn:"Import from file",
   importHint:"Already wrote your script in Word or Notepad? Import it here instead of copy-pasting.",
-  importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX. Legacy .doc and PDF are not supported; please save as .docx or .txt. Each import creates a new script and never overwrites existing ones.",
+  importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF and WPS-only formats must be saved in another format first. Each import creates a new script and never overwrites existing ones.",
   importOk:"Imported as a new script",
-  importFailType:"Unsupported file type. Use TXT or DOCX.",
+  importFailType:"Unsupported file type. Use TXT, DOC or DOCX.",
   importFailSize:"File too large (2 MB limit). Split it and try again.",
   importFailParse:"Could not read this file. Save as .txt or .docx and retry.",
+  importFailLocked:"This document is password-protected. Remove the password, then import it.",
   importFailBig:"Text too long. Split it and try again.",
   importFailUnsupported:"This device cannot read that format. Save as .txt and import again.",
   importFailEmpty:"No text found in this file",
@@ -1009,11 +1012,12 @@ const I18N = {
   close:'Schließen',
   importBtn:'Skript aus Datei importieren',
   importHint:'Dein Skript liegt schon in Word oder im Editor? Hier direkt importieren – kein Kopieren und Einfügen nötig.',
-  importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX; das alte .doc-Format und PDF werden nicht unterstützt – speichere diese zuerst als .docx oder .txt. Der Import erstellt ein neues Skript und überschreibt keine vorhandenen Inhalte.',
+  importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF; PDF und WPS-Formate bitte vorher anders speichern. Der Import erstellt ein neues Skript und überschreibt keine vorhandenen Inhalte.',
   importOk:'Als neues Skript importiert',
-  importFailType:'Dateityp nicht unterstützt. Bitte ein Textformat wie TXT / DOCX verwenden.',
+  importFailType:'Dateityp nicht unterstützt. Bitte TXT, DOC oder DOCX verwenden.',
   importFailSize:'Datei zu groß (max. 2 MB). Bitte aufteilen und erneut importieren.',
   importFailParse:'Datei konnte nicht gelesen werden. Bitte als .txt oder .docx speichern und erneut versuchen.',
+  importFailLocked:'Dieses Dokument ist passwortgeschützt. Bitte den Schutz entfernen und erneut importieren.',
   importFailBig:'Inhalt zu lang. Bitte aufteilen und erneut importieren.',
   importFailUnsupported:'Dieses Gerät kann das Format nicht verarbeiten. Bitte als .txt speichern und importieren.',
   importFailEmpty:'Die Datei enthält keinen importierbaren Text.',
@@ -1204,11 +1208,12 @@ const I18N = {
   close:'Fermer',
   importBtn:'Importer un script depuis un fichier',
   importHint:'Votre script est déjà dans Word ou dans un éditeur ? Importez-le directement ici, sans copier-coller.',
-  importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX ; l’ancien format .doc et le PDF ne sont pas pris en charge — enregistrez-les d’abord en .docx ou .txt. L’import crée un nouveau script et n’écrase pas le contenu existant.',
+  importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF ; le PDF et les formats WPS doivent d’abord être enregistrés autrement. L’import crée un nouveau script et n’écrase pas le contenu existant.',
   importOk:'Importé comme nouveau script',
-  importFailType:'Type de fichier non pris en charge. Utilisez un format texte comme TXT / DOCX.',
+  importFailType:'Type de fichier non pris en charge. Utilisez TXT, DOC ou DOCX.',
   importFailSize:'Fichier trop volumineux (2 Mo max). Divisez-le puis réessayez.',
   importFailParse:'Impossible de lire le fichier. Enregistrez-le en .txt ou .docx puis réessayez.',
+  importFailLocked:'Ce document est protégé par mot de passe. Retirez la protection, puis réimportez-le.',
   importFailBig:'Contenu trop long. Divisez-le puis réessayez.',
   importFailUnsupported:'Cet appareil ne peut pas traiter ce format. Enregistrez le fichier en .txt puis importez-le.',
   importFailEmpty:'Le fichier ne contient aucun texte à importer.',
@@ -1386,11 +1391,12 @@ const I18N = {
   ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   importBtn:"ファイルから読み込む",
   importHint:"Word やメモ帳で原稿を書いてありますか？コピペせずにここから直接読み込めます。",
-  importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX。旧形式 .doc と PDF は非対応です。.docx または .txt で保存し直してください。読み込みは新しい原稿として追加され、既存の内容は上書きしません。",
+  importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF。PDF と WPS 専用形式は先に別形式で保存してください。読み込みは新しい原稿として追加され、既存の内容は上書きしません。",
   importOk:"新しい原稿として読み込みました",
-  importFailType:"対応していないファイル形式です。TXT または DOCX をご利用ください",
+  importFailType:"対応していないファイル形式です。TXT / DOC / DOCX をご利用ください",
   importFailSize:"ファイルが大きすぎます（上限 2 MB）。分割して再度お試しください",
   importFailParse:"ファイルを読み込めませんでした。.txt または .docx で保存し直してください",
+  importFailLocked:"この文書はパスワードで保護されています。保護を解除してから読み込んでください",
   importFailBig:"文字数が多すぎます。分割して再度お試しください",
   importFailUnsupported:"この端末ではその形式を読み込めません。.txt で保存し直してください",
   importFailEmpty:"ファイルに読み込める文字がありません",
@@ -1568,11 +1574,12 @@ const I18N = {
   ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   importBtn:"파일에서 가져오기",
   importHint:"Word나 메모장에 이미 대본을 써 두셨나요? 복사·붙여넣기 없이 여기서 바로 가져오세요.",
-  importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX. 이전 형식 .doc 및 PDF는 지원하지 않습니다. .docx 또는 .txt로 다시 저장해 주세요. 가져오기는 새 대본으로 추가되며 기존 내용을 덮어쓰지 않습니다.",
+  importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF와 WPS 전용 형식은 먼저 다른 형식으로 저장해 주세요. 가져오기는 새 대본으로 추가되며 기존 내용을 덮어쓰지 않습니다.",
   importOk:"새 대본으로 가져왔습니다",
-  importFailType:"지원하지 않는 파일 형식입니다. TXT 또는 DOCX를 사용해 주세요",
+  importFailType:"지원하지 않는 파일 형식입니다. TXT / DOC / DOCX를 사용해 주세요",
   importFailSize:"파일이 너무 큽니다(최대 2 MB). 나누어 다시 시도해 주세요",
   importFailParse:"파일을 읽을 수 없습니다. .txt 또는 .docx로 다시 저장해 주세요",
+  importFailLocked:"이 문서는 비밀번호로 보호되어 있습니다. 보호를 해제한 뒤 다시 가져와 주세요",
   importFailBig:"내용이 너무 깁니다. 나누어 다시 시도해 주세요",
   importFailUnsupported:"이 기기에서는 해당 형식을 읽을 수 없습니다. .txt로 저장해 주세요",
   importFailEmpty:"파일에서 가져올 텍스트가 없습니다",
@@ -1750,11 +1757,12 @@ const I18N = {
   ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
   importBtn:"Импорт из файла",
   importHint:"Текст уже написан в Word или Блокноте? Загрузите его здесь без копирования.",
-  importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOCX / ODT / XLSX. Устаревший .doc и PDF не поддерживаются — сохраните как .docx или .txt. Импорт создаёт новый сценарий и не перезаписывает существующие.",
+  importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF и форматы WPS нужно сначала сохранить в другом формате. Импорт создаёт новый сценарий и не перезаписывает существующие.",
   importOk:"Импортировано как новый сценарий",
-  importFailType:"Неподдерживаемый формат. Используйте TXT или DOCX",
+  importFailType:"Неподдерживаемый формат. Используйте TXT, DOC или DOCX",
   importFailSize:"Файл слишком большой (лимит 2 МБ). Разделите его",
   importFailParse:"Не удалось прочитать файл. Сохраните как .txt или .docx",
+  importFailLocked:"Документ защищён паролем. Снимите защиту и импортируйте снова",
   importFailBig:"Текст слишком длинный. Разделите его",
   importFailUnsupported:"Это устройство не может прочитать формат. Сохраните как .txt",
   importFailEmpty:"В файле нет текста для импорта",
@@ -2056,18 +2064,24 @@ function addScript(){
 }
 /* ---------- 从文件导入讲稿（免费 · 纯本地 · 零依赖） ----------
  * 依据《产品宪法 · 所有 APP 共同底线》：入口功能一律免费，不设 Pro 门禁。
- * 只做纯文本提取：不上传、不执行文件内容、不引入任何第三方库 / CDN。
- * 支持 TXT / TEXT / MD / MARKDOWN / CSV / SRT / VTT / LOG（纯文本）
- *      DOCX / ODT / XLSX（ZIP + XML，浏览器原生 DecompressionStream）
- * 不做旧版 .doc（OLE 二进制）、PDF、RTF、Pages / WPS —— UI 明确引导另存。
+ * 只做纯文本提取：不上传、不执行文件内容（宏一律不执行）、不引入任何第三方库 / CDN。
+ * 支持纯文本：TXT / TEXT / MD / MARKDOWN / CSV / SRT / VTT / LOG
+ * 支持打包文档：DOCX / ODT / XLSX（ZIP + XML，浏览器原生 DecompressionStream）
+ * 支持旧版 Word：DOC / DOT（Word 97-2003 的 OLE 复合文档，自研 CFB + FIB 分片表读取）
+ * 支持 RTF：.rtf，以及「后缀写成 .doc 其实是 RTF」的文件
+ * 支持伪装成 .doc 的 HTML（国内不少系统「导出 Word」其实就是 HTML）
+ * 扩展名只作提示，真正按文件头魔数选解析器：.doc 里其实是 docx / RTF / HTML 也能导入。
+ * 仍不做：PDF、WPS / Pages 私有格式、加密文档（明文提示原因）。
  */
 const IMPORT_TEXT_EXTS = { txt:1, text:1, md:1, markdown:1, csv:1, srt:1, vtt:1, log:1 };
 const IMPORT_ZIP_EXTS  = { docx:1, odt:1, xlsx:1 };
+const IMPORT_LEGACY_EXTS = { doc:1, dot:1, rtf:1 }; // 旧版 Word / RTF（按魔数再分流）
 const IMPORT_MAX_FILE_BYTES = 2 * 1024 * 1024;
 const IMPORT_MAX_TEXT_BYTES = 90 * 1024; // 与后端 /scripts 正文 100 KiB 上限对齐，留余量
 const IMPORT_ERR_KEYS = {
   type:'importFailType', size:'importFailSize', parse:'importFailParse',
-  big:'importFailBig', unsupported:'importFailUnsupported', empty:'importFailEmpty'
+  big:'importFailBig', unsupported:'importFailUnsupported', empty:'importFailEmpty',
+  locked:'importFailLocked'
 };
 
 function importFail(code){ throw { code: code }; }
@@ -2075,7 +2089,9 @@ function importExtOf(name){
   const m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
   return m ? m[1].toLowerCase() : '';
 }
-function importIsSupported(ext){ return !!(IMPORT_TEXT_EXTS[ext] || IMPORT_ZIP_EXTS[ext]); }
+function importIsSupported(ext){
+  return !!(IMPORT_TEXT_EXTS[ext] || IMPORT_ZIP_EXTS[ext] || IMPORT_LEGACY_EXTS[ext]);
+}
 
 // 纯文本解码：UTF-8 BOM / UTF-16 BOM / 无 BOM 的 UTF-8，失败回退 GBK（浏览器内置解码器）。
 function decodeTextBytes(input){
@@ -2202,6 +2218,408 @@ function extractPlainTextFromXml(xmlText, ext){
   return lines.join('\n');
 }
 
+/* ================= 旧版 Word（.doc / .dot）文本提取 =================
+ * .doc 是 OLE2 复合文档（CFB）容器，正文在 WordDocument 流里，正文分片表（Clx / PlcPcd）
+ * 在 1Table 或 0Table 流里。这里只读这两段结构、只取字符，不解析样式、不执行宏、不碰嵌入对象。
+ * 结构不合法一律 importFail('parse')；每条扇区链都有上限，畸形文件不会死循环。
+ */
+const CFB_END_OF_CHAIN = 0xFFFFFFFE;
+const CFB_FREE_SECT = 0xFFFFFFFF;
+const CFB_MAX_CHAIN = 1 << 18;
+
+function cfbIsContainer(b){
+  return !!(b && b.length >= 512 &&
+    b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0 &&
+    b[4] === 0xA1 && b[5] === 0xB1 && b[6] === 0x1A && b[7] === 0xE1);
+}
+
+// 打开 CFB：解析 FAT / 目录 / MiniFAT，返回 { stream(name) }；结构不合法返回 null。
+function cfbOpen(input){
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (!cfbIsContainer(b)) return null;
+  const secSz = 1 << readU16(b, 0x1E);
+  const miniSz = 1 << readU16(b, 0x20);
+  if (secSz < 128 || secSz > 65536 || miniSz < 8 || miniSz > secSz) return null;
+  const perSec = secSz >>> 2;
+  const miniCutoff = readU32(b, 0x38);
+  const dirStart = readU32(b, 0x30);
+  const firstMiniFat = readU32(b, 0x3C);
+  const nMiniFat = readU32(b, 0x40);
+  const firstDifat = readU32(b, 0x44);
+  const nDifat = readU32(b, 0x48);
+  const secOff = function (sid) { return (sid + 1) * secSz; }; // 头部占掉第 0 个扇区
+
+  // DIFAT → FAT 扇区号清单（头部内嵌 109 项，之后是 DIFAT 扇区链）
+  const fatSids = [];
+  for (let i = 0; i < 109; i++) {
+    const v = readU32(b, 0x4C + i * 4);
+    if (v !== CFB_FREE_SECT && v !== CFB_END_OF_CHAIN) fatSids.push(v);
+  }
+  let difat = firstDifat, guard = 0;
+  while (nDifat && difat !== CFB_END_OF_CHAIN && difat !== CFB_FREE_SECT && guard++ < 4096) {
+    const off = secOff(difat);
+    if (off + secSz > b.length) break;
+    for (let i = 0; i < perSec - 1; i++) {
+      const v = readU32(b, off + i * 4);
+      if (v !== CFB_FREE_SECT && v !== CFB_END_OF_CHAIN) fatSids.push(v);
+    }
+    difat = readU32(b, off + (perSec - 1) * 4);
+  }
+
+  const fat = [];
+  for (let k = 0; k < fatSids.length; k++) {
+    const off = secOff(fatSids[k]);
+    if (off + secSz > b.length) continue;
+    for (let i = 0; i < perSec; i++) fat.push(readU32(b, off + i * 4));
+  }
+  if (!fat.length) return null;
+
+  // 按扇区链把数据拼成连续字节；size 有值时按声明长度裁剪
+  function readChain(start, size){
+    const sids = [];
+    let s = start, n = 0, total = 0;
+    while (s !== CFB_END_OF_CHAIN && s !== CFB_FREE_SECT && n++ < CFB_MAX_CHAIN) {
+      if (s >= fat.length) break;
+      sids.push(s); total += secSz;
+      if (size && total >= size) break;
+      s = fat[s];
+    }
+    const out = new Uint8Array(size && size < total ? size : total);
+    let p = 0;
+    for (let i = 0; i < sids.length && p < out.length; i++) {
+      const off = secOff(sids[i]);
+      if (off >= b.length) break;
+      const end = Math.min(off + secSz, b.length);
+      out.set(b.subarray(off, end), p);
+      p += end - off;
+    }
+    return out;
+  }
+
+  // 目录项：每项 128 字节，名字是 UTF-16LE，type 5=根 2=流
+  const dirBuf = readChain(dirStart, 0);
+  const entries = [];
+  for (let o = 0; o + 128 <= dirBuf.length; o += 128) {
+    const nameLen = readU16(dirBuf, o + 0x40);
+    const type = dirBuf[o + 0x42];
+    if (!nameLen || nameLen > 64) { entries.push(null); continue; }
+    let name = '';
+    for (let i = 0; i < nameLen - 2; i += 2) name += String.fromCharCode(readU16(dirBuf, o + i));
+    entries.push({ name: name, type: type, start: readU32(dirBuf, o + 0x74), size: readU32(dirBuf, o + 0x78) });
+  }
+
+  let root = null;
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i] && entries[i].type === 5) { root = entries[i]; break; }
+  }
+  // < 4096 字节的小流放在根存储的 mini stream 里，用 MiniFAT 串起来
+  const miniStream = root ? readChain(root.start, root.size) : new Uint8Array(0);
+  const miniFatBuf = (nMiniFat && firstMiniFat !== CFB_END_OF_CHAIN && firstMiniFat !== CFB_FREE_SECT)
+    ? readChain(firstMiniFat, nMiniFat * secSz) : new Uint8Array(0);
+
+  function readMini(start, size){
+    const out = new Uint8Array(size);
+    let s = start, p = 0, n = 0;
+    while (p < size && s !== CFB_END_OF_CHAIN && s !== CFB_FREE_SECT && n++ < CFB_MAX_CHAIN) {
+      const fatOff = s * 4;
+      if (fatOff + 4 > miniFatBuf.length) break;
+      const off = s * miniSz;
+      const take = Math.min(miniSz, size - p);
+      if (off + take > miniStream.length) break;
+      out.set(miniStream.subarray(off, off + take), p);
+      p += take;
+      s = readU32(miniFatBuf, fatOff);
+    }
+    return out;
+  }
+
+  return {
+    stream: function (name) {
+      const want = String(name).toLowerCase();
+      let e = null;
+      for (let i = 0; i < entries.length; i++) {
+        const x = entries[i];
+        if (x && x.type === 2 && x.name.toLowerCase() === want) { e = x; break; }
+      }
+      if (!e) return null;
+      if (!e.size) return new Uint8Array(0);
+      if (e.size < miniCutoff && miniStream.length) return readMini(e.start, e.size);
+      return readChain(e.start, e.size);
+    }
+  };
+}
+
+// 压缩分片是「本地代码页单字节」：中文文档这里通常只有 ASCII，混进高位字节就按 GBK 再兜 cp1252。
+function docDecodeAnsi(bytes){
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] >= 0x80) {
+      try { return new TextDecoder('gbk').decode(bytes); } catch (e) {}
+      break;
+    }
+  }
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 4096) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 4096, bytes.length)));
+  }
+  return s;
+}
+function docDecodeUtf16(bytes){
+  try { return new TextDecoder('utf-16le').decode(bytes); } catch (e) {
+    let s = '';
+    for (let i = 0; i + 1 < bytes.length; i += 2) s += String.fromCharCode(bytes[i] | (bytes[i + 1] << 8));
+    return s;
+  }
+}
+
+// Word 用 0x0D 表示段落、0x07 单元格、0x13/0x14/0x15 包裹域；翻译成可读文本并丢掉域代码。
+function docCleanWordControl(s){
+  const out = [];
+  let fields = 0, inInstruction = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 0x13) { fields++; inInstruction = true; continue; }
+    if (c === 0x14) { inInstruction = false; continue; }
+    if (c === 0x15) { if (fields > 0) fields--; if (!fields) inInstruction = false; continue; }
+    if (fields && inInstruction) continue;                        // 域代码（PAGE / HYPERLINK…）不要
+    if (c === 0x0D || c === 0x0B || c === 0x0C || c === 0x0A) { out.push('\n'); continue; }
+    if (c === 0x07) { out.push('\t'); continue; }
+    if (c === 0x1E) { out.push('-'); continue; }
+    if (c === 0x1F || c === 0xFFFD) continue;                     // 可选连字符 / 替换符
+    if (c < 0x20) continue;                                       // 图片锚点 0x01、脚注 0x02、绘图 0x08
+    out.push(s.charAt(i));
+  }
+  return out.join('');
+}
+
+// 没有分片表时的近似读法（Word 6/95 或结构残缺），靠 0 字节分布猜 UTF-16 / 单字节。
+function docApproxPlain(wd, fcMin, fcMac){
+  let a = Math.max(0, fcMin | 0);
+  let z = Math.min(wd.length, (fcMac | 0) || wd.length);
+  if (!(z > a + 1)) { a = 0; z = Math.min(wd.length, 128 * 1024); }
+  const seg = wd.subarray(a, z);
+  let zeros = 0;
+  for (let i = 1; i < seg.length; i += 2) if (seg[i] === 0) zeros++;
+  return (zeros * 4 > seg.length) ? docDecodeUtf16(seg) : docDecodeAnsi(seg);
+}
+
+function docTextFromWord(doc){
+  const wd = doc.stream('WordDocument');
+  if (!wd || wd.length < 0x40) importFail('parse');
+  if (readU16(wd, 0) !== 0xA5EC) importFail('parse');   // wIdent：不是 Word 文档
+  const flags = readU16(wd, 0x0A);
+  if (flags & 0x0100) importFail('locked');             // fEncrypted：设了打开密码
+  const nFib = readU16(wd, 2);
+  const fcMin = readU32(wd, 0x18), fcMac = readU32(wd, 0x1C);
+  if (nFib < 193) return docCleanWordControl(docApproxPlain(wd, fcMin, fcMac)); // Word 6/95
+  const tbl = doc.stream((flags & 0x0200) ? '1Table' : '0Table') ||
+              doc.stream('1Table') || doc.stream('0Table');
+  if (!tbl || !tbl.length) return docCleanWordControl(docApproxPlain(wd, fcMin, fcMac));
+  const ccpText = readU32(wd, 0x4C);                    // 正文字符数（不含脚注 / 页眉）
+  const fcClx = readU32(wd, 0x1A2), lcbClx = readU32(wd, 0x1A6);
+  if (!lcbClx || fcClx + lcbClx > tbl.length) return docCleanWordControl(docApproxPlain(wd, fcMin, fcMac));
+
+  // Clx：先可能是若干 Prc（0x01 分片属性），真正的分片表是 Pcdt（0x02）
+  let p = fcClx, plc = null;
+  while (p + 5 <= fcClx + lcbClx) {
+    const clxt = tbl[p];
+    if (clxt === 0x01) { p += 3 + readU16(tbl, p + 1); continue; }
+    if (clxt === 0x02) {
+      const lcb = readU32(tbl, p + 1);
+      plc = tbl.subarray(p + 5, Math.min(p + 5 + lcb, tbl.length));
+      break;
+    }
+    break;
+  }
+  if (!plc || plc.length < 16) return docCleanWordControl(docApproxPlain(wd, fcMin, fcMac));
+
+  // PlcPcd：n+1 个 CP 边界 + n 个 8 字节 PCD（PCD 第 2..5 字节是 fc）
+  const n = Math.floor((plc.length - 4) / 12);
+  if (n < 1) return docCleanWordControl(docApproxPlain(wd, fcMin, fcMac));
+  const limit = ccpText || 0x7FFFFFFF;
+  const chunks = [];
+  for (let i = 0; i < n; i++) {
+    const cpStart = readU32(plc, i * 4);
+    const cpEnd = readU32(plc, (i + 1) * 4);
+    if (cpEnd <= cpStart || cpStart >= limit) continue;
+    const pcd = (n + 1) * 4 + i * 8;
+    if (pcd + 8 > plc.length) break;
+    const fcRaw = readU32(plc, pcd + 2);
+    const count = Math.min(cpEnd, limit) - cpStart;
+    if (!count) continue;
+    if (fcRaw & 0x40000000) {                            // fCompressed：单字节（本地代码页）
+      const fc = (fcRaw & 0x3FFFFFFF) >>> 1;
+      if (fc + count > wd.length) continue;
+      chunks.push(docDecodeAnsi(wd.subarray(fc, fc + count)));
+    } else {
+      const fc = fcRaw & 0x3FFFFFFF;
+      if (fc + count * 2 > wd.length) continue;
+      chunks.push(docDecodeUtf16(wd.subarray(fc, fc + count * 2)));
+    }
+  }
+  const text = chunks.join('');
+  return docCleanWordControl(text || docApproxPlain(wd, fcMin, fcMac));
+}
+
+/* ================= RTF 文本提取 =================
+ * 按花括号组扫描：跳过字体表 / 图片 / 域代码等目标组，\'hh 按 \ansicpg 解码，\uN 取 Unicode。
+ * 只把文字拿出来，不做富文本排版还原。
+ */
+const RTF_SKIP_DESTS = {
+  fonttbl:1, colortbl:1, stylesheet:1, info:1, pict:1, object:1, objdata:1, filetbl:1,
+  header:1, headerl:1, headerr:1, headerf:1, footer:1, footerl:1, footerr:1, footerf:1,
+  footnote:1, fldinst:1, listtable:1, listoverridetable:1, rsidtbl:1, generator:1,
+  themedata:1, colorschememapping:1, latentstyles:1, datastore:1, xmlnstbl:1
+};
+function rtfDecodeBytes(bytes, enc){
+  try { return new TextDecoder(enc).decode(bytes); } catch (e) {}
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return s;
+}
+function rtfExtractText(src){
+  const s = String(src || '');
+  const out = [];
+  let i = 0, depth = 0, skipDepth = 0, codepage = '', star = false, pending = [];
+  function flush(){
+    if (!pending.length) return;
+    const bytes = new Uint8Array(pending); pending = [];
+    if (skipDepth) return;
+    let enc = 'windows-1252';
+    if (codepage === '936' || codepage === 'gb2312' || codepage === '54936') enc = 'gbk';
+    else if (codepage === '950') enc = 'big5';
+    else if (codepage === '932') enc = 'shift_jis';
+    else if (codepage === '949') enc = 'euc-kr';
+    else if (codepage === '1251') enc = 'windows-1251';
+    out.push(rtfDecodeBytes(bytes, enc));
+  }
+  while (i < s.length) {
+    const c = s.charCodeAt(i);
+    if (c === 0x7B) { // {
+      flush(); depth++; i++;
+      if (!skipDepth && star) { skipDepth = depth; star = false; }
+      continue;
+    }
+    if (c === 0x7D) { // }
+      flush();
+      if (skipDepth && depth <= skipDepth) skipDepth = 0;
+      if (depth > 0) depth--;
+      i++; continue;
+    }
+    if (c === 0x5C) { // 反斜杠
+      const nx = s.charCodeAt(i + 1);
+      if (nx === 0x5C || nx === 0x7B || nx === 0x7D) {
+        if (!skipDepth) { flush(); out.push(String.fromCharCode(nx)); }
+        i += 2; continue;
+      }
+      if (nx === 0x27) { // \'hh
+        const hex = s.substr(i + 2, 2);
+        if (/^[0-9a-fA-F]{2}$/.test(hex)) pending.push(parseInt(hex, 16));
+        i += 4; continue;
+      }
+      if (nx === 0x2A) { star = true; i += 2; continue; }        // \* 目标组
+      if (nx === 0x7E) { if (!skipDepth) { flush(); out.push(' '); } i += 2; continue; }
+      if (nx === 0x5F) { if (!skipDepth) { flush(); out.push('-'); } i += 2; continue; }
+      let j = i + 1, word = '';
+      while (j < s.length && /[a-zA-Z]/.test(s.charAt(j))) { word += s.charAt(j); j++; }
+      let sign = 1;
+      if (s.charAt(j) === '-') { sign = -1; j++; }
+      let digits = '';
+      while (j < s.length && /[0-9]/.test(s.charAt(j))) { digits += s.charAt(j); j++; }
+      if (s.charAt(j) === ' ') j++;
+      const num = digits ? sign * parseInt(digits, 10) : null;
+      if (!word) { i = j; continue; }
+      const lw = word.toLowerCase();
+      if (lw === 'ansicpg' && num != null) codepage = String(num);
+      if (!skipDepth && RTF_SKIP_DESTS[lw]) skipDepth = depth;
+      if (!skipDepth) {
+        if (lw === 'par' || lw === 'line' || lw === 'sect' || lw === 'page' || lw === 'row') { flush(); out.push('\n'); }
+        else if (lw === 'tab' || lw === 'cell') { flush(); out.push('\t'); }
+        else if (lw === 'u' && num != null) {
+          flush();
+          out.push(String.fromCharCode(num < 0 ? num + 65536 : num));
+          // 跳过 \uN 后面的替代字符（? 或 \'hh 或单字节）
+          if (s.charAt(j) === '?') j++;
+          else if (s.charAt(j) === '\\' && s.charAt(j + 1) === "'") j += 4;
+          else if (j < s.length) {
+            const cc = s.charCodeAt(j);
+            if (cc < 0x80 && cc !== 0x7B && cc !== 0x7D) j++;
+          }
+        }
+      }
+      i = j; continue;
+    }
+    if (c === 0x0D || c === 0x0A) { i++; continue; }
+    if (!skipDepth) { flush(); out.push(s.charAt(i)); }
+    i++;
+  }
+  flush();
+  return out.join('');
+}
+
+/* ================= 伪装成 .doc 的 HTML =================
+ * 只做去标签取文字，不插入 DOM、不执行脚本、不加载任何外部资源。
+ */
+function htmlExtractText(src){
+  const s = String(src || '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style|head|xml)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li|tr|table|section|article|blockquote)>/gi, '\n')
+    .replace(/<[^>]*>/g, '');   // 行内标签直接删掉：中文里不该因为 </span><span> 多出空格
+  return s
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, function (m, d) { return String.fromCharCode(parseInt(d, 10) || 32); })
+    .replace(/&amp;/gi, '&');
+}
+
+/* 扩展名只作提示：按文件头魔数选解析器，容忍「.doc 其实是 docx / RTF / HTML」。 */
+function importDetectKind(b, ext){
+  if (cfbIsContainer(b)) return 'cfb';
+  if (b.length >= 4 && b[0] === 0x50 && b[1] === 0x4B && (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07)) return 'zip';
+  let head = '';
+  const n = Math.min(b.length, 1024);
+  for (let i = 0; i < n; i++) {
+    const c = b[i];
+    head += (c >= 0x20 && c < 0x7F) ? String.fromCharCode(c)
+          : (c === 0x0A || c === 0x0D || c === 0x09 ? ' ' : '\u0000');
+  }
+  if (/^\s*\{\\rtf/i.test(head)) return 'rtf';
+  if (/<html|<head|<body|<!doctype\s+html|mime-version|content-type:\s*text\/html/i.test(head)) return 'html';
+  return 'text';
+}
+
+// 二进制「看起来像不像文本」：不可打印字符占比高、或出现 0 字节，就不是能念的讲稿。
+// 用于 .doc / .rtf 这类本该是容器的扩展名——魔数不认识时别把乱码灌进用户讲稿。
+function importLooksTextual(bytes){
+  if (!bytes.length) return true;
+  const n = Math.min(bytes.length, 4096);
+  let bad = 0;
+  for (let i = 0; i < n; i++) {
+    const c = bytes[i];
+    if (c === 0) return false;
+    if (c < 0x09 || (c > 0x0D && c < 0x20)) bad++;
+  }
+  return bad * 10 < n;
+}
+
+// ZIP 里按内部条目名判断到底是 docx / odt / xlsx，不再依赖扩展名。
+function zipPickEntry(bytes){
+  const cands = [['word/document.xml', 'docx'], ['content.xml', 'odt'], ['xl/sharedStrings.xml', 'xlsx']];
+  for (let i = 0; i < cands.length; i++) {
+    const e = findZipEntry(bytes, cands[i][0]);
+    if (e) return { entry: e, kind: cands[i][1] };
+  }
+  return null;
+}
+async function importTextFromZip(bytes){
+  const picked = zipPickEntry(bytes);
+  if (!picked) importFail('parse');
+  const raw = picked.entry.method === 0 ? picked.entry.data : await inflateRaw(picked.entry.data);
+  return extractPlainTextFromXml(new TextDecoder('utf-8').decode(raw), picked.kind);
+}
+
 function readFileAsArrayBuffer(file){
   if (typeof file.arrayBuffer === 'function') return file.arrayBuffer();
   return new Promise(function (resolve, reject) {
@@ -2231,16 +2649,20 @@ async function parseImportFile(file){
   if (bytes.length > IMPORT_MAX_FILE_BYTES) importFail('size');
 
   let text;
-  if (IMPORT_ZIP_EXTS[ext]) {
-    if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) importFail('parse'); // ZIP 头二次校验，不信扩展名
-    const target = ext === 'docx' ? 'word/document.xml'
-                 : ext === 'odt'  ? 'content.xml'
-                 : 'xl/sharedStrings.xml';
-    const entry = findZipEntry(bytes, target);
-    if (!entry) importFail('parse');
-    const raw = entry.method === 0 ? entry.data : await inflateRaw(entry.data);
-    text = extractPlainTextFromXml(new TextDecoder('utf-8').decode(raw), ext);
+  const kind = importDetectKind(bytes, ext);
+  if (kind === 'zip') {
+    text = await importTextFromZip(bytes);
+  } else if (kind === 'cfb') {
+    const doc = cfbOpen(bytes);
+    if (!doc) importFail('parse');
+    text = docTextFromWord(doc);
+  } else if (kind === 'rtf') {
+    text = rtfExtractText(decodeTextBytes(bytes));
+  } else if (kind === 'html') {
+    text = htmlExtractText(decodeTextBytes(bytes));
   } else {
+    // .doc / .rtf 的魔数都不认识、内容又是二进制 → 明确报解析失败，不把乱码当讲稿导入
+    if (IMPORT_LEGACY_EXTS[ext] && !importLooksTextual(bytes)) importFail('parse');
     text = stripSubtitleMarkup(decodeTextBytes(bytes), ext);
   }
   text = importCleanText(text);
@@ -2267,7 +2689,8 @@ async function handleImportFile(file){
     if (!importTextAsNewScript(r.title, r.text)) return;
     toast(t('importOk'));
   } catch (err) {
-    toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'));
+    // 失败原因要留够时间看清：文案本身长，2 秒容易被忽略成「点了没反应」
+    toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'), 4600);
   }
 }
 
@@ -3019,11 +3442,11 @@ function generateCard(){
 
 /* ---------- Toast ---------- */
 let toastTimer = null;
-function toast(msg){
+function toast(msg, ms){
   toastEl.textContent = msg;
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, ms || 2200);
 }
 
 /* ---------- initData 服务端验签（可选） ---------- */
@@ -3644,13 +4067,24 @@ function init(){
   document.getElementById('btnReport').addEventListener('click', submitReport);
 
   // 从文件导入讲稿（免费功能，无 Pro 门禁）：导入后新建一篇，不覆盖现有内容
-  const importBtn = document.getElementById('btnImportFile');
+  // 两个入口（设置面板按钮 / 编辑条按钮）共用一个 body 级 input，任一入口都能弹出选择器。
   const importInput = document.getElementById('importFile');
-  if (importBtn && importInput) {
-    importBtn.addEventListener('click', function () { importInput.click(); });
+  function pickImportFile(){
+    if (!importInput) return;
+    importInput.value = '';        // 同一文件连续选也能触发 change
+    importInput.click();
+  }
+  const importBtn = document.getElementById('btnImportFile');
+  if (importBtn) importBtn.addEventListener('click', pickImportFile);
+  const quickImportBtn = document.getElementById('btnQuickImport');
+  if (quickImportBtn) quickImportBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    pickImportFile();
+  });
+  if (importInput) {
     importInput.addEventListener('change', function (e) {
       const f = e.target.files && e.target.files[0];
-      e.target.value = ''; // 允许连续选择同一个文件
+      e.target.value = '';         // 允许连续选择同一个文件
       handleImportFile(f);
     });
   }

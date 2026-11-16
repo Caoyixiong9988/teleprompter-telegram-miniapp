@@ -8,6 +8,44 @@
 
 ---
 
+## 2026-11-16 · fix(import) — 电脑端导入 `.doc` 讲稿从「一律失败」到真正可用
+
+**为什么**：用户实测电脑端点「从文件导入讲稿」，选的都是 Word 的 `.doc` 文件，试了几次都不成功。查下来是三个原因叠在一起：
+
+1. **`.doc` 原本被设计成不支持**（格式白名单里只有 `docx/odt/xlsx` 与纯文本），代码直接 `importFail('type')` —— 而 `accept` 属性也没有 `.doc`，Windows 文件对话框按扩展名过滤，用户甚至可能选不到。
+2. **隐藏的 file input 藏在 `display:none` 的设置面板里**，部分浏览器（尤其 WebView）点按钮弹不出系统选择器。
+3. 失败提示只显示 **2.2 秒**，长文案很容易看漏，用户感知就是「点了没任何反应」。
+
+**做了什么**：
+
+1. **自研 `.doc` 解析（零依赖、纯本地）** — 逐层读 OLE2 复合文档（CFB）：头部 → DIFAT → FAT → 目录项 → 流；正文从 `WordDocument` 流的 FIB 取 `ccpText` / `fcClx` / `lcbClx`，再到 `1Table`（或 `0Table`）流解析 Clx（先跳过 Prc 分片属性，取 Pcdt 的 PlcPcd），按 CP 区间把分片拼成文本。**压缩分片走本地代码页（含 GBK），非压缩分片走 UTF-16LE**，中文正常。小流（<4096 字节）走根存储的 **mini stream / MiniFAT**（真实短稿就是这个布局）。Word 6/95 与结构残缺文件退化为 `fcMin..fcMac` 近似读取。Word 控制符翻译：`0x0D`→换行、`0x07`→制表、`0x13/0x14/0x15` 包起来的**域代码整段丢弃**、图片锚点等控制符剔除。
+2. **加密文档明确报错** — 读 FIB 的 `fEncrypted` 位（bit8），设了打开密码直接提示「先取消密码保护再导入」（新增键 `importFailLocked`），不是含糊的「解析失败」。
+3. **扩展名降级为提示，改按文件头魔数选解析器** — `xxx.doc` 里其实是 **docx（ZIP）/ RTF / HTML / 纯文本**都能正确导入；反过来 `xxx.docx` 里其实是老 `.doc` 也能读。国内不少系统「导出 Word」实际输出的是 HTML 或 RTF，这一条把它们都接住了。
+4. **新增 RTF 解析** — 按花括号组扫描，跳过 `fonttbl / colortbl / stylesheet / pict / fldinst` 等目标组，`\'hh` 按 `\ansicpg`（936/950/932/949/1251/1252）解码，`\uN` 取 Unicode，`\par/\line/\tab` 转成换行制表符。
+5. **新增伪 HTML `.doc` 解析** — 只去标签取文字，`<script>/<style>/<head>` 整段丢弃，实体解码；不插 DOM、不执行脚本、不加载外部资源。
+6. **二进制防护** — `.doc/.rtf` 的魔数都不认识、内容又不可打印时直接报「解析失败」，**不会把乱码灌进用户讲稿**（新函数 `importLooksTextual`）。
+7. **入口修复** — file input 从设置面板搬到 `<body>` 级、并且**放在主脚本之前**（`init()` 里要绑定它，放在脚本之后会导致 `getElementById` 拿不到、点按钮完全无反应）；设置面板按钮与编辑条按钮共用一个 input，编辑条那个 `<label for>` 改成真按钮 `#btnQuickImport`。
+8. **失败提示延长到 4.6 秒**（`toast(msg, ms)` 新增可选时长），文案也改成可操作的：`.doc` 相关提示、`importFailType` 改成「请用 TXT / DOC / DOCX」。七语同步，键数 **193 → 194**。
+
+**怎么验证**：`npm test` **138/138**；`node test_i18n_real.mjs` **32/32**；`npm run smoke:worker` **18/18**；`npm run test:ios` **75/75**。新增 12 项导入用例（`p8-import/test-import.mjs` 27 项）：
+
+- `.doc` 端到端（常规扇区链）：压缩 ASCII + UTF-16 中文 → `Hello 中文讲`
+- `.doc` 端到端（**mini stream** 布局 + Clx 前的 Prc 属性块）→ `Short 短稿`
+- Word 控制符：域代码丢弃、段落/单元格翻译
+- 加密 `.doc` → `locked`；非 Word 的 OLE 容器 → `parse`；CFB 头截断 → `parse`
+- `.doc` 其实是 docx / RTF / HTML / 纯文本，四个方向都能导入
+- RTF（`ansicpg936` 中文、`\uN` 转义、`.rtf` 与伪装成 `.doc` 两种后缀）
+- 伪 HTML `.doc`：样式与脚本不进正文
+- **模拟真实交互**：给 input 塞入 `.doc` 文件 → 派发 `change` → 讲稿真的落库（title/content 正确、input 被清空可连选）
+
+样本由 `tools/make-doc-fixture.mjs` 现造：按 CFB 规范逐字节写出头部 / FAT / 目录 / `WordDocument` / `1Table`，两种布局（常规扇区链与 mini stream），不把二进制塞进仓库。
+
+**体积**：`index.html` **223,844 → 243,022 字节（+19,178）**；gzip **72,717 → 78,192 字节（+5,475）**。占 Pages 单文件 25 MiB 上限的 **0.93%**。
+
+**涉及文件**：`index.html`、`tools/make-doc-fixture.mjs`（新增）、`p8-import/test-import.mjs`、`p3-payments/test-checkout.mjs`、`p9-quota/test-quota.mjs`、`verify-ios-editor.mjs`、`README.md`、`【产品宪法】…md`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-16 · feat(i18n) — 语言从五语扩到七语，新增德语 / 法语
 
 **为什么**：用户判断德语区与法语区（德国、奥地利、瑞士、法国、比利时、加拿大魁北克、西非法语区）是值得覆盖的增量市场，希望在语言选择里加入 Deutsch 与 Français。
