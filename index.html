@@ -52,6 +52,8 @@
   }
   #scrollText{
     white-space:pre-wrap; word-break:break-word; padding:28px 22px;
+    /* 统一字体栈：各平台/各语言都用系统最常见的无衬线字体，中文/日文/韩文/西里尔/拉丁都能正常显示 */
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC", "Apple SD Gothic Neo", Roboto, Arial, sans-serif;
     font-size:44px; line-height:1.55; color:var(--text); text-align:center;
     transform-origin:center center; will-change:transform;
     /* 主屏就地编辑：允许 iOS 长按选字、弹出「粘贴」菜单 */
@@ -247,6 +249,11 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="sub" id="verifyStatus" style="text-align:right;"></div>
+      <!-- 主屏字号快捷按钮：不必进设置即可调大小；A- / A+ 跨语言通用 -->
+      <div style="display:flex;align-items:center;gap:2px;" role="group" aria-label="font size">
+        <button type="button" id="btnFontDown" aria-label="font size down" title="A-" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A−</button>
+        <button type="button" id="btnFontUp" aria-label="font size up" title="A+" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A+</button>
+      </div>
       <select id="langSelect" aria-label="language" style="font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid #d8dde6;background:#fff;color:#222;">
         <option value="zh">中文</option>
         <option value="en">EN</option>
@@ -2829,6 +2836,7 @@ function loadActiveIntoEditor(){
   const content = s ? s.content : '';
   if (setScript) setScript.value = content;
   if (scrollText) scrollText.textContent = content;
+  readTokensDirty = true; // 文本节点被整体替换，逐词高亮必须重建缓存
   const st = document.getElementById('setScriptTitle');
   if (st) st.value = s ? s.title : '';
   const isDefault = Object.values(I18N).some(function (d) { return d.defaultScript === content; });
@@ -3008,75 +3016,97 @@ function applyPrompterStyle(){
   const y = playing ? -offset : 0;
   scrollText.style.transform = 'translateY(' + y + 'px) scaleX(' + scale + ')';
 }
-/* ---------- 逐词跟随高亮 ----------
- * 不拆 scrollText 的 DOM：用浏览器原生 caretRangeFromPoint 找到「视口阅读点」
- * 正下方的字符，扩成一个词（中文按字、英文按词），把屏幕坐标写进独立覆盖层
- * #readMark。文字继续按 offset 上移，下一帧定位到下一词，高亮随之跳过去，
- * 旧词自动恢复——用户始终有明确落眼点。不支持该 API 的 WebView 静默隐藏。 */
+/* ---------- 逐词跟随高亮（真正的「逐行随词」） ----------
+ * 旧实现把探测点 x 固定在屏幕左/中/右，所以每行只有那一列的词会亮、滚动时
+ * 换成下一行同列的词——不是逐词。改为：按 DOM 阅读顺序把全文切成词/字序列，
+ * 再用滚动进度 offset/maxOffset 线性映射到词索引。滚到哪儿就亮到哪个词：
+ * 同一行内从左到右逐词推进，读完行尾自动接到下一行行首；用户设定的滚动速度
+ * 天然决定每个词的停留时长（滚得慢=每词亮得久）。
+ * 每个词的位置在构建时缓存为「相对 scrollText 内容盒」的坐标（不含 transform），
+ * 每帧只用一次 getBoundingClientRect 换算屏幕位置。全程不拆 scrollText DOM。 */
 let lastReadMarkTs = 0;
+let readTokens = null;        // [{node,start,end,left,top,w,h}]
+let readTokensDirty = true;
+let readTokensText = '';
 function hideReadMark(){
   if (readMarkEl) readMarkEl.style.display = 'none';
 }
-function readWordRange(caret){
-  if (!caret || !scrollText) return null;
-  let node = caret.startContainer;
-  if (node.nodeType !== 3) {
-    const kids = node.childNodes || [];
-    node = kids[caret.startOffset] || kids[caret.startOffset - 1] || null;
-    if (!node || node.nodeType !== 3) return null;
+/* 按阅读顺序切词：连续 ASCII 字母/数字/下划线算一个词，中文/标点按单字，
+   代理对（emoji 等）合并为一个，空白只作分隔不点亮。 */
+function tokenizeForRead(){
+  const out = [];
+  if (!scrollText) return out;
+  const walker = document.createTreeWalker(scrollText, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())){
+    const s = node.nodeValue || '';
+    if (!s) continue;
+    let i = 0;
+    while (i < s.length){
+      const ch = s.charAt(i);
+      if (/\s/.test(ch)){ i++; continue; }
+      let a = i, b = i + 1;
+      if (/[A-Za-z0-9'_]/.test(ch)){
+        while (b < s.length && /[A-Za-z0-9'_]/.test(s.charAt(b))) b++;
+      } else if (/[\uD800-\uDBFF]/.test(ch) && i + 1 < s.length){
+        b = i + 2; // 高位代理 + 低位代理合成一个字符
+      }
+      out.push({node:node, start:a, end:b});
+      i = b;
+    }
   }
-  if (!(scrollText === node || scrollText.contains(node))) return null;
-  const s = String(node.nodeValue || '');
-  if (!s.length) return null;
-  const off = Math.max(0, Math.min(caret.startOffset | 0, s.length - 1));
-  const ch = s.charAt(off);
-  let a = off, b = off + 1;
-  if (/[A-Za-z0-9'_]/.test(ch)) { // 英文/数字按词，中文与标点按字
-    while (a > 0 && /[A-Za-z0-9'_]/.test(s.charAt(a - 1))) a--;
-    while (b < s.length && /[A-Za-z0-9'_]/.test(s.charAt(b))) b++;
+  return out;
+}
+function buildReadTokens(){
+  const list = tokenizeForRead();
+  if (!list.length || !scrollText){ readTokens = []; return; }
+  let stRect;
+  try { stRect = scrollText.getBoundingClientRect(); } catch (e){ readTokens = []; return; }
+  for (let i = 0; i < list.length; i++){
+    const tk = list[i];
+    try {
+      const r = document.createRange();
+      r.setStart(tk.node, tk.start); r.setEnd(tk.node, tk.end);
+      const rc = r.getBoundingClientRect();
+      tk.left = rc.left - stRect.left;   // 相对内容盒，与当前 transform/offset 无关
+      tk.top  = rc.top  - stRect.top;
+      tk.w = rc.width; tk.h = rc.height;
+    } catch (e){ tk.w = 0; tk.h = 0; }
   }
-  try {
-    const r = document.createRange();
-    r.setStart(node, a); r.setEnd(node, b);
-    return r;
-  } catch (e) { return null; }
+  readTokens = list.filter(function(tk){ return tk.w > 0 && tk.h > 0; });
+  readTokensText = scrollText.textContent || '';
+  readTokensDirty = false;
 }
 function updateReadMark(force){
   if (!readMarkEl) return;
   if (!playing || !state.readMark || state.mirror) { hideReadMark(); return; }
+  if (force) readTokensDirty = true;
   const ts = Date.now();
-  if (!force && ts - lastReadMarkTs < 45) return; // 约 22fps，够跟且不浪费
+  if (!force && ts - lastReadMarkTs < 45) return; // 约 22fps
   lastReadMarkTs = ts;
   try {
+    if (!scrollText){ hideReadMark(); return; }
+    const txt = scrollText.textContent || '';
+    if (readTokensDirty || !readTokens || txt !== readTokensText) buildReadTokens();
+    if (!readTokens || !readTokens.length){ hideReadMark(); return; }
+    const max = maxOffset();
+    if (!(max > 0)){ hideReadMark(); return; } // 短稿不滚动，无需跟随
+    const p = Math.max(0, Math.min(1, offset / max));
+    let idx = Math.floor(p * readTokens.length);
+    if (idx >= readTokens.length) idx = readTokens.length - 1;
+    if (idx < 0) idx = 0;
+    const tk = readTokens[idx];
     const vp = viewport.getBoundingClientRect();
     const st = scrollText.getBoundingClientRect();
-    let x = state.align === 'left' ? st.left + 24
-          : state.align === 'right' ? st.right - 24
-          : st.left + st.width / 2;
-    x = Math.max(vp.left + 2, Math.min(x, vp.right - 2));
-    const y = vp.top + Math.max(8, viewport.clientHeight * 0.2); // 与点击定位落点一致
-
-    let caret = null;
-    if (typeof document.caretRangeFromPoint === 'function') caret = document.caretRangeFromPoint(x, y);
-    if (!caret && typeof document.caretPositionFromPoint === 'function') {
-      const p = document.caretPositionFromPoint(x, y);
-      if (p) {
-        caret = document.createRange();
-        caret.setStart(p.offsetNode, p.offset); caret.collapse(true);
-      }
-    }
-    const r = readWordRange(caret);
-    if (!r) { hideReadMark(); return; }
-    const rects = r.getClientRects();
-    if (!rects.length) { hideReadMark(); return; }
-    const box = rects[0];
-    if (box.bottom < vp.top || box.top > vp.bottom) { hideReadMark(); return; }
-    readMarkEl.style.left = (box.left - vp.left) + 'px';
-    readMarkEl.style.top = (box.top - vp.top) + 'px';
-    readMarkEl.style.width = Math.max(2, box.width) + 'px';
-    readMarkEl.style.height = Math.max(2, box.height) + 'px';
+    const left = st.left + tk.left - vp.left;
+    const top  = st.top  + tk.top  - vp.top;
+    if (top + tk.h < 0 || top > vp.height){ hideReadMark(); return; } // 滚出视口
+    readMarkEl.style.left = left + 'px';
+    readMarkEl.style.top = top + 'px';
+    readMarkEl.style.width = Math.max(2, tk.w) + 'px';
+    readMarkEl.style.height = Math.max(2, tk.h) + 'px';
     readMarkEl.style.display = 'block';
-  } catch (e) { hideReadMark(); }
+  } catch (e){ hideReadMark(); }
 }
 function setPlaying(on){
   playing = !!on;
@@ -3964,13 +3994,23 @@ const btnNewScript = document.getElementById('btnNewScript');
 if (btnNewScript) btnNewScript.addEventListener('click', function(){ addScript(); });
 const btnSyncNow = document.getElementById('btnSyncNow');
 if (btnSyncNow) btnSyncNow.addEventListener('click', function(){ syncScripts(); });
-setFontSize.addEventListener('input', function(e){
-  state.fontSize = +e.target.value;
-  setFontSizeLabel.textContent = state.fontSize + 'px';
+function changeFontSize(px){
+  const v = Math.max(24, Math.min(96, Math.round(+px || 44)));
+  if (v === state.fontSize) return;
+  state.fontSize = v;
+  if (setFontSize) setFontSize.value = String(v);
+  if (setFontSizeLabel) setFontSizeLabel.textContent = v + 'px';
+  readTokensDirty = true;              // 字号变了，逐词高亮的每个词屏幕坐标要重算
   applyPrompterStyle(); saveState();
-});
+  if (playing) updateReadMark(true);
+}
+if (setFontSize) setFontSize.addEventListener('input', function(e){ changeFontSize(e.target.value); });
+const btnFontDown = document.getElementById('btnFontDown');
+const btnFontUp = document.getElementById('btnFontUp');
+if (btnFontDown) btnFontDown.addEventListener('click', function(){ changeFontSize(state.fontSize - 4); });
+if (btnFontUp) btnFontUp.addEventListener('click', function(){ changeFontSize(state.fontSize + 4); });
 setColor.addEventListener('input', function(e){ state.color = e.target.value; applyPrompterStyle(); saveState(); });
-setAlign.addEventListener('change', function(e){ state.align = e.target.value; applyPrompterStyle(); saveState(); });
+setAlign.addEventListener('change', function(e){ state.align = e.target.value; readTokensDirty = true; applyPrompterStyle(); saveState(); });
 setMirror.addEventListener('change', function(e){ state.mirror = e.target.checked; applyPrompterStyle(); saveState(); });
 setReadMark.addEventListener('change', function(e){
   state.readMark = e.target.checked;

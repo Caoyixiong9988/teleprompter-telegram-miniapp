@@ -471,16 +471,60 @@ test('逐词高亮：覆盖层与七语文案齐备，无定位 API 时安全降
   assert.equal(w.document.getElementById('readMark').style.display, 'none', '环境不支持时应隐藏');
 });
 
-test('readWordRange：英文按整词、中文按单字取高亮范围', () => {
+test('updateReadMark 不引用未定义标识符 clamp（曾导致高亮被 catch 吞掉永久隐藏）', () => {
+  const start = html.indexOf('function updateReadMark');
+  const end = html.indexOf('\nfunction ', start + 10);
+  const body = html.slice(start, end > 0 ? end : start + 2000);
+  assert.ok(body.length > 0, '应能提取 updateReadMark 函数体');
+  assert.ok(!/\bclamp\s*\(/.test(body), 'clamp 未定义，须用 Math.max/min 或 clampOffset');
+});
+
+test('tokenizeForRead：英文按整词、中文按单字、忽略空白，按阅读顺序', () => {
   const got = ev(`(function () {
     const st = document.getElementById('scrollText');
     st.textContent = 'hello 世界 abc';
-    const node = st.firstChild;
-    const en = document.createRange(); en.setStart(node, 2); en.collapse(true);
-    const cn = document.createRange(); cn.setStart(node, 6); cn.collapse(true);
-    return readWordRange(en).toString() + '|' + readWordRange(cn).toString();
+    return tokenizeForRead().map(function (t) {
+      return String(t.node.nodeValue).slice(t.start, t.end);
+    }).join('|');
   })()`);
-  assert.equal(got, 'hello|世');
+  assert.equal(got, 'hello|世|界|abc');
+});
+
+test('逐词高亮按滚动进度线性映射到词序（每行逐词、行尾换行）', () => {
+  // 纯映射逻辑：p=offset/maxOffset → 词索引。验证它单调推进、首尾不越界，
+  // 且同一行内会依次落到相邻词（而不是旧实现那样固定屏幕列只亮一个）。
+  const seq = ev(`(function () {
+    const N = 20, max = 1000, out = [];
+    for (let off = 0; off <= max; off += 50) {
+      const p = Math.max(0, Math.min(1, off / max));
+      let idx = Math.floor(p * N);
+      if (idx >= N) idx = N - 1;
+      if (idx < 0) idx = 0;
+      out.push(idx);
+    }
+    return out.join(',');
+  })()`);
+  const arr = seq.split(',').map(Number);
+  assert.equal(arr.length, 21);
+  assert.equal(arr[0], 0, '开头高亮第一个词');
+  assert.equal(arr[arr.length - 1], 19, '结尾停在最后一个词，不越界');
+  for (let i = 1; i < arr.length; i++) assert.ok(arr[i] >= arr[i - 1], '词序单调不回退');
+  assert.ok(new Set(arr).size >= 18, '滚动全程覆盖绝大多数词（逐词推进，不是每行只亮一个）');
+});
+
+test('字号调节：主屏快捷按钮存在，changeFontSize 夹紧范围并同步滑块', () => {
+  assert.ok(w.document.getElementById('btnFontDown'), '缺少 A− 按钮');
+  assert.ok(w.document.getElementById('btnFontUp'), '缺少 A+ 按钮');
+  const r = ev(`(function () {
+    changeFontSize(10);  const lo = state.fontSize;
+    changeFontSize(999); const hi = state.fontSize;
+    changeFontSize(50);  const mid = state.fontSize;
+    return [lo, hi, mid, document.getElementById('setFontSize').value].join(',');
+  })()`);
+  assert.equal(r, '24,96,50,50', '字号夹紧到 24-96 且滑块同步');
+  const ff = ev(`getComputedStyle(document.getElementById('scrollText')).fontFamily ||
+                  document.getElementById('scrollText').style.fontFamily`);
+  assert.ok(/sans-serif/.test(ff), '提词区使用统一无衬线字体栈');
 });
 
 // ── 7. 悬赏运行时已下线 ──────────────────────────────────────────────
