@@ -84,10 +84,11 @@ ev('playing=false; offset=0;');
 // 模拟可滚动：伪造尺寸，验证已到底时重头开始
 Object.defineProperty(st, 'offsetHeight', { value: 1000, configurable: true });
 Object.defineProperty(doc.getElementById('viewport'), 'clientHeight', { value: 300, configurable: true });
-ev('offset=700; playing=false;');
+// 用显式 reachedEnd 标志模拟"自然滚到底"；仅 offset=max 不再足以判定（那正是暂停定位 bug 的根因）
+ev('offset=700; playing=false; reachedEnd=true;');
 doc.getElementById('btnPlay').click();
 check('已滚到底时再点播放会回到开头', ev('offset') === 0 && ev('playing') === true, 'offset=' + ev('offset') + ' playing=' + ev('playing'));
-ev('playing=false;');
+ev('playing=false; reachedEnd=false;');
 
 // --- 6. 只定位光标不打断播放，真正改内容才暂停 ---
 ev('playing=true;');
@@ -233,6 +234,55 @@ check('刷新后输入光标回到讲稿开头', sel11.anchorOffset === 0 && st.
 check('刷新提示正确', doc.getElementById('toast').textContent === ev('t("resetDone")'));
 doc.getElementById('btnPlay').click();
 check('刷新 + ▶ 从头开始播放', ev('playing') === true && ev('offset') === 0);
+ev('setPlaying(false);');
+
+// --- 12. 速度下限下调 + 生效值核实（第十一轮）---
+ev('state.speedUnit="px"; state.speedPx=20; remoteSpeedMul=1; voiceFollowing=false; renderSpeedUI();');
+check('速度滑块下限已降到 5px/s（原 20 对跟读偏快）', doc.getElementById('speedBar').min === '5',
+  'min=' + doc.getElementById('speedBar').min);
+check('pxPerSec 精确等于设置值，无单位换算 bug', ev('pxPerSec()') === 20, 'pxPerSec=' + ev('pxPerSec()'));
+// 手动推进 1 秒（60 帧 ×1/60s），位移应恰为 20px
+ev('offset=0; setPlaying(true); lastTs=0;');
+let _t = 0; for (let i = 0; i < 60; i++) { _t += 1000/60; ev('loop(' + _t + ')'); }
+check('推进 1 秒位移恰好 20px（20px/s 真实生效）', Math.abs(ev('offset') - 20) < 0.001, 'offset=' + ev('offset'));
+ev('setPlaying(false);');
+
+// --- 13. 逐词高亮：行内逐词 + 跨行连续，速率只由滚动决定（第十一轮）---
+// 构造 3 行 ×8 词，验证阅读头推进：每行 68px 走完 8 词，行内 34px 跨 4 词。
+const _hl = ev(`(function(){
+  const toks=[]; for(let line=0;line<3;line++){for(let k=0;k<8;k++)toks.push({top:line*68,left:k*40,h:44,w:38});}
+  readTokens=toks; readLines=[];
+  for(let L=0;L<3;L++)readLines.push({start:L*8,end:L*8+7,top:L*68,height:68});
+  const pick=(off)=>{
+    const hy=off+viewport.clientHeight*0.2;
+    let li=0; while(li<readLines.length-1 && hy>readLines[li].top+readLines[li].height) li++;
+    const cur=readLines[li], n=cur.end-cur.start+1;
+    if(n<=1)return cur.start;
+    const f=Math.max(0,Math.min(1,(hy-cur.top)/Math.max(1,cur.height)));
+    return cur.start+Math.min(n-1,Math.floor(f*n));
+  };
+  return [pick(0),pick(34),pick(68),pick(102),pick(136)];
+})()`);
+check('高亮行内随时间均匀逐词推进（34px 跨 4 词）', _hl[1]-_hl[0] >= 3 && _hl[1]-_hl[0] <= 4, 'Δ=' + (_hl[1]-_hl[0]));
+check('高亮跨行连续（68px 走完 8 词接下一行）', _hl[2]-_hl[0] === 8, 'Δ=' + (_hl[2]-_hl[0]));
+check('高亮映射不依赖文稿总长（无 offset/maxOffset×总词数）',
+  !/\boffset\s*\/\s*max\s*\)?\s*\*\s*readTokens\.length/.test(html));
+// 清理注入的假 token，避免影响后续检查
+ev('readTokens=null; readLines=null; readTokensDirty=true;');
+
+// --- 14. 暂停→点击定位→再播放：从所选位置续播；末尾附近也不回开头（第十一轮）---
+for (const [label, clientY] of [['中间', 300], ['末尾附近', 580]]) {
+  ev('offset=1000; reachedEnd=false; setPlaying(false); viewport.scrollTop=1000;');
+  ev(`seekAtClientY(${clientY});`);
+  const afterSeek = ev('offset');
+  ev('togglePlay();');
+  check(`${label}点击定位后再播放从所选位置继续`, ev('offset') === afterSeek && ev('playing') === true,
+    'seek=' + afterSeek + ' play=' + ev('offset'));
+  ev('setPlaying(false);');
+}
+ev('offset=3000; reachedEnd=true; setPlaying(false); viewport.scrollTop=3000;');
+ev('togglePlay();');
+check('自然播放到底后 ▶ 才从头重播', ev('offset') === 0 && ev('playing') === true, 'offset=' + ev('offset'));
 ev('setPlaying(false);');
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
