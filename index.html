@@ -2160,21 +2160,40 @@ function findZipEntry(input, wantName){
 }
 
 // 只用 Streams API 解 raw deflate，不依赖 Blob.stream / Response（兼容较老 WebView）。
+// ⚠️ 必须「边写边读」：Chrome 的 DecompressionStream 可读端 highWaterMark = 0，
+//    writer.write() 返回的 Promise 要等读者消费后才兑现。若先 await write() 再 read()，
+//    两者互相等待、永久卡死——用户看到的就是「点了导入，讲稿区空白，连提示都没有」。
 async function inflateRaw(data){
   if (typeof DecompressionStream === 'undefined') importFail('unsupported');
   let ds;
-  try { ds = new DecompressionStream('deflate-raw'); } catch (e) { importFail('unsupported'); }
-  const writer = ds.writable.getWriter();
-  await writer.write(data);
-  await writer.close();
-  const reader = ds.readable.getReader();
+  try { ds = new DecompressionStream('deflate-raw'); }
+  catch (e) { importFail('unsupported'); }
+
+  let reader, writer;
+  try {
+    reader = ds.readable.getReader();
+    writer = ds.writable.getWriter();
+  } catch (e) { importFail('unsupported'); }
+
+  let writeErr = null;
+  // 写入任务不 await，和下面的读取循环并发跑；写失败时取消读者，避免读端一直挂住。
+  const pump = (async function () {
+    try { await writer.write(data); await writer.close(); }
+    catch (e) { writeErr = e; try { reader.cancel(); } catch (_) {} }
+  })();
+
   const chunks = [];
   let total = 0;
-  for (;;) {
-    const r = await reader.read();
-    if (r.done) break;
-    chunks.push(r.value); total += r.value.length;
-  }
+  try {
+    for (;;) {
+      const r = await reader.read();
+      if (r.done) break;
+      chunks.push(r.value); total += r.value.length;
+    }
+  } catch (e) { writeErr = e; }
+  await pump;
+  if (writeErr) importFail('parse'); // 压缩数据损坏 → 明确报解析失败，不静默留空
+
   const out = new Uint8Array(total);
   let p = 0;
   for (let i = 0; i < chunks.length; i++) { out.set(chunks[i], p); p += chunks[i].length; }

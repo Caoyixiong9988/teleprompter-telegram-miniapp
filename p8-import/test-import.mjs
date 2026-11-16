@@ -4,8 +4,10 @@
  * 运行：npm test（已加入测试列表），或单独 node --test p8-import/test-import.mjs
  * 思路：用 jsdom 真实加载单文件 index.html，通过 window.eval 调用内联纯函数，
  *       数据以数组字面量传入，避免跨 realm 的 TypedArray 兼容问题。
- *       ZIP 用手工构造的 STORED 条目（method 0），因此不需要 DecompressionStream，
- *       可在 jsdom 环境里完整跑通 docx / odt / xlsx 的解析链路。
+ *       ZIP 覆盖 STORED（method 0）与真实的 deflate（method 8，Word 默认）两种条目。
+ *       jsdom 没有 DecompressionStream，这里注入一个模拟 Chrome 背压的替身：
+ *       writer.write() 必须等 reader.read() 才兑现。旧实现「先 await write 再 read」
+ *       会在此永久卡死（正是用户实测「导入后讲稿空白」的根因），用 test timeout 抓住。
  *       旧版 .doc 由 tools/make-doc-fixture.mjs 现造合法的 OLE2 复合文档（CFB + FIB + 分片表），
  *       二进制用 base64 传入，避免把上万字节拼成数字字面量。
  */
@@ -13,6 +15,7 @@ import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { readFileSync } from 'node:fs';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import { buildWord97Doc, buildWord97DocMini } from '../tools/make-doc-fixture.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -23,6 +26,36 @@ const errors = [];
 const vc = new VirtualConsole();
 vc.on('jsdomError', e => errors.push(e.message));
 vc.on('error', (...a) => errors.push(a.join(' ')));
+
+// 模拟 Chrome 的 DecompressionStream：可读端 highWaterMark=0 带来的背压，
+// 即 write() 的 Promise 只有 reader.read() 之后才 resolve。
+class BackpressureDecompressionStream {
+  constructor(format) {
+    if (format !== 'deflate-raw') throw new Error('unsupported format: ' + format);
+    this._out = [];
+    this._release = null;
+  }
+  get writable() {
+    const self = this;
+    return { getWriter() { return {
+      async write(data) {
+        self._out = [new Uint8Array(inflateRawSync(Buffer.from(data)))];
+        await new Promise(res => { self._release = res; }); // 不读就不放行
+      },
+      async close() {}
+    }; } };
+  }
+  get readable() {
+    const self = this;
+    return { getReader() {
+      let i = 0;
+      return { async read() {
+        if (self._release) { const r = self._release; self._release = null; r(); }
+        return i < self._out.length ? { done: false, value: self._out[i++] } : { done: true };
+      } };
+    } };
+  }
+}
 
 const dom = new JSDOM(html, {
   runScripts: 'dangerously',
@@ -36,6 +69,7 @@ const dom = new JSDOM(html, {
     win.clearInterval = () => {};
     win.requestAnimationFrame = () => 0;
     win.cancelAnimationFrame = () => {};
+    win.DecompressionStream = BackpressureDecompressionStream;
   }
 });
 const w = dom.window;
@@ -60,6 +94,32 @@ function makeStoredZip(name, data) {
   const central = [
     0x50, 0x4B, 0x01, 0x02, 0x14, 0x00, 0x14, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ...u32(dataBytes.length), ...u32(dataBytes.length),
+    ...u16(nameBytes.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+    ...u32(0), ...u32(0), ...nameBytes
+  ];
+  const eocd = [
+    0x50, 0x4B, 0x05, 0x06, 0, 0, 0, 0, ...u16(1), ...u16(1),
+    ...u32(central.length), ...u32(local.length), ...u16(0)
+  ];
+  return [...local, ...central, ...eocd];
+}
+
+// 与上面同结构，但条目用 method 8（deflate）——真实 Word 保存的 .docx 就是这个布局。
+function makeDeflateZip(name, data) {
+  const nameBytes = Array.from(Buffer.from(name, 'utf8'));
+  const raw = Buffer.from(data, 'utf8');
+  const dataBytes = Array.from(deflateRawSync(raw));
+  const method = 8;
+  const u16 = v => [v & 255, (v >>> 8) & 255];
+  const u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  const local = [
+    0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0, 0, ...u16(method), 0, 0, 0, 0, 0, 0, 0, 0,
+    ...u32(dataBytes.length), ...u32(raw.length),
+    ...u16(nameBytes.length), ...u16(0), ...nameBytes, ...dataBytes
+  ];
+  const central = [
+    0x50, 0x4B, 0x01, 0x02, 0x14, 0x00, 0x14, 0x00, 0, 0, ...u16(method), 0, 0, 0, 0, 0, 0, 0, 0,
+    ...u32(dataBytes.length), ...u32(raw.length),
     ...u16(nameBytes.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
     ...u32(0), ...u32(0), ...nameBytes
   ];
@@ -218,6 +278,22 @@ test('DOCX 端到端：STORED ZIP 走完解析链路', async () => {
   const r = await parse('稿件.docx', makeStoredZip('word/document.xml', DOCX_XML));
   assert.equal(r.text, '第一段讲稿\n第二段讲稿');
   assert.equal(r.title, '稿件');
+});
+
+// 回归：真实 Word 保存的 .docx 全部是 deflate（method 8）。Chrome 的
+// DecompressionStream 写端必须等读端，旧代码先 await write 再 read 会死锁。
+// 这里的替身复刻该背压，8 秒超时即判失败（死锁时 node:test 会报超时）。
+test('DOCX 端到端：deflate 压缩 + Chrome 式背压不再死锁', { timeout: 8000 }, async () => {
+  const r = await parse('4.docx', makeDeflateZip('word/document.xml', DOCX_XML));
+  assert.equal(r.text, '第一段讲稿\n第二段讲稿');
+  assert.equal(r.title, '4');
+});
+
+test('deflate 数据损坏时明确报解析失败，不静默留空', { timeout: 8000 }, async () => {
+  const bad = makeDeflateZip('word/document.xml', DOCX_XML);
+  // 把压缩载荷前 40 字节打乱，保持 ZIP 结构完好
+  for (let i = 30; i < 70; i++) bad[i] ^= 0xFF;
+  assert.equal(await parseFail('损坏.docx', bad), 'parse');
 });
 
 // ── 5b. 旧版 .doc（Word 97-2003 二进制）──────────────────────────────

@@ -8,6 +8,24 @@
 
 ---
 
+## 2026-11-16 · fix(import) — `.docx` 导入永久卡死（Chrome 解压背压死锁）
+
+**为什么**：用户用桌面真实 `4.docx` 测试「从文件导入讲稿」，点选文件后讲稿编辑区始终空白，没有任何提示。
+
+**根因**：真实 Word 保存的 `.docx` 内部条目全部是 **deflate 压缩（ZIP method 8）**，而原来的测试夹具只有 STORED（method 0），这条解压分支从未被真实覆盖。`inflateRaw()` 的实现是 `await writer.write(data)` → `await writer.close()` → 才开始 `reader.read()`。在 **Chrome 的 `DecompressionStream` 中可读端 `highWaterMark = 0`，写入 Promise 要等读者消费才兑现**，于是写入等读取、读取等写入，永久死锁。Node 的流实现没有这个背压时序，所以本地测试一直是绿的；用真实 Chrome 跑探针才定位到卡在 `parseImportFile` 内。
+
+**做了什么**：
+
+1. **`inflateRaw()` 改为边写边读** — 写入任务不 await，与读取循环并发启动；读端出错时主动 `cancel()`，压缩数据损坏时明确报 `importFail('parse')`，不再静默留空。
+2. **回归测试补上真实压缩路径** — 新增 method 8 的 deflate ZIP 夹具，并注入一个模拟 Chrome 背压的 `DecompressionStream` 替身（`write()` 必须等 `read()` 才兑现）。**把旧代码放回去这条测试必然失败**，证明它确实能抓住该死锁；同时加了「deflate 载荷损坏 → 明确报解析失败」用例。
+3. **真实浏览器验证** — 用用户桌面上的 `4.docx`（11,160 字节，16 个条目，全部 deflate）在 headless Chrome 中跑完整链路，成功提取 1,446 字；修复前同一探针卡死在 `kind=zip` 之后。
+
+**怎么验证**：`npm test` 140/140（新增 2 项）、`npm run test:ios` 75/75、`node test_i18n_real.mjs` 32/32、`npm run smoke:worker` 18/18；真实 Chrome 端到端通过。
+
+**涉及文件**：`index.html`（`inflateRaw`）、`p8-import/test-import.mjs`（背压替身 + deflate 夹具 + 2 项用例）。
+
+---
+
 ## 2026-11-16 · fix(import) — 电脑端导入 `.doc` 讲稿从「一律失败」到真正可用
 
 **为什么**：用户实测电脑端点「从文件导入讲稿」，选的都是 Word 的 `.doc` 文件，试了几次都不成功。查下来是三个原因叠在一起：
