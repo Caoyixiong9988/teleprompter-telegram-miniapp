@@ -335,6 +335,74 @@ ev('setPlaying(false);');
   ev('setPlaying(false); readTokens=null; readLines=null; readTokensDirty=true;');
 }
 
+// --- 16. 播放起点以当前光标(caret)为准；刷新后不被旧位置覆盖（第十三轮）---
+// 根因1：togglePlay 只用模块 offset，不读 DOM caret → 用户把光标移到某字符再播，
+//        从暂停残留位置开始（"跳过 N 个字符"）。
+// 根因2：刷新后浏览器 scroll restoration 恢复 scrollTop → scroll 事件同步回 offset，
+//        覆盖"从头播放"意图。
+// 修复：selectionchange 在暂停态记录 caret 字符偏移到 caretSeekOffset；▶ 时以它反算起点并消费；
+//        init 禁用 scrollRestoration 且 offset/scrollTop 归零。
+{
+  const LONG = '的一是在不了有和人这中大为上个国我以要他时来用们生到作地于出就分对成会可主发年动同工也能下过子说产种面而方后多定行学法所民得经十三之进着等部度家电力里如水化高自二理起小物现实加量都两体制机当使点从业本去把性好应开它合还因由其些然前外天政四日那社义事平形相全表间样与关各重新线内数正心反你明看原又么利比或但质气第向道命此变条只没结解问意建月公无系军很情者最立代想已通并提直题党程展五果料象员革位入常文总次品式活设及管特件长求老头基资边流路级少图山统接知较将组见计别她手角期根论运农指几九区强放决西被干做必战先回则任取据处队南给色光门即保治北造百规热领七海口东导器压志世金增争济阶油思术极交受联什认六共权收证改清己美再采转更单风切断白达';
+  st.textContent = LONG;
+  st.dispatchEvent(new window.Event('input', { bubbles: true }));
+  Object.defineProperty(st, 'offsetHeight', { value: 1000, configurable: true });
+  Object.defineProperty(vpEl, 'clientHeight', { value: 300, configurable: true });
+  Object.defineProperty(st, 'getBoundingClientRect', { value: () => ({ top: 100, left: 0, width: 300, height: 1000, bottom: 1100, right: 300 }), configurable: true });
+  const inject = () => {
+    const toks = [], lines = [];
+    for (let L=0;L<8;L++){
+      for (let k=0;k<10;k++){ const gi=L*10+k; toks.push({top:28+L*68,left:22+k*30,w:26,h:44,charStart:gi,charEnd:gi+1}); }
+      lines.push({start:L*10,end:L*10+9,top:28+L*68,height:68});
+    }
+    ev('readTokens=' + JSON.stringify(toks) + '; readLines=' + JSON.stringify(lines) + '; readTokensDirty=false; readTokensText=scrollText.textContent;');
+  };
+  const pick = () => ev(`(function(){
+    const hy=offset+viewport.clientHeight*0.2, L=readLines; let li=0;
+    while(li<L.length-1 && hy>L[li].top+L[li].height) li++;
+    const c=L[li], n=c.end-c.start+1;
+    const f=Math.max(0,Math.min(1,(hy-c.top)/Math.max(1,c.height)));
+    return n>1 ? c.start+Math.min(n-1,Math.floor(f*n)) : c.start;
+  })()`);
+  const placeCaret = (off) => {
+    const sel = window.getSelection(), r = doc.createRange();
+    r.setStart(st.firstChild, off); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+    doc.dispatchEvent(new window.Event('selectionchange'));
+  };
+
+  // 问题1：暂停 → caret 到第27字 → 再播，从词27开始（不跳过）
+  ev('offset=500; reachedEnd=false; playing=false;');
+  doc.getElementById('app').classList.remove('playing');
+  inject();
+  placeCaret(27);
+  check('暂停态放置 caret 记录字符偏移', ev('caretSeekOffset') === 27, 'caretSeekOffset=' + ev('caretSeekOffset'));
+  check('caret 字符偏移精确映射到词元', ev('caretOffsetToWord()') === 27, 'word=' + ev('caretOffsetToWord()'));
+  doc.getElementById('btnPlay').click();
+  inject();
+  check('问题1：从 caret 所在字符开始播放（不跳过N字符）', pick() === 27, 'playWord=' + pick());
+  check('播放起点意图消费后清空', ev('caretSeekOffset') === null, 'caretSeekOffset=' + ev('caretSeekOffset'));
+  ev('setPlaying(false);');
+
+  // 问题2：刷新 → scroll restoration 恢复旧 offset → caret 放开头 → 播，offset 归零
+  ev('offset=0; viewport.scrollTop=600; reachedEnd=false; caretSeekOffset=null;');
+  vpEl.dispatchEvent(new window.Event('scroll'));
+  check('刷新后 scroll 事件确实会恢复旧 offset（问题前提）', ev('offset') === 600, 'offset=' + ev('offset'));
+  inject();
+  placeCaret(0);
+  doc.getElementById('btnPlay').click();
+  inject();
+  check('问题2：caret 在开头时 offset 归零、不被旧位置覆盖', ev('offset') === 0 && pick() < 10,
+    'offset=' + ev('offset') + ' playWord=' + pick());
+  ev('setPlaying(false);');
+
+  // 初始化防护：禁用浏览器滚动恢复（源码守卫）
+  check('init 禁用 scrollRestoration', /history\.scrollRestoration\s*=\s*'manual'/.test(html));
+  // caretSeekOffset 生命周期：暂停时清空，避免残留旧位置污染
+  check('暂停时清空 caret 意图（源码守卫）', /caretSeekOffset\s*=\s*null;\s*\n\s*setPlaying\(false\)/.test(html));
+  ev('caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
+}
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);

@@ -8,6 +8,24 @@
 
 ---
 
+## 2026-11-16 · fix — 播放起点严格跟随当前光标；刷新后不再续播旧位置（第十三轮）
+
+- **类型**：fix（播放起点 / 状态恢复）
+- **现象1**：播放→暂停→把文本光标移到某字符前→再播放，不是从该字符开始，而是跳过 N 个字符（从暂停残留位置开始）。
+- **现象2**：播放→暂停→刷新页面→把光标置于开头→再播放，却从刷新前的暂停位置续播，而非从头完整播放。
+- **根因1**：`togglePlay()` 只依赖模块变量 `offset`（暂停时保留的位置），完全不读取 DOM 里用户当前的光标（caret）位置；"移动光标"这个动作从未转化为播放起点更新。
+- **根因2**：刷新后浏览器的 scroll restoration 把 `#viewport.scrollTop` 还原成旧暂停位置，`scroll` 事件又把它同步回 `offset`，覆盖了"从头播放"意图。
+- **改了什么**：
+  1. `tokenizeForRead()` 为每个词元记录全文字符偏移 `charStart/charEnd`；新增 `caretCharOffset()`（读折叠光标的全文字符偏移）、`caretOffsetToWord()`（字符偏移→词元）。
+  2. 新增 `selectionchange` 监听：暂停/浏览态下用户放置折叠光标时，把字符偏移记入 `caretSeekOffset`（一次性意图；playing 或输入法合成态不记录；每次暂停清空，避免旧位置污染）。
+  3. `togglePlay()` 开始播放时优先用 `caretSeekOffset` 反算起点（与点击定位同一阅读头公式），消费后清空；其次是 `reachedEnd` 从头重播；否则保留 `offset` 续播。
+  4. `init()` 禁用 `history.scrollRestoration='manual'`，并把 `offset`/`scrollTop` 归零；`resetReadPosition()` 显式标记 caretSeekOffset=0。
+- **为什么**：用户明确要求"每次播放都以当前光标位置为准，不被旧状态覆盖"，把光标意图提升为播放起点的权威来源，同时保留暂停续播/点击定位/到底重播三条既有语义。
+- **怎么验证**：`npm run test:ios` 99/99（新增第16节 8 项：caret 记录、字符→词映射、从 caret 播放、意图消费、刷新归零、scrollRestoration 守卫等）；`npm test` 147/147、i18n 32/32、Worker 18/18；诊断脚本实测两问题从复现到通过。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-16 · fix — 暂停后点击定位续播跳到行尾/下一行（第十二轮）
 
 - **类型**：fix（定位精度）

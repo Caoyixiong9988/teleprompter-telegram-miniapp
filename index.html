@@ -2973,6 +2973,10 @@ let readCounted = false; // 本次滚动是否已计入"读完一次"，避免�
    这正是"点击定位后续播没从所选位置开始"的根因。改用显式标志：只有 loop 真的滚到底
    才置位；任何显式定位 / 刷新 / 改稿都会清除。 */
 let reachedEnd = false;
+/* 用户在「暂停 / 浏览」态主动放置的文本光标（caret）字符偏移。
+   ▶ 开始时若该值有效，播放起点以它为准（"以当前光标位置为准"），消费后清空。
+   每次进入暂停态都会清空，避免把暂停瞬间残留的旧 caret 误当成用户新意图。 */
+let caretSeekOffset = null;
 
 /* ---------- 语音跟随（Pro 权益；依赖 Web Speech API，iOS Telegram 内置浏览器不支持） ---------- */
 let voiceFollowing = false;     // 是否正在语音跟随
@@ -3048,7 +3052,7 @@ function tokenizeForRead(){
   const out = [];
   if (!scrollText) return out;
   const walker = document.createTreeWalker(scrollText, NodeFilter.SHOW_TEXT);
-  let node;
+  let node, charBase = 0; // 全局字符偏移：前面所有文本节点的字符数之和
   while ((node = walker.nextNode())){
     const s = node.nodeValue || '';
     if (!s) continue;
@@ -3062,11 +3066,62 @@ function tokenizeForRead(){
       } else if (/[\uD800-\uDBFF]/.test(ch) && i + 1 < s.length){
         b = i + 2; // 高位代理 + 低位代理合成一个字符
       }
-      out.push({node:node, start:a, end:b});
+      // charStart/charEnd 相对 scrollText 全文的字符位置（UTF-16 码元），
+      // 用于把 DOM caret 的 anchorOffset 精确映射到词元（问题1：播放起点跟随光标）
+      out.push({node:node, start:a, end:b, charStart: charBase + a, charEnd: charBase + b});
       i = b;
     }
+    charBase += s.length;
   }
   return out;
+}
+/* 当前 DOM caret 相对 scrollText 全文的字符偏移；无有效折叠光标返回 -1。
+   光标可能落在 caret 前面/后面的字符，取 caret 所在（或右侧最近）的词。 */
+function caretCharOffset(){
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed || !scrollText) return -1;
+    const r = sel.getRangeAt(0);
+    const n = r.startContainer;
+    // 光标必须在提词内容内
+    if (n !== scrollText && !(scrollText.contains && scrollText.contains(n))) return -1;
+    // 用 Range 从内容开头量到 caret，得到全文字符偏移（与 tokenizeForRead 的 charBase 同口径）
+    const pre = document.createRange();
+    pre.selectNodeContents(scrollText);
+    pre.setEnd(r.startContainer, r.startOffset);
+    return (pre.toString() || '').length;
+  } catch (e){ return -1; }
+}
+/* caret 字符偏移 → 词元索引（单字/词均适用）。取 caret 所在或右侧最近的词。 */
+function caretOffsetToWord(){
+  const ch = caretCharOffset();
+  if (ch < 0 || !readTokens || !readTokens.length) return -1;
+  let best = -1;
+  for (let i = 0; i < readTokens.length; i++){
+    const tk = readTokens[i];
+    const cs = tk.charStart, ce = (typeof tk.charEnd === 'number' ? tk.charEnd : cs + 1);
+    if (ch >= cs && ch < ce) return i;         // caret 正落在该词内
+    if (cs >= ch && best < 0) best = i;        // 右侧最近的词
+  }
+  if (best >= 0) return best;
+  return readTokens.length - 1;                // caret 在末尾之后 → 最后一个词
+}
+/* 从 caret 计算播放起点 offset：命中词元 → 反算让阅读头选中它（与 seekAtClientY 同一公式）。
+   返回 true 表示已设置 offset。 */
+function seekToCaret(){
+  if (readTokensDirty || !readTokens || !readLines){
+    const txt = scrollText ? (scrollText.textContent || '') : '';
+    if (txt) buildReadTokens();
+  }
+  const ti = caretOffsetToWord();
+  if (ti < 0 || !readLines || !readLines.length) return false;
+  let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
+  const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
+  const headY = ln.top + ((w + 0.5) / n) * ln.height;
+  offset = clampOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
+  readCounted = false;
+  reachedEnd = false;
+  return true;
 }
 function buildReadTokens(){
   const list = tokenizeForRead();
@@ -3174,6 +3229,7 @@ function placeCaretAtStartDOM(){
 }
 function resetReadPosition(){
   offset = 0; readCounted = false; reachedEnd = false;
+  caretSeekOffset = 0; // 刷新按钮：明确从开头（caret 归零处）开始播放
   if (viewport) viewport.scrollTop = 0;
   setPlaying(false);
   placeCaretAtStartDOM();
@@ -3285,9 +3341,41 @@ function togglePlay(){
     if (max <= 0){
       // 内容不足一屏：没有可滚动距离，给明确提示而不是表现为点了没反应
       offset = 0; setPlaying(false);
+      caretSeekOffset = null;
       toast(t('editNoScroll')); return;
     }
-    // 只有自然播放到底才从头重播；暂停后点击定位再播，必须从所选位置继续。
+    /* 播放起点优先级（问题1/2 核心）：
+       1) 用户在暂停/浏览态主动放置过 caret（caretSeekOffset 有效）→ 以该字符为准，
+          精确从光标所在词开始；这是"每次播放以当前光标位置为准"的明确意图。
+       2) 自然播放到底（reachedEnd）→ 从头重播。
+       3) 否则保留 offset 续播（暂停后未动光标 / 手动滚动 / 点击定位）。 */
+    if (caretSeekOffset != null && caretSeekOffset >= 0){
+      // caret 字符偏移先把 readTokens 建好，再借 caretOffsetToWord 命中，
+      // 但这里用保存的偏移而非实时 selection（▶ 按钮点击已让 contenteditable 失焦）
+      if (readTokensDirty || !readTokens || !readLines){
+        const txt = scrollText ? (scrollText.textContent || '') : '';
+        if (txt) buildReadTokens();
+      }
+      const ch = caretSeekOffset; caretSeekOffset = null; // 消费一次性意图
+      let ti = -1;
+      if (readTokens && readTokens.length){
+        let best = -1;
+        for (let i = 0; i < readTokens.length; i++){
+          const tk = readTokens[i];
+          const cs = tk.charStart, ce = (typeof tk.charEnd === 'number' ? tk.charEnd : cs + 1);
+          if (ch >= cs && ch < ce){ ti = i; break; }
+          if (cs >= ch && best < 0) best = i;
+        }
+        if (ti < 0) ti = best >= 0 ? best : readTokens.length - 1;
+      }
+      if (ti >= 0 && readLines && readLines.length){
+        let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
+        const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
+        const headY = ln.top + ((w + 0.5) / n) * ln.height;
+        offset = clampOffset(headY - viewport.clientHeight * READ_HEAD_RATIO);
+        reachedEnd = false; readCounted = false;
+      }
+    }
     // 若 max 变小（改稿/字号变化）导致 offset 越界，只做钳制，不回开头。
     if (offset > max){ offset = max; }
     if (reachedEnd){ offset = 0; readCounted = false; reachedEnd = false; }
@@ -3295,6 +3383,8 @@ function togglePlay(){
     toast(t('playResumed'));
   } else {
     // 暂停：保留 offset 并进入可滚动浏览态；再点 ▶ 从当前位置继续，不回开头
+    // 清空暂停前残留的 caret 意图——只有用户在暂停后"新放置"光标才算新起点
+    caretSeekOffset = null;
     setPlaying(false);
     toast(t('playPaused'));
   }
@@ -4328,6 +4418,12 @@ function init(){
   loadState();
   initTelegram();
 
+  // 禁用浏览器原生滚动恢复：否则刷新后它会把 #viewport.scrollTop 还原成刷新前
+  // 的暂停位置，scroll 事件再同步回 offset，导致"光标放开头点播放"却从旧位置续播。
+  try { if (history && 'scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+  offset = 0; reachedEnd = false; caretSeekOffset = null;
+  if (viewport) viewport.scrollTop = 0;
+
   // 还原 DOM（多讲稿：载入当前讲稿进编辑器）
   loadActiveIntoEditor();
   setFontSize.value = state.fontSize;
@@ -4537,6 +4633,16 @@ function init(){
       if (e.key === 'Escape') { e.preventDefault(); leaveEditMode(); }
     });
   }
+  /* 光标意图捕获（问题1/2）：暂停/浏览态下，用户把文本光标放到哪个字符，
+     下次点 ▶ 就从那个字符开始。只在折叠光标且落在提词区内时记录；
+     播放态不记录（播放中点文字由 seekAtClientY 即时定位，不预留起点）。
+     注意：主脚本里 togglePlay 暂停时会清空 caretSeekOffset，因此这里记录的一定是
+     "暂停之后新放置"的光标，不会被暂停瞬间的旧位置污染。 */
+  document.addEventListener('selectionchange', function(){
+    if (playing || mainComposing) return;
+    const ch = caretCharOffset();
+    if (ch >= 0) caretSeekOffset = ch;
+  });
   /* ---------- 剪贴板兜底：浏览器拒绝 readText 时用系统原生 Ctrl+V 完成粘贴 ----------
      navigator.clipboard.readText() 在 iframe / 内嵌预览 / 非安全上下文里会被权限策略拒绝，
      桌面端表现就是「无法读取剪贴板」。系统原生粘贴不依赖该 API，任何环境都可用。 */
