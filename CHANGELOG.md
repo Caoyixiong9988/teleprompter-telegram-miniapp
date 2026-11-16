@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-16 · fix — 暂停后点击定位续播跳到行尾/下一行（第十二轮）
+
+- **类型**：fix（定位精度）
+- **现象**：播放中点暂停 → 点击某处改光标位置 → 再点播放，高亮不从所点位置开始，而是跳到该行末尾或下一行。
+- **原因**：`seekAtClientY` 只用点击的 Y 设 offset，把所点内容 Y 放到阅读头；但 `updateReadMark` 是按"阅读头在行带内的纵向比例 `frac=(headY-line.top)/line.height`"选词的。同一行所有词的 Y 相同，点击的 X（点了哪个词）完全没被使用——点在字上缘/下缘/行距会分别落到第 3/6/8 词，正是"跳到行尾或下一行"。
+- **改法**：
+  - `seekAtClientY(clientY, clientX)` 增加 X 参数；用 `readTokenAtPoint()` 命中点击处的真实词元（先按包围盒命中，点到空白则取所在行 X 最近的词）；再反算 offset 使阅读头的 `frac` 恰好选中该词（`headY=line.top+(w+.5)/n*line.height`）。暂停/首次点击无词缓存时按需 `buildReadTokens()`。
+  - 未传 clientX 的旧调用回退到按 Y 定位，保持兼容；词缓存无效时同样回退。
+  - click 事件把 `e.clientX` 一并传入。
+- **验证**：`npm test` 147/147、`test:ios` 91/91（新增 7 项定位精度回归）、i18n 32/32、`smoke:worker` 18/18。诊断脚本覆盖行内不同 Y 位置/不同词，均精确命中；无 X 回退值一致。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`。
+
+---
+
 ## 2026-11-16 · fix — 播放速度下限、高亮速率、暂停定位续播（第十一轮）
 
 ### fix(speed)：速度下限 20→5 px/s，核实无单位换算 bug

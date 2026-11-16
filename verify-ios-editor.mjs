@@ -285,6 +285,56 @@ ev('togglePlay();');
 check('自然播放到底后 ▶ 才从头重播', ev('offset') === 0 && ev('playing') === true, 'offset=' + ev('offset'));
 ev('setPlaying(false);');
 
+// --- 15. 暂停→点击定位→续播：高亮必须精确落在所点词，不跳行尾/下一行（第十二轮）---
+// 根因：旧 seek 只按 clientY 设 offset，而高亮用「阅读头在行带内的纵向比例」选词，
+// 同一行词 Y 相同 → 点击 X（哪个词）被忽略，点在行内不同高度会落到不同词/行尾/下一行。
+// 修复：命中点击处真实词元，反算 offset 让阅读头选中该词。
+{
+  const DEF_VH = 300;
+  // 受控词几何：每行 8 词，行带 68px，词宽 40
+  const inject = () => {
+    const toks = [], lines = [];
+    for (let L=0;L<8;L++){
+      for (let k=0;k<8;k++) toks.push({ top: 28+L*68, left: 22+k*40, w: 38, h: 44 });
+      lines.push({ start:L*8, end:L*8+7, top:28+L*68, height:68 });
+    }
+    ev('readTokens=' + JSON.stringify(toks) + '; readLines=' + JSON.stringify(lines) + ';');
+    ev('readTokensDirty=false; readTokensText=(scrollText.textContent||"");');
+  };
+  // 选词公式（与 updateReadMark 一致）
+  const pick = () => ev(`(function(){
+    const hy=offset+viewport.clientHeight*0.2, L=readLines; let li=0;
+    while(li<L.length-1 && hy>L[li].top+L[li].height) li++;
+    const cur=L[li], n=cur.end-cur.start+1;
+    const f=Math.max(0,Math.min(1,(hy-cur.top)/Math.max(1,cur.height)));
+    return n>1 ? cur.start+Math.min(n-1,Math.floor(f*n)) : cur.start;
+  })()`);
+  for (const [L,k,yInBand] of [[2,0,22],[2,7,22],[2,2,60],[3,5,40]]){
+    ev('offset=200; setPlaying(false); playing=false;');
+    inject();
+    const cY = 28+L*68+yInBand, cX = 22+k*40+19;
+    // getBoundingClientRect 固定 top=100（上一节已设），contentY=clientY-100 → clientY=100+cY
+    const clientY = 100 + cY;
+    ev(`seekAtClientY(${clientY}, ${cX});`);
+    inject(); // seek 内部强制重建缓存，重新注入受控几何后测选词
+    check(`点第${L}行第${k+1}词(行内Y=${yInBand})精确命中`, pick() === L*8+k, 'idx='+pick()+' 期望='+(L*8+k));
+  }
+  // 关键回归：点在行带底部（旧模型会跳到行尾第8词），现在必须回到所点的第3词
+  ev('offset=200; setPlaying(false); playing=false;');
+  inject();
+  const cY=28+2*68+60, cX=22+2*40+19;
+  ev(`seekAtClientY(${100+cY}, ${cX});`);
+  inject();
+  check('行内低位置点击不再跳到行尾（仍落在所点词）', pick() === 2*8+2, 'idx='+pick()+' 期望='+(2*8+2));
+  // 兼容：未传 clientX 时回退按 Y 定位
+  ev('offset=200; setPlaying(false); playing=false; readTokens=null; readLines=null; readTokensDirty=true;');
+  ev(`seekAtClientY(${100+300});`); // contentY=300 → target=300-300*0.2=240
+  check('无 clientX 时回退按 Y 定位', Math.abs(ev('offset')-240)<0.01, 'offset='+ev('offset'));
+  // 事件层：click 必须把 clientX 传给 seek（源码守卫）
+  check('click 事件传递 clientX', /seekAtClientY\(e\.clientY,\s*e\.clientX\)/.test(html));
+  ev('setPlaying(false); readTokens=null; readLines=null; readTokensDirty=true;');
+}
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);

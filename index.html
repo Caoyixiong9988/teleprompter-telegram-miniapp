@@ -3178,15 +3178,55 @@ function resetReadPosition(){
   setPlaying(false);
   placeCaretAtStartDOM();
 }
-/* 点击提词内容任意一行 → 从该行开始播放。
+/* 点击提词内容任意位置 → 精确从所点那个词开始播放。
    getBoundingClientRect() 在播放态已含 -offset 变换、浏览态已含 scrollTop，
-   两种模式都能反推出同一个「内容坐标」。 */
-function seekAtClientY(clientY){
+   两种模式都能反推出同一个「内容坐标」（相对 scrollText 内容盒）。
+   关键修复：updateReadMark 是用「阅读头在某行带内的纵向比例」选词
+   （frac=(headContentY-line.top)/line.height），同一行的词 Y 相同。旧实现只按
+   点击的 Y 设 offset，于是点在字上/字下/行距会分别落到第 3/6/8 词——表现为
+   「跳到那一行末尾或下一行」。现在命中点击处的真实词元，再反算 offset，
+   使阅读头恰好选中它；没有词缓存时仍回退到按 Y 定位（兼容短稿/无布局环境）。 */
+function readTokenAtPoint(contentX, contentY){
+  if (!readTokens || !readTokens.length || !readLines || !readLines.length) return -1;
+  // 1) 词元包围盒内直接命中（含 2px 容差，覆盖标点与字间距）
+  for (let i=0;i<readTokens.length;i++){
+    const tk=readTokens[i];
+    if (contentX>=tk.left-2 && contentX<=tk.left+tk.w+2 && contentY>=tk.top-2 && contentY<=tk.top+tk.h+2) return i;
+  }
+  // 2) 点到行距/空白：定位所在视觉行，取该行 X 最近的词
+  let li=0;
+  while (li<readLines.length-1 && contentY>readLines[li].top+readLines[li].height) li++;
+  const ln=readLines[li];
+  let bi=ln.start,bd=Infinity;
+  for (let i=ln.start;i<=ln.end;i++){
+    const tk=readTokens[i];
+    const d=Math.abs(tk.left+tk.w/2-contentX);
+    if (d<bd){bd=d;bi=i;}
+  }
+  return bi;
+}
+function seekAtClientY(clientY, clientX){
   const max = maxOffset();
   if (max <= 0) return false;
   const rect = scrollText.getBoundingClientRect();
   const contentY = clientY - rect.top;
-  offset = clampOffset(contentY - viewport.clientHeight * 0.2); // 让所点行落在视口上 1/5 处
+  let target = contentY - viewport.clientHeight * READ_HEAD_RATIO; // 兜底：按 Y 定位
+  // 暂停/未播放时也可能从未构建过词缓存；按需构建，保证第一次点击就能精确定位
+  if (readTokensDirty || !readTokens || !readLines){
+    const txt = scrollText.textContent || '';
+    if (txt && (readTokensDirty || !readTokens || !readLines || txt !== readTokensText)) buildReadTokens();
+  }
+  if (typeof clientX === 'number' && readTokens && readTokens.length && readLines && readLines.length){
+    const ti = readTokenAtPoint(clientX - rect.left, contentY);
+    if (ti >= 0){
+      let li=0; while (li<readLines.length-1 && ti>readLines[li].end) li++;
+      const ln=readLines[li], n=Math.max(1, ln.end-ln.start+1), w=Math.max(0,Math.min(n-1,ti-ln.start));
+      // 让 updateReadMark 的 frac 命中第 w 个词：headY=line.top+(w+.5)/n*line.height
+      const headY = ln.top + ((w+0.5)/n)*ln.height;
+      target = headY - viewport.clientHeight * READ_HEAD_RATIO;
+    }
+  }
+  offset = clampOffset(target);
   readCounted = false;
   reachedEnd = false; // 显式定位后不再是"自然读完"，避免下次 ▶ 被误判回开头
   if (playing){
@@ -4007,7 +4047,7 @@ viewport.addEventListener('scroll', function(){
 scrollText.addEventListener('click', function(e){
   const sel = window.getSelection && window.getSelection();
   if (sel && !sel.isCollapsed) return;
-  if (typeof e.clientY === 'number') seekAtClientY(e.clientY);
+  if (typeof e.clientY === 'number') seekAtClientY(e.clientY, e.clientX);
 });
 btnPlay.addEventListener('click', togglePlay);
 btnReset.addEventListener('click', resetScroll);
