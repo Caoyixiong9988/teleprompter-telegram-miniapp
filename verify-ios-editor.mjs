@@ -510,6 +510,54 @@ ev('setPlaying(false);');
   ev('playing=false; setPlaying(false); caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
 }
 
+// --- 20. 第十七轮：空白带快进，逐词高亮节奏连续（不再空等）---
+{
+  check('空白带快进函数 blankGapAhead 存在', /function blankGapAhead\(headY\)/.test(html));
+  check('loop 使用空白带快进步长（offset 与锚点共用同一 step）',
+    /const bg = blankGapAhead\(readHeadContentY\)/.test(html) &&
+    /step = Math\.max\(step, bg\.nextTop - readHeadContentY\)/.test(html));
+
+  // 场景：行0(8词) → 夹2空行 → 行1(8词) → 夹3空行 → 行2(8词)
+  // 真实 top: 0 / 204 / 408；行高钳制后 68 / 68 / 44
+  const lines = [
+    {start:0,end:7,top:0,height:68},
+    {start:8,end:15,top:204,height:68},
+    {start:16,end:23,top:408,height:44},
+  ];
+  ev('readLines=' + JSON.stringify(lines) + ';');
+  check('文字带内不快进（headY=30 → null）', ev('blankGapAhead(30)') === null, JSON.stringify(ev('blankGapAhead(30)')));
+  const bg100 = ev('blankGapAhead(100)');
+  check('空白带内快进（headY=100 → nextTop=204）', bg100 && bg100.nextTop === 204, JSON.stringify(bg100));
+  check('行首边界不重复快进（headY=204 → null）', ev('blankGapAhead(204)') === null, JSON.stringify(ev('blankGapAhead(204)')));
+
+  const pickWord = (hy) => {
+    let li=0; while(li<lines.length-1 && hy>lines[li].top+lines[li].height) li++;
+    const c=lines[li], n=c.end-c.start+1;
+    if(n<=1) return c.start;
+    const f=Math.max(0,Math.min(1,(hy-c.top)/Math.max(1,c.height)));
+    return c.start+Math.min(n-1,Math.floor(f*n));
+  };
+  const endY = 408+44;
+  function simulate(useFast){
+    let hy=0, prev=-1, hold=0; const holds=[], seen=new Set(); let guard=0;
+    while(hy<=endY && guard++<20000){
+      let step=1;
+      if(useFast){ const bg=ev('blankGapAhead('+hy+')'); if(bg) step=Math.max(step, bg.nextTop-hy); }
+      const w=pickWord(hy); seen.add(w);
+      if(w!==prev){ if(prev>=0) holds.push(hold); prev=w; hold=0; }
+      hold++; hy+=step;
+    }
+    if(prev>=0) holds.push(hold);
+    return { holds, seen };
+  }
+  const before=simulate(false), after=simulate(true);
+  const maxBefore=Math.max(...before.holds), maxAfter=Math.max(...after.holds);
+  check('修复前复现空等（单次停留 >100 帧）', maxBefore>100, 'maxBefore='+maxBefore);
+  check('修复后无空等（单次停留 <20 帧，节奏连续）', maxAfter<20, 'maxAfter='+maxAfter);
+  check('修复后 24 个词全部被高亮覆盖', after.seen.size===24, 'seen='+[...after.seen].sort((a,b)=>a-b).join(','));
+  ev('readLines=null; readTokens=null; readTokensDirty=true;');
+}
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);

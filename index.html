@@ -3348,13 +3348,35 @@ function readEndContentY(){
   const ln = readLines[readLines.length - 1];
   return ln.top + Math.max(1, ln.height);
 }
+/* 空白带快进：两行文字之间夹了空行时，"本行文字带末尾(top+height)"到
+   "下一行真实 top"之间是一段没有词的空白。若阅读头按像素匀速扫过它，
+   高亮就会卡在行首/行尾空等（实测单处可达 200+ 帧，用户感觉节奏骤慢）。
+   上一轮只钳制了行高、没打通这层坐标不一致，本次在推进源头修：
+   检测阅读头进入空白带时，让 offset 与锚点用"一次跨完剩余空白"的步长
+   同步前进。空白带无文字，快速掠过用户无感，逐词节奏因此连续稳定；
+   两处共用同一 step，文稿与高亮始终同步、零跳变。 */
+function blankGapAhead(headY){
+  if (!readLines || readLines.length < 2) return null;
+  for (let i = 0; i < readLines.length - 1; i++){
+    const bandEnd = readLines[i].top + Math.max(1, readLines[i].height);
+    const nextTop = readLines[i + 1].top;
+    const gap = nextTop - bandEnd;
+    // 只有"明显空白"(超过正常行高一半)才快进，普通行距照常匀速
+    if (headY >= bandEnd - 0.5 && headY < nextTop && gap > readLines[i].height * 0.5){
+      return { bandEnd: bandEnd, nextTop: nextTop };
+    }
+  }
+  return null;
+}
 function loop(ts){
   if (lastTs == null) lastTs = ts;
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
   if (playing){
     const max = maxOffset();
-    const step = pxPerSec() * dt;
+    let step = pxPerSec() * dt;
+    const bg = blankGapAhead(readHeadContentY);
+    if (bg) step = Math.max(step, bg.nextTop - readHeadContentY); // 一步跨完空白带
     offset = Math.min(offset + step, max);   // 文稿位移最多到 max，底部不露白
     readHeadContentY += step;                // 锚点不受 max 限制，继续推进到末尾
     const endY = readEndContentY();
