@@ -2327,6 +2327,42 @@ let curLang = (function () {
 function t(key) {
   return (I18N[curLang] && I18N[curLang][key]) || I18N.zh[key] || key;
 }
+/* 讲稿标题分两类：系统生成的（默认讲稿 / 新讲稿）随界面语言切换；
+   用户自定标题（含导入文件名、手改过的标题）保持原样，绝不随语言改写。
+   老数据没有 titleKind 字段 → 靠标题文案是否等于任一语言的系统标题来识别。 */
+function autoTitleKind(title){
+  if (typeof title !== 'string') return '';
+  for (const lang of SUPPORTED_LANGS){
+    const d = I18N[lang]; if (!d) continue;
+    if (title === d.scriptDefaultTitle) return 'default';
+    if (title === d.scriptNewTitle) return 'new';
+  }
+  return '';
+}
+function scriptTitleOf(s){
+  if (!s) return t('scriptNewTitle');
+  const kind = s.titleKind || autoTitleKind(s.title);
+  if (kind === 'default') return t('scriptDefaultTitle');
+  if (kind === 'new') return t('scriptNewTitle');
+  return s.title || t('scriptNewTitle');
+}
+/* 切语言时把系统标题改写为当前语言，刷新脚本库列表与标题输入框。
+   返回是否真的改写了数据（用于决定是否持久化）。 */
+function refreshScriptTitles(){
+  let changed = false;
+  (state.scripts || []).forEach(function(s){
+    const kind = s.titleKind || autoTitleKind(s.title);
+    if (!kind || kind === 'custom') return;  // 用户自定标题：跳过（custom 是显式标记，不能当 new 处理）
+    const next = kind === 'default' ? t('scriptDefaultTitle') : t('scriptNewTitle');
+    if (s.title !== next){ s.title = next; changed = true; }
+    s.titleKind = kind;                      // 老数据补标记，后续识别更稳
+  });
+  renderScriptList();
+  const active = activeScript();
+  const st = document.getElementById('setScriptTitle');
+  if (st && active) st.value = active.title || t('scriptNewTitle');
+  if (changed) saveState();
+}
 function setLang(l) {
   if (!SUPPORTED_LANGS.includes(l)) return;
   curLang = l;
@@ -2357,12 +2393,14 @@ function applyI18n() {
     scrollText.textContent = def;
     const sc = document.getElementById('setScript');
     if (sc) sc.value = def;
-    // 默认示例稿随语言刷新，同步进当前讲稿对象（标题也复位为「默认讲稿」）
+    // 默认示例稿随语言刷新，标题复位为当前语言的「默认讲稿」文案
     const s = activeScript();
-    if (s) { s.content = def; s.updatedAt = 0; }
-    const st = document.getElementById('setScriptTitle');
-    if (st && s) st.value = t('scriptDefaultTitle');
+    if (s) { s.content = def; s.updatedAt = 0; s.title = t('scriptDefaultTitle'); s.titleKind = 'default'; }
   }
+  // 关键修复：所有系统生成的讲稿标题（默认/新建）都随语言刷新，列表与输入框同步；
+  // 用户自定标题（含导入文件名、手改过的）保持原样。旧逻辑只刷输入框且依赖 isDefault，
+  // 一旦用户导入或改写内容，标题就永远停在首次生成时的语言。
+  refreshScriptTitles();
   if (typeof renderSpeedUI === 'function') renderSpeedUI();
   if (typeof renderRank === 'function') renderRank();
   if (typeof renderProState === 'function') renderProState();
@@ -2374,7 +2412,7 @@ function applyI18n() {
 
 const defaultState = {
   scripts: [
-    { id: 'default', title: t('scriptDefaultTitle'), content: t('defaultScript'), updatedAt: 0, cloudId: null }
+    { id: 'default', title: t('scriptDefaultTitle'), titleKind: 'default', content: t('defaultScript'), updatedAt: 0, cloudId: null }
   ],
   activeScriptId: 'default',
   fontSize: 44,
@@ -2426,7 +2464,7 @@ function guardScriptLimit(){
 }
 function addScript(){
   if (guardScriptLimit()) return;
-  const s = { id: uid(), title: t('scriptNewTitle'), content: '', updatedAt: Date.now(), cloudId: null };
+  const s = { id: uid(), title: t('scriptNewTitle'), titleKind: 'new', content: '', updatedAt: Date.now(), cloudId: null };
   state.scripts.push(s); state.activeScriptId = s.id;
   saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
 }
@@ -3062,7 +3100,7 @@ async function parseImportFile(file){
 // 导入一律新建讲稿，不覆盖用户当前内容（避免误操作丢稿）。
 function importTextAsNewScript(title, content){
   if (guardScriptLimit()) return null; // 防御：任何绕过入口的新建路径同样受额度约束
-  const s = { id: uid(), title: title, content: content, updatedAt: Date.now(), cloudId: null };
+  const s = { id: uid(), title: title, titleKind: 'custom', content: content, updatedAt: Date.now(), cloudId: null };
   state.scripts.push(s); state.activeScriptId = s.id;
   saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
   return s;
@@ -3162,7 +3200,7 @@ function loadActiveIntoEditor(){
   if (scrollText) scrollText.textContent = content;
   readTokensDirty = true; // 文本节点被整体替换，逐词高亮必须重建缓存
   const st = document.getElementById('setScriptTitle');
-  if (st) st.value = s ? s.title : '';
+  if (st) st.value = s ? scriptTitleOf(s) : '';
   const isDefault = Object.values(I18N).some(function (d) { return d.defaultScript === content; });
   if (scrollText) scrollText.dataset.isDefault = isDefault ? '1' : '0';
   if (typeof refreshEmptyHint === 'function') refreshEmptyHint();
@@ -3177,7 +3215,7 @@ function renderScriptList(){
     row.className = 'script-row' + (s.id === state.activeScriptId ? ' active' : '');
     const title = document.createElement('span');
     title.className = 'script-row-title';
-    title.textContent = s.title || t('scriptNewTitle');
+    title.textContent = scriptTitleOf(s);
     title.addEventListener('click', function () { selectScript(s.id); });
     const del = document.createElement('button');
     del.className = 'script-row-del';
@@ -3246,12 +3284,12 @@ function loadState(){
   } catch(e){}
   // 向后兼容：旧版单篇 state.script → 多讲稿模型（不丢老用户讲稿）
   if (typeof state.script === 'string' && (!Array.isArray(state.scripts) || state.scripts.length === 0)) {
-    state.scripts = [{ id: 'default', title: t('scriptDefaultTitle'), content: state.script, updatedAt: 0, cloudId: null }];
+    state.scripts = [{ id: 'default', title: t('scriptDefaultTitle'), titleKind: 'default', content: state.script, updatedAt: 0, cloudId: null }];
     state.activeScriptId = 'default';
   }
   delete state.script;
   if (!Array.isArray(state.scripts) || state.scripts.length === 0) {
-    state.scripts = [{ id: 'default', title: t('scriptDefaultTitle'), content: t('defaultScript'), updatedAt: 0, cloudId: null }];
+    state.scripts = [{ id: 'default', title: t('scriptDefaultTitle'), titleKind: 'default', content: t('defaultScript'), updatedAt: 0, cloudId: null }];
     state.activeScriptId = 'default';
   }
   if (!state.activeScriptId || !state.scripts.some(function (x) { return x.id === state.activeScriptId; })) {
@@ -4820,6 +4858,8 @@ setScript.addEventListener('input', function(e){
 const setScriptTitle = document.getElementById('setScriptTitle');
 if (setScriptTitle) setScriptTitle.addEventListener('input', function(e){
   setActiveTitle(e.target.value);
+  const s = activeScript();
+  if (s) s.titleKind = 'custom';   // 用户亲自改过的标题：语言切换时保持原样
   renderScriptList(); debounceSave(); maybeSyncDebounced();
 });
 const btnNewScript = document.getElementById('btnNewScript');

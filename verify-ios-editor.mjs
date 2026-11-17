@@ -820,7 +820,36 @@ check('切语言后下方标签文案跟着切换（en 为 Subtle）', rmStatus.
 ev("setLang('zh')");
 check('切回中文后标签文案为「淡下划线」', rmStatus.textContent === '淡下划线');
 
+// 24. 第二十四轮：系统生成的讲稿标题随界面语言切换，用户自定标题保留
+// 24a. 默认讲稿标题七语跟随（列表 + 输入框 + 数据模型三处同步）
+const expectTitle = { zh:'默认讲稿', en:'Default script', de:'Standardskript', fr:'Script par défaut', ja:'既定の原稿', ko:'기본 대본', ru:'Сценарий по умолчанию' };
+ev("state.scripts=[{id:'default',title:t('scriptDefaultTitle'),titleKind:'default',content:'非示例内容',updatedAt:0}]; state.activeScriptId='default'; document.getElementById('scrollText').dataset.isDefault='0'; renderScriptList(); loadActiveIntoEditor();");
+for (const [lang, want] of Object.entries(expectTitle)) {
+  ev(`setLang('${lang}')`);
+  check(`切到 ${lang}：默认讲稿标题=「${want}」（列表/输入框/数据同步）`,
+    ev('state.scripts[0].title') === want &&
+    doc.querySelector('.script-row-title').textContent === want &&
+    doc.getElementById('setScriptTitle').value === want);
+}
+// 24b. 用户自定标题（含手改过的）切语言后保持原样
+ev("state.scripts[0].title='我的自定义讲稿'; state.scripts[0].titleKind='custom'; renderScriptList(); loadActiveIntoEditor();");
+ev("setLang('en')");
+check('用户自定标题切到 en 后不变（不翻译用户内容）', ev('state.scripts[0].title') === '我的自定义讲稿' && doc.querySelector('.script-row-title').textContent === '我的自定义讲稿' && doc.getElementById('setScriptTitle').value === '我的自定义讲稿');
+// 24c. 新建讲稿标题也随语言跟随
+ev("state.scripts=[{id:'n1',title:t('scriptNewTitle'),titleKind:'new',content:'x',updatedAt:0}]; state.activeScriptId='n1'; document.getElementById('scrollText').dataset.isDefault='0'; renderScriptList(); loadActiveIntoEditor();");
+ev("setLang('fr')");
+check('新建讲稿标题切到 fr = Nouveau script', ev('state.scripts[0].title') === 'Nouveau script' && doc.querySelector('.script-row-title').textContent === 'Nouveau script' && doc.getElementById('setScriptTitle').value === 'Nouveau script');
+// 24d. 老数据无 titleKind：靠标题文案等于任一语言系统标题来识别
+ev("state.scripts=[{id:'old',title:'默认讲稿',content:'x',updatedAt:0}]; state.activeScriptId='old'; document.getElementById('scrollText').dataset.isDefault='0'; renderScriptList(); loadActiveIntoEditor();");
+ev("setLang('ja')");
+check('老数据无 titleKind 也按文案识别并跟随（补齐标记）', ev('state.scripts[0].title') === '既定の原稿' && ev('state.scripts[0].titleKind') === 'default');
+// 24e. 源码守卫：applyI18n 统一调用 refreshScriptTitles；手改标题/导入标为 custom
+check('applyI18n 调用 refreshScriptTitles（源码守卫）', /refreshScriptTitles\(\);/.test(html) && /if \(changed\) saveState\(\);/.test(html));
+check('手改标题标记 custom（源码守卫）', /setScriptTitle\.addEventListener\('input'[\s\S]{0,160}titleKind = 'custom'/.test(html));
+check('导入讲稿标题标记 custom（源码守卫）', /importTextAsNewScript[\s\S]{0,260}titleKind: 'custom'/.test(html));
+
 // 还原状态，避免影响后续（虽然本测试已近末尾）
+ev("setLang('zh'); state.scripts=[{id:'default',title:'默认讲稿',titleKind:'default',content:t('defaultScript'),updatedAt:0}]; state.activeScriptId='default'; document.getElementById('scrollText').dataset.isDefault='1'; loadActiveIntoEditor();");
 ev('state.readMark=true; state.readMarkStrength="strong"; syncReadMarkUI();');
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
