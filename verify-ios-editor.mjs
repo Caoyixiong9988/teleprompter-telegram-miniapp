@@ -904,6 +904,49 @@ check('取色器 cpSyncFromHex 随颜色回填预览', /function cpSyncFromHex/.
 ev("setLang('zh'); state.scripts=[{id:'default',title:'默认讲稿',titleKind:'default',content:t('defaultScript'),updatedAt:0}]; state.activeScriptId='default'; document.getElementById('scrollText').dataset.isDefault='1'; loadActiveIntoEditor();");
 ev('state.readMark=true; state.readMarkStrength="strong"; syncReadMarkUI();');
 
+// --- 单按钮状态化（云同步入口：一个语义、三态）---
+const btnSync = doc.getElementById('btnSyncNow');
+const syncStatus = doc.getElementById('scriptSyncStatus');
+check('云同步按钮只有一个（无拆成两个按钮）',
+  doc.querySelectorAll('#btnSyncNow').length === 1 && !doc.getElementById('btnSaveLocal'));
+check('按钮初始为未解锁态 data-mode=locked（源码默认 + 运行时）',
+  btnSync.getAttribute('data-mode') === 'locked',
+  btnSync.getAttribute('data-mode'));
+check('未解锁态文案含锁标记与 Pro，不灰化可点击',
+  /云同步/.test(btnSync.textContent) && /Pro/.test(btnSync.textContent) && btnSync.disabled === false,
+  btnSync.textContent + ' | disabled=' + btnSync.disabled);
+check('未解锁态点击弹升级面板而非假同步（源码守卫）',
+  /if \(!canCloudSync\(\)\)\{ if \(typeof openProSheetSafe === 'function'\) openProSheetSafe\(\); return; \}/.test(html));
+check('renderSyncStatus 三态分支齐全（locked/pending/ready）',
+  /btn\.dataset\.mode = 'locked'/.test(html) && /btn\.dataset\.mode = 'pending'/.test(html) && /btn\.dataset\.mode = 'ready'/.test(html));
+check('同步中不重复触发：pending 态按钮 disabled',
+  /syncPhase === 'pending'\)\{\s*btn\.dataset\.mode = 'pending';\s*btn\.disabled = true/.test(html));
+check('本地保存由状态文字表达（免费态显示 cloudSyncLocal）',
+  /if \(!isPro\(\)\) \{ el\.textContent = t\('cloudSyncPro'\) \+ '\\n' \+ t\('cloudSyncLocal'\)/.test(html));
+check('动态按钮不挂静态 data-i18n（切语言由 renderSyncStatus 重绘）',
+  !btnSync.hasAttribute('data-i18n') && !syncStatus.hasAttribute('data-i18n') &&
+  ev('typeof applyI18n === "function" && /renderSyncStatus\\(\\)/.test(applyI18n.toString())'));
+// 运行时三态：用 stub 覆盖 canCloudSync，验证文案与 data-mode 随状态切换
+ev('window.__origCanSync = canCloudSync; canCloudSync = function(){ return true; }; state.isPro = true; CONFIG.API_BASE = "https://stub";');
+ev('syncPhase=""; renderSyncStatus();');
+check('付费可用态 data-mode=ready、文案=立即同步、可点击',
+  btnSync.getAttribute('data-mode') === 'ready' && /立即同步/.test(btnSync.textContent) && btnSync.disabled === false,
+  btnSync.getAttribute('data-mode') + ' | ' + btnSync.textContent);
+ev('renderSyncStatus("pending");');
+check('同步中态 data-mode=pending、文案=同步中、按钮禁用',
+  btnSync.getAttribute('data-mode') === 'pending' && btnSync.disabled === true && /同步中/.test(btnSync.textContent),
+  btnSync.getAttribute('data-mode') + ' | ' + btnSync.textContent + ' | disabled=' + btnSync.disabled);
+ev('renderSyncStatus("done");');
+check('完成态回到 ready、状态文字=云同步已开启',
+  btnSync.getAttribute('data-mode') === 'ready' && /任意设备|云端/.test(syncStatus.textContent),
+  syncStatus.textContent);
+ev('renderSyncStatus("err", "test_err");');
+check('失败态显示错误原因且按钮可重试（ready）',
+  /test_err/.test(syncStatus.textContent) && btnSync.getAttribute('data-mode') === 'ready' && btnSync.disabled === false);
+// 还原 stub，避免污染后续
+ev('canCloudSync = window.__origCanSync; state.isPro = false; CONFIG.API_BASE = ""; syncPhase=""; renderSyncStatus();');
+check('还原后回到未解锁态', btnSync.getAttribute('data-mode') === 'locked');
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);

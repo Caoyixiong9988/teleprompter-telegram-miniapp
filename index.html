@@ -398,8 +398,8 @@
 
       <div class="field">
         <label data-i18n="cloudSyncTitle">云同步（Pro）</label>
-        <div class="hint" id="scriptSyncStatus" data-i18n="cloudSyncLocal">本地模式：讲稿仅保存在本设备，不会上传服务器。</div>
-        <button class="btn" id="btnSyncNow" data-i18n="cloudSyncNow">立即同步</button>
+        <div class="hint" id="scriptSyncStatus" style="white-space:pre-line;">本地模式：讲稿仅保存在本设备，不会上传服务器。</div>
+        <button class="btn" id="btnSyncNow" data-mode="locked">🔒 云同步 · Pro</button>
       </div>
 
       <div class="field">
@@ -2467,6 +2467,8 @@ function applyI18n() {
   // 上面 data-i18n-title 会把眼睛按钮 title 重置为纯 toggleReadMark，
   // 这里按当前三态恢复成「当前档 → 下一档」的动态提示（函数声明已提升）。
   if (typeof syncReadMarkUI === 'function' && typeof state !== 'undefined') syncReadMarkUI();
+  // 按钮文案/状态文字是动态生成的（不挂 data-i18n），切语言后需按当前同步态重绘。
+  if (typeof renderSyncStatus === 'function' && typeof canCloudSync === 'function') renderSyncStatus();
 }
 
 const defaultState = {
@@ -4757,6 +4759,7 @@ async function checkProStatus(){
     const pro = !!(j && j.pro);
     if (state.isPro !== pro) { state.isPro = pro; saveState(); }
     renderProState();
+    if (typeof renderSyncStatus === 'function') renderSyncStatus(); // 付费态变化后刷新云同步按钮三态
   } catch(e){ renderProState(); }
 }
 
@@ -4914,8 +4917,10 @@ async function cloudDelete(cloudId){
   } catch(e){ /* 删除失败不影响本地 */ }
 }
 
+let syncPhase = '';      // '' 空闲 | 'pending' 同步中 | 'done' 已完成 | 'err' 失败
+let syncErrDetail = '';
 async function syncScripts(){
-  if (!canCloudSync()) { renderSyncStatus(); return; }
+  if (!canCloudSync()) { syncPhase = ''; renderSyncStatus(); return; }
   renderSyncStatus('pending');
   try {
     const cloud = await cloudList();
@@ -4944,13 +4949,39 @@ async function syncScripts(){
 }
 
 function renderSyncStatus(stateOpt, detailOpt){
+  if (stateOpt !== undefined) syncPhase = stateOpt;
+  if (detailOpt !== undefined) syncErrDetail = detailOpt || '';
   const el = document.getElementById('scriptSyncStatus');
+  const btn = document.getElementById('btnSyncNow');
+  const canSync = canCloudSync();
+
+  // 按钮只有一个语义：云同步入口。三态：未解锁（可点，引导升级）/ 同步中（禁用）/ 可用。
+  // 免费用户不再出现「点了却只存本地」的假动作——本地保存本就自动进行，由状态文字表达。
+  if (btn){
+    if (!canSync){
+      btn.dataset.mode = 'locked';
+      btn.disabled = false;                       // 不灰化：可点击，点击引导升级
+      btn.textContent = '\u{1F512} ' + t('cloudSyncTitle'); // 🔒 云同步 · Pro
+      btn.title = t('cloudSyncPro');
+    } else if (syncPhase === 'pending'){
+      btn.dataset.mode = 'pending';
+      btn.disabled = true;
+      btn.textContent = t('cloudSyncPending');
+      btn.title = t('cloudSyncPending');
+    } else {
+      btn.dataset.mode = 'ready';
+      btn.disabled = false;
+      btn.textContent = t('cloudSyncNow');
+      btn.title = t('cloudSyncNow');
+    }
+  }
+
   if (!el) return;
   if (!CONFIG.API_BASE) { el.textContent = t('cloudSyncLocal'); return; }
-  if (!isPro()) { el.textContent = t('cloudSyncPro'); return; }
-  if (stateOpt === 'pending') { el.textContent = t('cloudSyncPending'); return; }
-  if (stateOpt === 'done') { el.textContent = t('cloudSyncDone'); return; }
-  if (stateOpt === 'err') { el.textContent = t('cloudSyncErr') + (detailOpt ? ' · ' + detailOpt : ''); return; }
+  if (!isPro()) { el.textContent = t('cloudSyncPro') + '\n' + t('cloudSyncLocal'); return; }
+  if (syncPhase === 'pending') { el.textContent = t('cloudSyncPending'); return; }
+  if (syncPhase === 'done') { el.textContent = t('cloudSyncOn'); return; }
+  if (syncPhase === 'err') { el.textContent = t('cloudSyncErr') + (syncErrDetail ? ' · ' + syncErrDetail : ''); return; }
   el.textContent = t('cloudSyncOn');
 }
 
@@ -5022,7 +5053,11 @@ if (setScriptTitle) setScriptTitle.addEventListener('input', function(e){
 const btnNewScript = document.getElementById('btnNewScript');
 if (btnNewScript) btnNewScript.addEventListener('click', function(){ addScript(); });
 const btnSyncNow = document.getElementById('btnSyncNow');
-if (btnSyncNow) btnSyncNow.addEventListener('click', function(){ syncScripts(); });
+if (btnSyncNow) btnSyncNow.addEventListener('click', function(){
+  // 一个按钮、一个语义：云同步入口。未解锁 → 引导升级；可用 → 真正同步。
+  if (!canCloudSync()){ if (typeof openProSheetSafe === 'function') openProSheetSafe(); return; }
+  syncScripts();
+});
 function changeFontSize(px){
   const v = Math.max(24, Math.min(96, Math.round(+px || 44)));
   if (v === state.fontSize) return;
@@ -5386,7 +5421,7 @@ function init(){
   const devPreview = document.getElementById('btnProDevPreview');
   if (devPreview) devPreview.addEventListener('click', function () {
     if (!devPreviewAllowed(CONFIG.API_BASE, location.search)) return; // 隐藏不等于安全，事件本身也要校验
-    state.isPro = !state.isPro; saveState(); renderProState();
+    state.isPro = !state.isPro; saveState(); renderProState(); renderSyncStatus();
     toast(isPro() ? t('proStatusOn') : t('proStatusOff'));
   });
 
