@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 234 键且一致', sizes.every(n => n === 234), JSON.stringify(sizes));
+check('七语各 235 键且一致', sizes.every(n => n === 235), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -977,6 +977,45 @@ check('免费版本地自动保存提示在讲稿库中常驻显示',
   /免费版讲稿会自动保存在本设备/.test(html));
 check('importFormats 文案已改为写入当前稿（不再宣称新建）',
   !/导入会新建一篇讲稿/.test(html) && /写入当前选中的讲稿/.test(ev("I18N.zh.importFormats")));
+
+// --- 修复：讲稿库激活态同步（点击后列表蓝框必须跟着走）---
+check('selectScript 内含 renderScriptList（激活态同步根因修复）',
+  /function selectScript[\s\S]{0,260}renderScriptList\(\)/.test(html));
+// 运行时：造三篇讲稿，依次点选，验证数据/列表高亮/提词区三处一致
+ev("state.scripts=[{id:'s1',title:'再次测试',titleKind:'custom',content:'内容一',updatedAt:0},{id:'s2',title:'圆览',titleKind:'custom',content:'内容二',updatedAt:0},{id:'s3',title:'第三个',titleKind:'custom',content:'内容三',updatedAt:0}]; state.activeScriptId='s3'; renderScriptList(); loadActiveIntoEditor();");
+check('初始：三篇讲稿，激活在第三篇', ev('state.activeScriptId') === 's3' && doc.querySelectorAll('#scriptList .script-row').length === 3);
+check('初始：列表仅第三篇带 active',
+  (() => { const rows = doc.querySelectorAll('#scriptList .script-row'); return !rows[0].classList.contains('active') && !rows[1].classList.contains('active') && rows[2].classList.contains('active'); })());
+// 点选第一篇（模拟用户点击列表标题 → selectScript('s1')）
+ev("selectScript('s1');");
+check('切到第一篇：activeScriptId 与提词区内容同步', ev('state.activeScriptId') === 's1' && ev('getActiveContent()') === '内容一');
+check('切到第一篇：列表蓝框同步到第一篇（不再停在第三篇）',
+  (() => { const rows = doc.querySelectorAll('#scriptList .script-row'); return rows[0].classList.contains('active') && !rows[1].classList.contains('active') && !rows[2].classList.contains('active'); })());
+// 再点第二篇，验证可反复切换、无残留高亮
+ev("selectScript('s2');");
+check('切到第二篇：三处一致且仅一篇高亮',
+  ev('state.activeScriptId') === 's2' && ev('getActiveContent()') === '内容二' &&
+  (() => { const rows = doc.querySelectorAll('#scriptList .script-row'); return !rows[0].classList.contains('active') && rows[1].classList.contains('active') && !rows[2].classList.contains('active'); })());
+
+// --- 修复：主界面讲稿库快速选用入口 ---
+check('编辑条含 btnQuickLib 按钮（无需进设置即可选讲稿）', !!doc.getElementById('btnQuickLib'));
+check('存在 quickLibSheet 快速选用面板与列表容器',
+  !!doc.getElementById('quickLibSheet') && !!doc.getElementById('quickLibList'));
+check('renderQuickLibList 复用 activeScriptId 作为唯一激活源并调用 selectScript',
+  /function renderQuickLibList[\s\S]{0,700}state\.activeScriptId/.test(html) &&
+  /function renderQuickLibList[\s\S]{0,900}selectScript\(s\.id\)/.test(html));
+// 运行时：打开面板渲染三篇，点第二篇 → 切换 + 面板关闭
+ev("renderQuickLibList();");
+check('快速面板渲染出三篇且当前激活为第二篇',
+  (() => { const rows = doc.querySelectorAll('#quickLibList .script-row'); return rows.length === 3 && rows[1].classList.contains('active'); })());
+ev("document.getElementById('btnQuickLib').click();");
+check('点编辑条讲稿库按钮打开面板', !doc.getElementById('quickLibSheet').classList.contains('hidden'));
+// 点面板第一篇标题
+ev("document.querySelectorAll('#quickLibList .script-row-title')[0].click();");
+check('面板点选后切到对应讲稿且面板自动关闭',
+  ev('state.activeScriptId') === 's1' && doc.getElementById('quickLibSheet').classList.contains('hidden'));
+check('七语均有 quickLibHint 文案',
+  ['zh','en','de','fr','ja','ko','ru'].every(l => ev(`!!I18N.${l}.quickLibHint`)));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);

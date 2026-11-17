@@ -340,6 +340,7 @@
   <div id="editBar" class="edit-bar hidden">
     <div class="edit-hint" data-i18n="editHint">点一下上面的文字就能直接删改、粘贴、输入；内容较长时可在提词区内上下滚动。也可以从文件导入讲稿。</div>
     <button class="btn" type="button" id="btnQuickPaste" data-i18n="editPaste">📋 粘贴</button>
+    <button class="btn" type="button" id="btnQuickLib" data-i18n="scriptLibTitle">讲稿库</button>
     <button class="btn" type="button" id="btnQuickImport" data-i18n="importBtn">📂 从文件导入讲稿</button>
     <button class="btn" type="button" id="btnQuickClear" data-i18n="editClear">🗑 清空</button>
     <button class="btn primary" type="button" id="btnQuickDone" data-i18n="editDone">完成</button>
@@ -350,6 +351,18 @@
     <div class="paste-actions">
       <button class="btn primary" type="button" id="btnPasteInsert" data-i18n="pasteFallbackInsert">插入讲稿</button>
       <button class="btn" type="button" id="btnPasteCancel" data-i18n="pasteFallbackCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 主界面讲稿库快速选用面板：不必进设置页即可切换/选用已存讲稿（与设置页共用 selectScript） -->
+  <div class="sheet hidden" id="quickLibSheet">
+    <div class="sheet-inner">
+      <h3 data-i18n="scriptLibTitle">讲稿库</h3>
+      <div id="quickLibList" class="script-list"></div>
+      <div class="hint" data-i18n="quickLibHint" style="margin-top:8px;">点选一篇即可载入提词区，无需进入设置。</div>
+      <div class="sheet-actions" style="margin-top:12px;">
+        <button class="btn primary" type="button" id="btnCloseQuickLib" data-i18n="done">完成</button>
+      </div>
     </div>
   </div>
 
@@ -885,6 +898,7 @@ const I18N = {
   scriptTitleLabel:"讲稿标题",
   scriptDelete:"删除",
   scriptSelect:"选用",
+  quickLibHint:"点选一篇即可载入提词区，无需进入设置。",
   scriptDeleteLast:"至少保留一篇讲稿",
   scriptContentLabel:"讲稿内容",
   cloudSyncTitle:"云同步 · Pro",
@@ -1110,6 +1124,7 @@ const I18N = {
   scriptTitleLabel:"Script title",
   scriptDelete:"Delete",
   scriptSelect:"Use",
+  quickLibHint:"Tap a script to load it into the teleprompter — no need to open Settings.",
   scriptDeleteLast:"Keep at least one script",
   scriptContentLabel:"Script content",
   cloudSyncTitle:"Cloud sync · Pro",
@@ -1348,6 +1363,7 @@ const I18N = {
   scriptTitleLabel:'Skripttitel',
   scriptDelete:'Löschen',
   scriptSelect:'Verwenden',
+  quickLibHint:'Tippe auf ein Skript, um es in den Teleprompter zu laden – ohne die Einstellungen zu öffnen.',
   scriptDeleteLast:'Mindestens ein Skript muss bleiben',
   scriptContentLabel:'Skriptinhalt',
   cloudSyncTitle:'Cloud-Sync · Pro',
@@ -1586,6 +1602,7 @@ const I18N = {
   scriptTitleLabel:'Titre du script',
   scriptDelete:'Supprimer',
   scriptSelect:'Utiliser',
+  quickLibHint:'Touchez un script pour le charger dans le prompteur, sans ouvrir les réglages.',
   scriptDeleteLast:'Au moins un script doit rester',
   scriptContentLabel:'Contenu du script',
   cloudSyncTitle:'Synchronisation cloud · Pro',
@@ -1811,6 +1828,7 @@ const I18N = {
   scriptTitleLabel:"原稿タイトル",
   scriptDelete:"削除",
   scriptSelect:"選択",
+  quickLibHint:"原稿をタップするとテロメプレーに読み込めます。設定を開く必要はありません。",
   scriptDeleteLast:"原稿は最低 1 件残してください",
   scriptContentLabel:"原稿の内容",
   cloudSyncTitle:"クラウド同期 · Pro",
@@ -2036,6 +2054,7 @@ const I18N = {
   scriptTitleLabel:"대본 제목",
   scriptDelete:"삭제",
   scriptSelect:"선택",
+  quickLibHint:"대본을 탭하면 설정을 열지 않고도 텔레프롬프터에 불러옵니다.",
   scriptDeleteLast:"대본은 최소 1개 유지하세요",
   scriptContentLabel:"대본 내용",
   cloudSyncTitle:"클라우드 동기화 · Pro",
@@ -2261,6 +2280,7 @@ const I18N = {
   scriptTitleLabel:"Название сценария",
   scriptDelete:"Удалить",
   scriptSelect:"Выбрать",
+  quickLibHint:"Нажмите на сценарий, чтобы загрузить его в суфлёр — без открытия настроек.",
   scriptDeleteLast:"Оставьте хотя бы один сценарий",
   scriptContentLabel:"Текст сценария",
   cloudSyncTitle:"Облачная синхронизация · Pro",
@@ -3291,7 +3311,15 @@ function deleteScript(id){
   if (s && s.cloudId != null) cloudDelete(s.cloudId);
   maybeSync();
 }
-function selectScript(id){ state.activeScriptId = id; saveState(); loadActiveIntoEditor(); }
+function selectScript(id){
+  state.activeScriptId = id;
+  saveState();
+  // BUG 修复：切换讲稿后必须重绘讲稿库列表，否则蓝色激活框仍停在旧讲稿，
+  // 表现为「提词区内容已切换、设置页激活态没跟上」。三处（数据/提词区/列表）一次同步。
+  renderScriptList();
+  loadActiveIntoEditor();
+  maybeSync();
+}
 
 // 把当前讲稿载入编辑器（textarea + 标题 + 提词区 + 默认稿标记）
 function loadActiveIntoEditor(){
@@ -3333,6 +3361,31 @@ function renderScriptList(){
       ? (n + ' · ' + t('scriptSelect'))
       : fmt(t('scriptQuota'), { n: n, max: FREE_SCRIPT_LIMIT });
   }
+}
+
+// 主界面「讲稿库」快速选用面板：与设置页共用 state.activeScriptId 作为唯一激活源，
+// 点选即 selectScript(id)——它会同时刷新列表高亮与提词区，保证三处状态一致。
+function renderQuickLibList(){
+  const listEl = document.getElementById('quickLibList');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  (state.scripts || []).forEach(function (s) {
+    const row = document.createElement('div');
+    row.className = 'script-row' + (s.id === state.activeScriptId ? ' active' : '');
+    const title = document.createElement('span');
+    title.className = 'script-row-title';
+    title.textContent = scriptTitleOf(s);
+    title.addEventListener('click', function () {
+      selectScript(s.id);
+      const sheet = document.getElementById('quickLibSheet');
+      if (sheet) sheet.classList.add('hidden');
+      if (playing) setPlaying(false); // 切换讲稿后停下，避免沿用旧讲稿的播放位置
+      offset = 0;
+      if (viewport) viewport.scrollTop = 0;
+    });
+    row.appendChild(title);
+    listEl.appendChild(row);
+  });
 }
 
 let state = Object.assign({}, defaultState);
@@ -5495,6 +5548,26 @@ function init(){
       const f = e.target.files && e.target.files[0];
       e.target.value = '';         // 允许连续选择同一个文件
       handleImportFile(f);
+    });
+  }
+
+  // 主界面「讲稿库」快速选用：打开面板时按当前 activeScriptId 渲染，点选即切换并关闭
+  const quickLibBtn = document.getElementById('btnQuickLib');
+  const quickLibSheet = document.getElementById('quickLibSheet');
+  if (quickLibBtn) {
+    quickLibBtn.addEventListener('click', function () {
+      if (typeof renderQuickLibList === 'function') renderQuickLibList();
+      if (quickLibSheet) quickLibSheet.classList.remove('hidden');
+    });
+  }
+  const btnCloseQuickLib = document.getElementById('btnCloseQuickLib');
+  if (btnCloseQuickLib && quickLibSheet) {
+    btnCloseQuickLib.addEventListener('click', function () { quickLibSheet.classList.add('hidden'); });
+  }
+  // 点遮罩空白处关闭（与设置页之外的其它 sheet 保持一致的手势）
+  if (quickLibSheet) {
+    quickLibSheet.addEventListener('click', function (e) {
+      if (e.target === quickLibSheet) quickLibSheet.classList.add('hidden');
     });
   }
 
