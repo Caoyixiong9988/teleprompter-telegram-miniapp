@@ -154,7 +154,7 @@ test('七语新增 12 个导入键齐全，投稿提示已清除', () => {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }
-  assert.equal(ev('Object.keys(I18N.zh).length'), 226);
+  assert.equal(ev('Object.keys(I18N.zh).length'), 229);
 });
 
 test('文件输入不藏在设置面板里，且接受 .doc / .rtf', () => {

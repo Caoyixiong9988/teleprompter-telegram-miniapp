@@ -69,6 +69,16 @@
     content:""; position:absolute; left:3px; right:3px; top:50%;
     height:2px; background:#c0392b; border-radius:2px; transform:translateY(-50%) rotate(-22deg);
   }
+  /* 眼睛按钮下方的常驻档位标签：状态说明就地显示在按钮下，不再靠底部 toast
+     （底部 toast 落在播放/设置区，用户反馈不顺手）。颜色与眼睛图标的三档呼应。 */
+  #btnReadMarkWrap{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  #readMarkStatus{
+    font-size:10px; line-height:1.1; white-space:nowrap; color:var(--muted);
+    text-align:center; min-height:11px; user-select:none;
+  }
+  #readMarkStatus[data-mode="strong"]{ color:var(--primary); font-weight:600; }
+  #readMarkStatus[data-mode="subtle"]{ color:#c8860a; font-weight:600; }
+  #readMarkStatus[data-mode="off"]{ color:var(--muted); opacity:.75; }
   #scrollText{
     /* 顶部预留约 1.5 行空白（2.2em ≈ 1.4 行高，行高 1.55em）：
        从开头播放时首个词落在视口顶端往下 1~2 行处，慢速跟读有缓冲，
@@ -279,9 +289,12 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="sub" id="verifyStatus" style="text-align:right;"></div>
-      <!-- 主屏快捷按钮：👁 一键切逐词高亮 + A−/A+ 字号，都不必进设置；跨语言通用 -->
+      <!-- 主屏快捷按钮：👁 一键切逐词高亮（下方常驻档位标签）+ A−/A+ 字号，都不必进设置；跨语言通用 -->
       <div style="display:flex;align-items:center;gap:2px;" role="group" aria-label="quick controls">
-        <button type="button" id="btnReadMark" data-i18n-title="toggleReadMark" data-mode="strong" aria-pressed="true" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:16px;line-height:1;">👁</button>
+        <span id="btnReadMarkWrap">
+          <button type="button" id="btnReadMark" data-i18n-title="toggleReadMark" data-mode="strong" aria-pressed="true" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:16px;line-height:1;">👁</button>
+          <span id="readMarkStatus" data-mode="strong" aria-live="polite">强底色</span>
+        </span>
         <button type="button" id="btnFontDown" aria-label="font size down" title="A-" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A−</button>
         <button type="button" id="btnFontUp" aria-label="font size up" title="A+" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A+</button>
       </div>
@@ -759,6 +772,9 @@ const I18N = {
   readMarkStrengthStrong:"强底色（默认，醒目好跟读）",
   readMarkStrengthSubtle:"淡下划线（干扰小，适合熟练用户）",
   readMarkStrengthHint:"强底色适合跟读新手；淡下划线视觉更轻，适合熟练用户或对高亮敏感的人。也可点顶部眼睛图标在 强底色→淡下划线→关闭 间循环切换。",
+  readMarkModeStrong:"强底色",
+  readMarkModeSubtle:"淡下划线",
+  readMarkModeOff:"已关闭",
   scrollSpeed:"滚动速度",
   switchUnit:"切换单位",
   speedHint:"单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。",
@@ -976,6 +992,9 @@ const I18N = {
   readMarkStrengthStrong:"Strong background (default, easy to follow)",
   readMarkStrengthSubtle:"Light underline (less distraction, for pros)",
   readMarkStrengthHint:"Strong background suits beginners; the light underline is subtler for advanced users or those sensitive to highlights. Or tap the eye icon at the top to cycle strong → subtle → off.",
+  readMarkModeStrong:"Strong",
+  readMarkModeSubtle:"Subtle",
+  readMarkModeOff:"Off",
   scrollSpeed:"Scroll Speed",
   switchUnit:"Switch Unit",
   speedHint:"Units: pixels/second (px/s) or characters/minute (CPM, estimated from current font size).",
@@ -1206,6 +1225,9 @@ const I18N = {
   readMarkStrengthStrong:"Starker Hintergrund (Standard, gut zu folgen)",
   readMarkStrengthSubtle:"Leichte Unterstreichung (weniger Ablenkung, für Profis)",
   readMarkStrengthHint:"Starker Hintergrund eignet sich für Anfänger; die leichte Unterstreichung ist dezenter für Fortgeschrittene oder sensible Nutzer. Tippe oben auf das Auge, um Stark → dezent → aus zu wechseln.",
+  readMarkModeStrong:"Kräftig",
+  readMarkModeSubtle:"Dezent",
+  readMarkModeOff:"Aus",
   scrollSpeed:'Scrollgeschwindigkeit',
   switchUnit:'Einheit wechseln',
   speedHint:'Einheit: Pixel pro Sekunde (px/s) oder Zeichen pro Minute (CPM, anhand der aktuellen Schriftgröße geschätzt).',
@@ -1436,6 +1458,9 @@ const I18N = {
   readMarkStrengthStrong:"Fond prononcé (par défaut, facile à suivre)",
   readMarkStrengthSubtle:"Soulignement léger (moins de distraction, pour les pros)",
   readMarkStrengthHint:"Le fond prononcé convient aux débutants ; le soulignement léger est plus discret pour les utilisateurs avancés ou sensibles. Appuyez sur l'œil en haut pour alterner fort → léger → désactivé.",
+  readMarkModeStrong:"Fort",
+  readMarkModeSubtle:"Léger",
+  readMarkModeOff:"Désactivé",
   scrollSpeed:'Vitesse de défilement',
   switchUnit:'Changer d’unité',
   speedHint:'Unité : pixels par seconde (px/s) ou caractères par minute (CPM, estimés selon la taille de police actuelle).',
@@ -1653,6 +1678,9 @@ const I18N = {
   readMarkStrengthStrong:"強い背景色（既定、追いやすい）",
   readMarkStrengthSubtle:"淡い下線（邪魔になりにくい、上級者向け）",
   readMarkStrengthHint:"強い背景色は初心者に、淡い下線は上級者やハイライトが苦手な方に向いています。上部の目のアイコンで 強い背景→淡い下線→オフ を切り替えられます。",
+  readMarkModeStrong:"強い背景",
+  readMarkModeSubtle:"淡い下線",
+  readMarkModeOff:"オフ",
   scrollSpeed:"スクロール速度",
   switchUnit:"単位切替",
   speedHint:"単位：ピクセル/秒（px/s）または 文字/分（CPM、現在の文字サイズから算出）。",
@@ -1870,6 +1898,9 @@ const I18N = {
   readMarkStrengthStrong:"진한 배경 (기본, 따라가기 쉬움)",
   readMarkStrengthSubtle:"연한 밑줄 (방해 적음, 숙련자용)",
   readMarkStrengthHint:"진한 배경은 초보자에게, 연한 밑줄은 숙련자나 강조에 민감한 분에게 적합합니다. 상단의 눈 아이콘으로 진한 배경→연한 밑줄→꺼짐을 순환 전환할 수 있습니다.",
+  readMarkModeStrong:"진한 배경",
+  readMarkModeSubtle:"연한 밑줄",
+  readMarkModeOff:"꺼짐",
   scrollSpeed:"스크롤 속도",
   switchUnit:"단위 전환",
   speedHint:"단위: 픽셀/초（px/s） 또는 자/분（CPM, 현재 글자 크기 기준 추정）.",
@@ -2087,6 +2118,9 @@ const I18N = {
   readMarkStrengthStrong:"Яркий фон (по умолчанию, удобно следить)",
   readMarkStrengthSubtle:"Лёгкое подчёркивание (меньше отвлекает, для профи)",
   readMarkStrengthHint:"Яркий фон подходит новичкам, лёгкое подчёркивание — продвинутым или чувствительным к подсветке. Нажмите значок глаза сверху, чтобы переключать яркий фон → подчёркивание → выкл.",
+  readMarkModeStrong:"Яркий фон",
+  readMarkModeSubtle:"Мягкий",
+  readMarkModeOff:"Выкл.",
   scrollSpeed:"Скорость прокрутки",
   switchUnit:"Ед. изм.",
   speedHint:"Единицы: пиксели в секунду (px/s) или символы в минуту (CPM, оценка по текущему размеру шрифта).",
@@ -3185,6 +3219,7 @@ const setMirror = document.getElementById('setMirror');
 const setReadMark = document.getElementById('setReadMark');
 const setReadMarkStrength = document.getElementById('setReadMarkStrength');
 const btnReadMark = document.getElementById('btnReadMark');
+const readMarkStatus = document.getElementById('readMarkStatus');
 const readMarkEl = document.getElementById('readMark');
 const setSpeed = document.getElementById('setSpeed');
 const setSpeedLabel = document.getElementById('setSpeedLabel');
@@ -3372,8 +3407,15 @@ function readMarkModeName(mode){
   if (mode === 'strong') return t('readMarkStrengthStrong');
   return t('readMarkOff');
 }
-/* 同步主屏眼睛开关与设置面板复选框的状态（两处互为镜像，任一处改动都刷新另一处）。
-   眼睛按钮同时反映当前档（data-mode）与下一档（title），状态可见、下一击可预期。 */
+/* 眼睛下方的短档位标签文案（短词，就地常驻显示当前档，与长 title 分开） */
+function readMarkStatusName(mode){
+  if (mode === 'subtle') return t('readMarkModeSubtle');
+  if (mode === 'strong') return t('readMarkModeStrong');
+  return t('readMarkModeOff');
+}
+/* 同步主屏眼睛开关、眼睛下方常驻档位标签、与设置面板复选框的状态
+   （三处互为镜像，任一处改动都刷新其余）。眼睛按钮反映当前档（data-mode）与下一档（title），
+   下方标签就地显示当前档，状态可见、下一击可预期。 */
 function syncReadMarkUI(){
   const on = !!state.readMark;
   const mode = readMarkMode();
@@ -3381,6 +3423,10 @@ function syncReadMarkUI(){
     btnReadMark.setAttribute('aria-pressed', on ? 'true' : 'false');
     btnReadMark.setAttribute('data-mode', mode);
     btnReadMark.title = t('toggleReadMark') + '：' + readMarkModeName(mode) + ' → ' + readMarkModeName(nextReadMarkMode(mode));
+  }
+  if (readMarkStatus){
+    readMarkStatus.setAttribute('data-mode', mode);
+    readMarkStatus.textContent = readMarkStatusName(mode);
   }
   if (setReadMark) setReadMark.checked = on;
   if (setReadMarkStrength) setReadMarkStrength.value = (state.readMarkStrength === 'subtle') ? 'subtle' : 'strong';
@@ -4814,8 +4860,7 @@ if (btnReadMark) btnReadMark.addEventListener('click', function(){
   // off 档保留原强度档位，下次从 off 点回 strong 时会被上面显式设为 strong
   if (!state.readMark) hideReadMark();
   else if (playing) updateReadMark(true);
-  syncReadMarkUI();
-  toast(next === 'off' ? t('readMarkOff') : (t('readMarkOn') + '：' + readMarkModeName(next)));
+  syncReadMarkUI(); // 同步眼睛按钮样式 + 下方常驻档位标签；不再弹底部 toast（状态已就地可见）
   saveState();
 });
 // 高亮强度：强底色 / 淡下划线；正在高亮时立即换档，并同步眼睛按钮的档位标记
