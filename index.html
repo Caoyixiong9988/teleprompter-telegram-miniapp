@@ -51,7 +51,10 @@
     border-radius:3px; pointer-events:none;
   }
   #scrollText{
-    white-space:pre-wrap; word-break:break-word; padding:28px 22px;
+    /* 顶部预留约 1.5 行空白（2.2em ≈ 1.4 行高，行高 1.55em）：
+       从开头播放时首个词落在视口顶端往下 1~2 行处，慢速跟读有缓冲，
+       高亮词不会贴着顶边、刚出现就"翻页"不可见。用 em 随字号缩放，始终约 1~2 行。 */
+    white-space:pre-wrap; word-break:break-word; padding:2.2em 22px 1em;
     /* 统一字体栈：各平台/各语言都用系统最常见的无衬线字体，中文/日文/韩文/西里尔/拉丁都能正常显示 */
     font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC", "Apple SD Gothic Neo", Roboto, Arial, sans-serif;
     font-size:44px; line-height:1.55; color:var(--text); text-align:center;
@@ -3163,10 +3166,24 @@ function buildReadTokens(){
       lineStart = i;
     }
   }
-  // 行高用「到下一行 top 的距离」更贴合实际行距：这样阅读头每滚过一行，
-  // 行内 frac 恰好 0→1，逐词推进与文本速度严格一致。
+  // 行高默认用「到下一行 top 的距离」，让阅读头每滚过一行，行内 frac 恰好 0→1，
+  // 逐词推进与文本速度严格一致（匀速）。
+  // 但若两行之间夹了全空白行，这个距离会被拉长（如 68px→204px），阅读头就会在
+  // 空白区「按像素扫过」、停在本行行尾迟迟不跳——即用户反馈的空白行问题。
+  // 处理：取相邻行距的最小值作正常行高；gap 明显偏大（>1.6×）判定为夹了空白行，
+  // 把该行高度钳回正常行高。于是阅读头一越过本行文字带就立即切到下一行，
+  // frac<0 被 clamp 到 0 → 高亮下一行行首，实现「跳过空白行、落在下一行有字处」。
+  let normalGap = Infinity;
+  for (let i = 0; i + 1 < readLines.length; i++){
+    const g = readLines[i + 1].top - readLines[i].top;
+    if (g > 0 && g < normalGap) normalGap = g;
+  }
+  if (!Number.isFinite(normalGap)) normalGap = readLines.length ? readLines[0].height : 1;
   for (let i = 0; i < readLines.length; i++){
-    if (i + 1 < readLines.length) readLines[i].height = Math.max(1, readLines[i + 1].top - readLines[i].top);
+    if (i + 1 < readLines.length){
+      const gap = readLines[i + 1].top - readLines[i].top;
+      readLines[i].height = Math.max(1, gap > normalGap * 1.6 ? normalGap : gap);
+    }
   }
   readTokensText = scrollText.textContent || '';
   readTokensDirty = false;
@@ -3321,6 +3338,16 @@ function seekAtClientY(clientY, clientX){
   }
   return true;
 }
+/* 播放终点的内容坐标：最后一行末尾。锚点推进到这里才算「读完最后一个词」。
+   不能用 offset>=max 当终点——max 只代表文稿底部贴到视口底部，此时锚点
+   （≈起点+max）离末尾还差近一整屏，实测约 80% 文稿从未被高亮就停了。
+   文稿位移仍钳在 max（不露底部空白），但锚点可继续在内容坐标里前进，把
+   最后一行也依次高亮完；停在后半段时高亮线在视口内自上而下扫，依然可见。 */
+function readEndContentY(){
+  if (!readLines || !readLines.length) return 0; // 无词缓存：退回旧判定（offset>=max）
+  const ln = readLines[readLines.length - 1];
+  return ln.top + Math.max(1, ln.height);
+}
 function loop(ts){
   if (lastTs == null) lastTs = ts;
   const dt = (ts - lastTs) / 1000;
@@ -3328,13 +3355,16 @@ function loop(ts){
   if (playing){
     const max = maxOffset();
     const step = pxPerSec() * dt;
-    offset += step;
-    readHeadContentY += step;   // 锚点与文稿同步前进 → 高亮速率恒等于滚速（匀速）
-    if (offset >= max){
-      offset = max;
-      reachedEnd = true;   // 只有真正滚到底才标记"读完"，供下次 ▶ 决定重头播放
-      setPlaying(false);   // 到底：回到可滚动浏览态并停在末尾，滚动条恢复
-      if (max > 0 && !readCounted){ readCounted = true; onReadComplete(); }
+    offset = Math.min(offset + step, max);   // 文稿位移最多到 max，底部不露白
+    readHeadContentY += step;                // 锚点不受 max 限制，继续推进到末尾
+    const endY = readEndContentY();
+    // 读完条件：锚点扫过最后一个词（有词缓存）；无缓存则退回文稿到底
+    const finished = endY > 0 ? (readHeadContentY >= endY) : (offset >= max);
+    if (finished){
+      if (endY > 0) readHeadContentY = endY; // 钉在末行末尾，高亮最终落在最后一个词
+      reachedEnd = true;   // 真正读完（含末行），供下次 ▶ 决定重头播放
+      setPlaying(false);   // 回到可滚动浏览态，滚动条恢复
+      if (!readCounted){ readCounted = true; onReadComplete(); }
     } else {
       const scale = state.mirror ? -1 : 1;
       scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';

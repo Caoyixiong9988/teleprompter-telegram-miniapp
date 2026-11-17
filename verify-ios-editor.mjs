@@ -473,6 +473,43 @@ ev('setPlaying(false);');
   check('SUPPORTED_LANGS 校验未受影响', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 }
 
+// --- 19. 第十六轮：高亮四项修复（顶部留白 / 跳空白行 / 读完末行 / 文稿不跳）---
+{
+  check('顶部预留 1~2 行空白：scrollText padding-top 为 2.2em', /#scrollText\{[\s\S]*?padding:2\.2em 22px 1em/.test(html));
+  check('空白行行高钳制逻辑存在（normalGap 判定 + 1.6 倍阈值）',
+    /normalGap\s*=\s*Infinity/.test(html) && /normalGap \* 1\.6/.test(html));
+  check('播放终点改为 readEndContentY（锚点扫过末行），不再仅 offset>=max',
+    /function readEndContentY\(\)/.test(html) && /readHeadContentY >= endY/.test(html));
+  check('文稿位移钳在 max 不露底部空白', /offset = Math\.min\(offset \+ step, max\)/.test(html));
+
+  const VH=600, LINE=68, PER=8, TOP=100;
+  Object.defineProperty(vpEl,'clientHeight',{value:VH,configurable:true});
+  // 有词缓存场景：末行末尾坐标 + 高亮可达末词 + 到底自动暂停
+  const toks=[],lines=[]; let acc=TOP;
+  for(let L=0;L<10;L++){
+    for(let k=0;k<PER;k++){const gi=L*PER+k;toks.push({top:acc,left:22+k*40,w:36,h:44,charStart:gi,charEnd:gi+1});}
+    lines.push({start:L*PER,end:L*PER+PER-1,top:acc,height:LINE}); acc+=LINE;
+  }
+  ev('readTokens='+JSON.stringify(toks)+';readLines='+JSON.stringify(lines)+';readTokensDirty=false;readTokensText=scrollText.textContent;');
+  const endY=ev('readEndContentY()');
+  check('readEndContentY 指向最后一行末尾（>760）', endY>760, 'endY='+endY);
+  ev('playing=true; reachedEnd=false; readCounted=false; offset=0; anchorReadHeadToToken(0);');
+  // 直接把锚点推到末尾，验证高亮命中最后一个词
+  ev('readHeadContentY=readEndContentY();');
+  const pickLast=ev(`(function(){const hy=readHeadContentY,L=readLines;let li=0;
+    while(li<L.length-1&&hy>L[li].top+L[li].height)li++;
+    const c=L[li],n=c.end-c.start+1,f=Math.max(0,Math.min(1,(hy-c.top)/Math.max(1,c.height)));
+    return n>1?c.start+Math.min(n-1,Math.floor(f*n)):c.start;})()`);
+  check('锚点到达末尾时高亮命中最后一个词（79）', pickLast===79, 'idx='+pickLast);
+  // loop 推进到末尾应自动暂停、置 reachedEnd
+  Object.defineProperty(st,'offsetHeight',{value:TOP+9*LINE+LINE+1,configurable:true}); // max≈1
+  ev('offset=0; readHeadContentY=readEndContentY()-0.01; state.speedUnit="px"; state.speedPx=90; remoteSpeedMul=1; voiceFollowing=false; lastTs=900;');
+  ev('loop(1000);'); // dt=0.1s → step=9px > 0.01，锚点越过 endY
+  check('锚点扫过末行后播放自动停止', ev('playing')===false, 'playing='+ev('playing'));
+  check('读完置 reachedEnd（供下次 ▶ 重头播）', ev('reachedEnd')===true, 'reachedEnd='+ev('reachedEnd'));
+  ev('playing=false; setPlaying(false); caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
+}
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);
