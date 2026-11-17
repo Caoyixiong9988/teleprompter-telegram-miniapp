@@ -74,11 +74,12 @@ check('第一次粘贴写入 XY', after1.includes('XY'), JSON.stringify(after1))
 check('连续再点粘贴追加第二次（非覆盖）', after2.includes('XYXY'), JSON.stringify(after2));
 check('粘贴成功有 toast 反馈', doc.getElementById('toast').textContent === ev('t("editPasteOk")'));
 
-// --- 5. 播放：短稿有明确提示；点播放退出编辑态；滚到底后重头开始 ---
+// --- 5. 播放：短稿也进入播放态（逐词高亮可用）；点播放退出编辑态；滚到底后重头开始 ---
 st.textContent = '短稿';
 st.dispatchEvent(new window.Event('input', { bubbles: true }));
 doc.getElementById('btnPlay').click();
-check('不足一屏时点播放给出提示而非无反应', doc.getElementById('toast').textContent === ev('t("editNoScroll")'), doc.getElementById('toast').textContent);
+check('不足一屏时点播放仍进入播放态（逐词高亮可用）', ev('playing') === true, 'playing=' + ev('playing'));
+check('不足一屏时不再弹"无需滚动"提示', doc.getElementById('toast').textContent !== ev('t("editNoScroll")'), doc.getElementById('toast').textContent);
 check('点播放后退出编辑态', doc.getElementById('editBar').classList.contains('hidden'), doc.getElementById('editBar').className);
 ev('playing=false; offset=0;');
 // 模拟可滚动：伪造尺寸，验证已到底时重头开始
@@ -400,7 +401,7 @@ ev('setPlaying(false);');
   // 初始化防护：禁用浏览器滚动恢复（源码守卫）
   check('init 禁用 scrollRestoration', /history\.scrollRestoration\s*=\s*'manual'/.test(html));
   // caretSeekOffset 生命周期：暂停时清空，避免残留旧位置污染
-  check('暂停时清空 caret 意图（源码守卫）', /caretSeekOffset\s*=\s*null;\s*\n\s*setPlaying\(false\)/.test(html));
+  check('暂停时清空 caret 意图且保留高亮（源码守卫）', /caretSeekOffset\s*=\s*null;\s*\n\s*setPlaying\(false,\s*true\)/.test(html));
   ev('caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
 }
 
@@ -689,6 +690,66 @@ ev('setPlaying(false);');
   try { ev('generateFinishCard();'); } catch(e){ genOk = false; }
   check('generateFinishCard 无 canvas 时安全降级不抛错', genOk);
   if (proto && origGetCtx) proto.getContext = origGetCtx;
+}
+
+// --- 22. 暂停高亮定格 + 短稿逐词高亮（第十九轮）---
+// 问题1：setPlaying(false,true) 暂停时保留高亮，不调用 hideReadMark
+check('setPlaying 支持 keepMark 参数', /function setPlaying\(on,\s*keepMark\)/.test(html));
+check('暂停分支不隐藏高亮（else if !keepMark 才 hideReadMark）', /else if \(!keepMark\) hideReadMark\(\)/.test(html));
+check('手动暂停传入 keepMark=true', /caretSeekOffset\s*=\s*null;\s*\n\s*setPlaying\(false,\s*true\)/.test(html));
+check('读完定格末词（setPlaying false,true）', /钉在末行末尾[\s\S]{0,120}setPlaying\(false,\s*true\)/.test(html));
+check('远程暂停也保留高亮', /cmd === 'pause'\)\{ setPlaying\(false,\s*true\)/.test(html));
+// 归零/改稿仍隐藏（不误用 keepMark）
+check('刷新归零隐藏高亮（默认无 keepMark）', /caretSeekOffset = 0;[\s\S]{0,120}setPlaying\(false\);/.test(html));
+
+// DOM 行为验证：播放→暂停后 readMark 保持 display:block 且坐标不变
+ev("playing=false; offset=0; reachedEnd=false; caretSeekOffset=null;");
+// 伪造可滚动尺寸 + 长文稿，确保词元缓存可建、高亮能定位
+const rmDoc = st;
+rmDoc.textContent = '这是一段足够长的讲稿内容用于验证暂停时高亮定格在当前词的位置效果'.repeat(6);
+rmDoc.dataset.isDefault = '0';
+Object.defineProperty(rmDoc, 'offsetHeight', { value: 2000, configurable: true });
+const vpEl19 = doc.getElementById('viewport');
+Object.defineProperty(vpEl19, 'clientHeight', { value: 400, configurable: true });
+// 用 mock 的 getBoundingClientRect 让 buildReadTokens 能算出词坐标
+const origRect = rmDoc.getBoundingClientRect.bind(rmDoc);
+Object.defineProperty(rmDoc, 'getBoundingClientRect', { value: () => ({ left: 0, top: 0, right: 600, bottom: 2000, width: 600, height: 2000 }), configurable: true });
+Object.defineProperty(vpEl19, 'getBoundingClientRect', { value: () => ({ left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400 }), configurable: true });
+// 用 spy 计数 hideReadMark 调用，区分"暂停保留"与"归零隐藏"，不依赖 jsdom 真实布局
+try {
+  ev('window.__hideCount=0; window.__origHide=hideReadMark; hideReadMark=function(){ window.__hideCount++; };');
+  ev('setPlaying(false, true);');  // 暂停：不应隐藏
+  const keepCount = ev('window.__hideCount');
+  check('暂停(keepMark)不调用 hideReadMark', keepCount === 0, 'hide调用=' + keepCount);
+  ev('window.__hideCount=0;');
+  ev('setPlaying(false);');        // 归零/默认：应隐藏
+  const normalCount = ev('window.__hideCount');
+  check('默认 setPlaying(false) 调用 hideReadMark', normalCount === 1, 'hide调用=' + normalCount);
+  ev('hideReadMark = window.__origHide;');
+} catch(e){
+  check('暂停高亮 spy 验证', false, e.message);
+}
+Object.defineProperty(rmDoc, 'getBoundingClientRect', { value: origRect, configurable: true });
+
+// 问题2：短稿（max=0）也能逐词高亮
+check('updateReadMark 移除 max>0 门槛', !/if \(!\(max > 0\)\)\{ hideReadMark/.test(html));
+check('togglePlay 移除 max<=0 的 return 拦截', !/if \(max <= 0\)\{[\s\S]{0,80}editNoScroll[\s\S]{0,40}return/.test(html));
+// DOM 行为：不足一屏点播放进入 playing=true，且高亮可见
+let shortOk = true, shortDetail = '';
+try {
+  ev('playing=false; reachedEnd=false; caretSeekOffset=null; offset=0;');
+  st.textContent = '短稿一句话用于验证不足一屏时逐词高亮依然工作';
+  st.dataset.isDefault = '0';
+  Object.defineProperty(st, 'offsetHeight', { value: 100, configurable: true });
+  Object.defineProperty(vpEl19, 'clientHeight', { value: 400, configurable: true });
+  Object.defineProperty(st, 'getBoundingClientRect', { value: () => ({ left: 0, top: 0, right: 500, bottom: 100, width: 500, height: 100 }), configurable: true });
+  ev('readTokensDirty=true;');
+  doc.getElementById('btnPlay').click();
+  shortOk = ev('playing') === true;
+  shortDetail = 'playing=' + ev('playing') + ' max=' + ev('maxOffset()');
+  check('短稿点播放进入播放态（不 return）', shortOk, shortDetail);
+} catch(e){
+  check('短稿高亮 DOM 验证', false, e.message);
 }
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));

@@ -3467,8 +3467,10 @@ function updateReadMark(force){
     const txt = scrollText.textContent || '';
     if (readTokensDirty || !readTokens || txt !== readTokensText || !readLines) buildReadTokens();
     if (!readTokens || !readTokens.length || !readLines || !readLines.length){ hideReadMark(); return; }
-    const max = maxOffset();
-    if (!(max > 0)){ hideReadMark(); return; } // 短稿不滚动，无需跟随
+    /* 短稿（不足一屏）也逐词高亮：offset 恒为 0（文稿不滚动），但阅读头锚点
+       readHeadContentY 仍按速度在内容坐标里推进，高亮逐词前进——「不滚动」不等于
+       「不高亮」。旧版这里用 max>0 门槛直接 hideReadMark，短稿高亮全程关闭，是 BUG。
+       唯一例外：词已滚出视口才隐藏（下面的 top 边界检查）。 */
     /* 阅读头模型：把「正在读哪一行/哪个词」锚定到视口内的固定阅读位置。
        旧式 idx = offset/maxOffset * 总词数 的速率 = 文本速率 × 内容高/可滚动高，
        短稿可放大 6 倍——这才是「高亮跑得比朗读快」的根因，纯主观之外的真 bug。
@@ -3499,7 +3501,7 @@ function updateReadMark(force){
     readMarkEl.style.display = 'block';
   } catch (e){ hideReadMark(); }
 }
-function setPlaying(on){
+function setPlaying(on, keepMark){
   playing = !!on;
   const ap = document.getElementById('app');
   if (ap) ap.classList.toggle('playing', playing);
@@ -3511,7 +3513,11 @@ function setPlaying(on){
   }
   applyPrompterStyle();
   updatePlayBtn();
-  if (playing) updateReadMark(true); else hideReadMark();
+  // 播放时刷新高亮；暂停时：
+  //   keepMark=true（手动暂停/读完/语音停顿）→ 保留高亮定格在当前词，不隐藏；
+  //   否则（刷新归零/切换文稿/改稿/停止语音）→ 隐藏旧高亮，避免定格在过期位置。
+  if (playing) updateReadMark(true);
+  else if (!keepMark) hideReadMark();
 }
 function placeCaretAtStartDOM(){
   try {
@@ -3662,7 +3668,7 @@ function loop(ts){
     if (finished){
       if (endY > 0) readHeadContentY = endY; // 钉在末行末尾，高亮最终落在最后一个词
       reachedEnd = true;   // 真正读完（含末行），供下次 ▶ 决定重头播放
-      setPlaying(false);   // 回到可滚动浏览态，滚动条恢复
+      setPlaying(false, true); // 读完：高亮定格在最后一个词，让用户看到读完位置
       if (!readCounted){ readCounted = true; onReadComplete(); }
     } else {
       const scale = state.mirror ? -1 : 1;
@@ -3693,12 +3699,9 @@ function togglePlay(){
     // 开始 / 继续播放：先退出编辑态，避免 iOS 焦点回弹把点击吞掉
     exitMainEditModeDOM();
     const max = maxOffset();
-    if (max <= 0){
-      // 内容不足一屏：没有可滚动距离，给明确提示而不是表现为点了没反应
-      offset = 0; setPlaying(false);
-      caretSeekOffset = null;
-      toast(t('editNoScroll')); return;
-    }
+    // 短稿（不足一屏）不再拦截：文稿 offset 恒为 0 不滚动，但逐词高亮照常推进，
+    // 让"逐词跟随高亮"在短稿上同样可用（旧版 max<=0 直接 return 会关掉整个功能）。
+    // 只有连"逐词高亮"都被用户关闭/镜像降级时，才提示无需滚动。
     /* 播放起点优先级（问题1/2 核心）：
        1) 用户在暂停/浏览态主动放置过 caret（caretSeekOffset 有效）→ 以该字符为准，
           精确从光标所在词开始；这是"每次播放以当前光标位置为准"的明确意图。
@@ -3745,7 +3748,7 @@ function togglePlay(){
     // 暂停：保留 offset 并进入可滚动浏览态；再点 ▶ 从当前位置继续，不回开头
     // 清空暂停前残留的 caret 意图——只有用户在暂停后"新放置"光标才算新起点
     caretSeekOffset = null;
-    setPlaying(false);
+    setPlaying(false, true); // keepMark：高亮定格在当前词，不隐藏
     toast(t('playPaused'));
   }
 }
@@ -3878,7 +3881,7 @@ function voiceSilenceCheck(){
   if (!voiceFollowing) return;
   const now = Date.now();
   if (playing && (now - voiceLastSpeechAt) > VOICE_SILENCE_MS){
-    setPlaying(false);
+    setPlaying(false, true); // 语音停顿等同手动暂停，高亮定格在当前词
     setVoiceStatus(t('voiceStatusPaused'));
   }
 }
@@ -4795,7 +4798,7 @@ let remoteConnectToken = null; // 控制端已连接的令牌
 function applyRemoteCommand(cmdObj){
   if (!cmdObj || !cmdObj.cmd) return;
   if (cmdObj.cmd === 'play'){ setPlaying(true); }
-  else if (cmdObj.cmd === 'pause'){ setPlaying(false); }
+  else if (cmdObj.cmd === 'pause'){ setPlaying(false, true); }
   else if (cmdObj.cmd === 'speed'){
     const v = Number(cmdObj.value);
     if (!isNaN(v)) remoteSpeedMul = Math.max(0.25, Math.min(4, v));

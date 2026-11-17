@@ -8,6 +8,18 @@
 
 ---
 
+## 2026-11-17 · fix — 暂停高亮定格 + 短稿逐词高亮（第十九轮）
+
+- **类型**：`fix`（交互缺陷 ×2）
+- **改了什么**：
+  1. **暂停后高亮停在当前词**：旧版 `setPlaying(false)` 无条件 `hideReadMark()`、`updateReadMark` 守卫 `if(!playing)` 也隐藏，导致按暂停高亮立刻消失。改为 `setPlaying(on, keepMark)`：手动暂停 / 自然读完 / 语音停顿 / 远程暂停传 `keepMark=true` 保留高亮定格在最后一帧位置；刷新归零 / 切换文稿 / 改稿 / 停止语音仍默认隐藏旧高亮，避免定格在过期位置。
+  2. **不足一屏也能逐词高亮**：旧版 `togglePlay` 的 `max<=0` 直接 toast + return、`updateReadMark` 的 `if(!(max>0)) hideReadMark()` 双重门槛，短稿高亮全程关闭。移除两处门槛——文稿 `offset` 恒为 0 不滚动，但阅读头锚点 `readHeadContentY` 仍按速度推进，高亮逐词前进（"不滚动"≠"不高亮"）。
+- **为什么**：用户实测发现暂停高亮消失、短稿无跟随；均为设计门槛误伤，播放/高亮模型本身已解耦（offset 管滚动、锚点管高亮），移除门槛即可，不破坏前 18 轮的零跳变 / 定位 / 匀速逻辑。
+- **怎么验证**：`verify-ios-editor.mjs` 新增第 22 节 11 项（源码守卫 + spy 计数区分"暂停保留/归零隐藏" + 短稿点击进播放态）。全套：npm test 147/147、iOS 157/157、i18n 32/32、Worker 18/18。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-17 · fix + feat — 按字符匀速高亮 + 阅读成就完成卡裂变（第十八轮）
 
 - **类型**：`fix`（高亮速度模型）+ `feat`（完成卡）
