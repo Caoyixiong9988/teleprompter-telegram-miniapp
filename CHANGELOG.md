@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-11-18 · fix — 讲稿库激活态同步 + 主界面直接选用讲稿库讲稿（第二十八轮）
+
+- **类型**：fix（激活态不同步）+ feat（主界面讲稿库入口）
+- **问题一（激活态 BUG）**：在设置-讲稿库点击前两篇讲稿时，提词区内容会切换，但列表蓝色激活框始终停留在最后新建的那篇。根因是 `selectScript(id)` 只改 `activeScriptId` 并重载提词区，漏调 `renderScriptList()`，导致列表 DOM 未重绘。修复：在 `selectScript` 中补 `renderScriptList()` 与 `maybeSync()`，使数据/提词区/列表三处一次同步。验证三篇讲稿依次切换，任意时刻仅一篇高亮且与 `activeScriptId`、提词内容一致。
+- **问题二（功能缺口）**：主界面编辑条原只有「从文件导入讲稿」，点开是系统文件选择器，无法从已存入讲稿库的讲稿中选用，必须进设置页。修复：编辑条新增「讲稿库」按钮 `btnQuickLib`，点击弹出 `quickLibSheet` 面板，按当前 `activeScriptId` 渲染全部讲稿（复用 `renderQuickLibList`），点选即调用 `selectScript(id)` 切换并自动关闭面板、停止播放、滚动归零。设置页讲稿库功能保持不变。
+- **为什么**：截图反馈「创建第三个后激活始终是第三个、点前两篇蓝框不动」属真 BUG；主界面缺少讲稿库直选入口属可用性缺口。两处统一到 `activeScriptId` 单一激活源。
+- **验证**：`npm test` 147/147、`verify-ios-editor.mjs` 256/256（新增 13 项：激活态同步 6 项 + 主界面入口 6 项 + 文案 1 项）、`test_i18n_real.mjs` 32/32、`smoke:worker` 18/18。七语新增 1 键 `quickLibHint`（234→235），四个测试文件键数断言已同步。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`p3-payments/test-checkout.mjs`。
+
+---
+
 ## 2026-11-17 · fix — 导入目标锁定为当前选中讲稿，不再意外新建 + 免费版本地自动保存提示（第二十七轮）
 
 - **类型**：`fix`（用户复现的真实 BUG + 一条产品提示）
