@@ -110,7 +110,7 @@
   /* 底部控制条：固定 6 列网格 + 速度条独占一整行。
      不再用 flex 抢宽度，速度滑块与「像素/秒」数值永远不会被右侧按钮挤压或遮挡。 */
   #controlBar{
-    display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+    display:grid; grid-template-columns:repeat(6, minmax(0,1fr));
     align-items:center; gap:8px; flex-shrink:0;
     padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top:1px solid var(--line); background:var(--panel);
@@ -137,8 +137,8 @@
     font-weight:700; min-width:76px; text-align:right;
   }
   @media (max-width:360px){
-    /* 极窄屏：7 个按钮改 4 列，仍保证每个按钮完整可点 */
-    #controlBar{grid-template-columns:repeat(4, minmax(0,1fr));}
+    /* 极窄屏：6 个按钮改 3 列，仍保证每个按钮完整可点 */
+    #controlBar{grid-template-columns:repeat(3, minmax(0,1fr));}
   }
 
   /* Sheet (modal bottom panel) */
@@ -266,8 +266,9 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="sub" id="verifyStatus" style="text-align:right;"></div>
-      <!-- 主屏字号快捷按钮：不必进设置即可调大小；A- / A+ 跨语言通用 -->
-      <div style="display:flex;align-items:center;gap:2px;" role="group" aria-label="font size">
+      <!-- 主屏快捷按钮：👁 一键切逐词高亮 + A−/A+ 字号，都不必进设置；跨语言通用 -->
+      <div style="display:flex;align-items:center;gap:2px;" role="group" aria-label="quick controls">
+        <button type="button" id="btnReadMark" data-i18n-title="toggleReadMark" aria-pressed="true" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:16px;line-height:1;">👁</button>
         <button type="button" id="btnFontDown" aria-label="font size down" title="A-" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A−</button>
         <button type="button" id="btnFontUp" aria-label="font size up" title="A+" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A+</button>
       </div>
@@ -309,8 +310,6 @@
 
   <div id="controlBar">
     <button class="btn primary icon" id="btnPlay" data-i18n-title="playPause">▶</button>
-    <!-- 逐词高亮一键开关：👁 睁眼=开 / 半透明=关，与设置面板复选框双向同步 -->
-    <button class="btn icon on" id="btnReadMark" data-i18n-title="toggleReadMark" aria-pressed="true">👁</button>
     <button class="btn icon" id="btnReset" data-i18n-title="reset">↺</button>
     <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
     <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>

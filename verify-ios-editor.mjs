@@ -15,16 +15,17 @@ let pass = 0, fail = 0;
 const check = (name, ok, extra = '') => { if (ok) { pass++; console.log('  OK  ' + name); } else { fail++; console.log('  FAIL ' + name + (extra ? ' | ' + extra : '')); } };
 const ev = s => window.eval(s);
 
-// --- 1. 布局：7 列网格（含眼睛开关）+ 速度区独占整行，所有控件不重叠不遮挡 ---
+// --- 1. 布局：底部 6 列网格 + 速度区独占整行，所有控件不重叠不遮挡 ---
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
-check('controlBar 改为 7 列网格', /#controlBar\{[^}]*display:grid[^}]*grid-template-columns:repeat\(7/.test(css));
+check('controlBar 恢复 6 列网格', /#controlBar\{[^}]*display:grid[^}]*grid-template-columns:repeat\(6/.test(css));
 check('速度区独占整行（grid-column:1 / -1）', /#speedWrap\{[^}]*grid-column:1 \/ -1/.test(css));
 check('像素数值强制单行且不压缩', /#speedBarLabel\{[^}]*white-space:nowrap[^}]*min-width:76px/.test(css));
 check('按钮等宽、不再被 flex 压缩', /#controlBar > \.btn\{width:100%; min-width:0;/.test(css));
-check('极窄屏降为 4 列仍可完整点按', /@media \(max-width:360px\)\{[\s\S]*?repeat\(4/.test(css));
-check('速度区 DOM 排在 7 个按钮之后', [...doc.getElementById('controlBar').children].map(e => e.id).indexOf('speedWrap') === 7);
+check('极窄屏降为 3 列仍可完整点按', /@media \(max-width:360px\)\{[\s\S]*?repeat\(3/.test(css));
+check('速度区 DOM 排在 6 个按钮之后', [...doc.getElementById('controlBar').children].map(e => e.id).indexOf('speedWrap') === 6);
 check('底部安全区 padding', /calc\(10px \+ env\(safe-area-inset-bottom\)\)/.test(css));
-check('七个控制按钮都在 DOM（含眼睛开关）', ['btnPlay','btnReadMark','btnReset','btnSettings','btnCard','btnRemote','btnVoice'].every(id => !!doc.getElementById(id)));
+check('底部六个控制按钮都在 DOM', ['btnPlay','btnReset','btnSettings','btnCard','btnRemote','btnVoice'].every(id => !!doc.getElementById(id)));
+check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBar').children].some(e => e.id === 'btnReadMark'));
 
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
@@ -187,7 +188,7 @@ check('readText 可用时走原有自动粘贴、不弹兜底框', pf.classList.
 
 // --- 11. 播放控制：暂停/继续、滚动条、刷新归零、点击任意行定位 ---
 const cbIds = [...doc.getElementById('controlBar').children].map(e => e.id);
-check('控制条顺序：7 按钮在前、速度区最后', cbIds.slice(0, 7).join(',') === 'btnPlay,btnReadMark,btnReset,btnSettings,btnCard,btnRemote,btnVoice' && cbIds[7] === 'speedWrap', cbIds.join(','));
+check('控制条顺序：6 按钮在前、速度区最后', cbIds.slice(0, 6).join(',') === 'btnPlay,btnReset,btnSettings,btnCard,btnRemote,btnVoice' && cbIds[6] === 'speedWrap', cbIds.join(','));
 
 // 伪造长稿尺寸，让「有可滚动距离」成立
 Object.defineProperty(st, 'offsetHeight', { value: 1000, configurable: true });
@@ -760,9 +761,12 @@ check('眼睛开关/强度两档 7 个 i18n 键七语齐全', ev(`['zh','en','de
 check('高亮 subtle 淡下划线档 CSS 存在', /#readMark\.subtle\{[^}]*background:[^}]*border-bottom/.test(css));
 check('强底色为默认（#readMark 基础规则含底色）', /#readMark\{[^}]*background:rgba\(255,196,46/.test(css));
 check('眼睛按钮 aria-pressed 开态/关态样式存在', /#btnReadMark\[aria-pressed="true"\]/.test(css) && /#btnReadMark\[aria-pressed="false"\]/.test(css));
+// 眼睛按钮已移到顶部 header、紧邻字体缩放按钮（与 A−/A+ 同一个 group）
+const btnRM = doc.getElementById('btnReadMark');
+check('眼睛按钮在顶部 header 内', !!btnRM && !!btnRM.closest('header'));
+check('眼睛按钮紧邻字体缩放按钮（同一 quick controls 组）', btnRM.parentElement === doc.getElementById('btnFontDown').parentElement && [...btnRM.parentElement.children].map(e=>e.id).join(',') === 'btnReadMark,btnFontDown,btnFontUp');
 
 // 23c. 眼睛按钮一键切换 + 与设置复选框双向同步（纯状态层验证，不依赖布局）
-const btnRM = doc.getElementById('btnReadMark');
 const cbRM = doc.getElementById('setReadMark');
 ev('state.readMark=true; syncReadMarkUI();');
 check('默认开启：眼睛 aria-pressed=true、复选框勾选', btnRM.getAttribute('aria-pressed') === 'true' && cbRM.checked === true);
