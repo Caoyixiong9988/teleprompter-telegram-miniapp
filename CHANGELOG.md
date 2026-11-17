@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-11-17 · feat — 眼睛一键开关 + 高亮强度两档（第二十轮）
+
+- **类型**：`feat`（逐词高亮可用性增强 ×2，源自竞品论证：连专业提词器都把高亮做成可关、可切换样式）
+- **改了什么**：
+  1. **主屏眼睛一键开关**：控制条加第 7 个按钮 `#btnReadMark`（👁），点一下即切换逐词高亮，不必进设置。与设置面板「逐词跟随高亮」复选框**双向同步**（`syncReadMarkUI()` 统一镜像两处 + aria-pressed + 开态描边/关态半透明），切换时 toast 提示开/关。控制条 6→7 列、极窄屏 3→4 列，保证 7 键完整可点。
+  2. **高亮强度两档**：设置面板新增「高亮强度」选择器——**强底色**（默认，`rgba(255,196,46,.38)`+下边框，醒目好跟读）/ **淡下划线**（`.subtle`：底色降到 `.10`、下边框半透明，干扰小、适合熟练用户或视觉敏感者）。`state.readMarkStrength` 本地保存；`applyReadMarkStrength()` 只切 class 不动几何坐标，零跳变；非法值兜底 strong。
+  3. **i18n 七语各 +7 键**（197→219→226）：toggleReadMark / readMarkOn / readMarkOff / readMarkStrengthLabel / readMarkStrengthStrong / readMarkStrengthSubtle / readMarkStrengthHint。
+- **为什么**：竞品证据显示高亮从不做成强制（ADHD/阅读障碍/专业用户需要关闭或减弱）；我们的高亮偏醒目，越醒目越必须给关闭权。选择权早已存在于设置里，本轮把它从设置深处提到手边（眼睛图标）并增加强度档，是可感知的差异化。
+- **怎么验证**：npm test 147/147、iOS 174/174（新增第 23 节 20 项：眼睛双向同步、强度两档切换、非法值兜底、源码守卫、键数 226）、i18n 32/32、Worker 18/18 全通过。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、CHANGELOG。
+
 ## 2026-11-17 · fix — 暂停高亮定格 + 短稿逐词高亮（第十九轮）
 
 - **类型**：`fix`（交互缺陷 ×2）

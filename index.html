@@ -50,6 +50,12 @@
     background:rgba(255,196,46,.38); border-bottom:2px solid #e8a000;
     border-radius:3px; pointer-events:none;
   }
+  /* 高亮强度两档：subtle=淡下划线（无底色，干扰小）；默认=强底色（上面的规则，醒目好跟读）。
+     仅切换 class，不改几何坐标，故不影响逐词定位/零跳变。 */
+  #readMark.subtle{ background:rgba(255,196,46,.10); border-bottom:2px solid rgba(232,160,0,.75); }
+  /* 主屏眼睛开关：开启态用主色描边强调，关闭态降低透明度 */
+  #btnReadMark[aria-pressed="true"]{ box-shadow:inset 0 0 0 2px var(--primary); }
+  #btnReadMark[aria-pressed="false"]{ opacity:.5; }
   #scrollText{
     /* 顶部预留约 1.5 行空白（2.2em ≈ 1.4 行高，行高 1.55em）：
        从开头播放时首个词落在视口顶端往下 1~2 行处，慢速跟读有缓冲，
@@ -104,7 +110,7 @@
   /* 底部控制条：固定 6 列网格 + 速度条独占一整行。
      不再用 flex 抢宽度，速度滑块与「像素/秒」数值永远不会被右侧按钮挤压或遮挡。 */
   #controlBar{
-    display:grid; grid-template-columns:repeat(6, minmax(0,1fr));
+    display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
     align-items:center; gap:8px; flex-shrink:0;
     padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top:1px solid var(--line); background:var(--panel);
@@ -131,8 +137,8 @@
     font-weight:700; min-width:76px; text-align:right;
   }
   @media (max-width:360px){
-    /* 极窄屏：6 个按钮改 3×2，仍保证每个按钮完整可点 */
-    #controlBar{grid-template-columns:repeat(3, minmax(0,1fr));}
+    /* 极窄屏：7 个按钮改 4 列，仍保证每个按钮完整可点 */
+    #controlBar{grid-template-columns:repeat(4, minmax(0,1fr));}
   }
 
   /* Sheet (modal bottom panel) */
@@ -303,6 +309,8 @@
 
   <div id="controlBar">
     <button class="btn primary icon" id="btnPlay" data-i18n-title="playPause">▶</button>
+    <!-- 逐词高亮一键开关：👁 睁眼=开 / 半透明=关，与设置面板复选框双向同步 -->
+    <button class="btn icon on" id="btnReadMark" data-i18n-title="toggleReadMark" aria-pressed="true">👁</button>
     <button class="btn icon" id="btnReset" data-i18n-title="reset">↺</button>
     <button class="btn icon" id="btnSettings" data-i18n-title="settings">⚙</button>
     <button class="btn icon" id="btnCard" data-i18n-title="genCard">🎴</button>
@@ -385,6 +393,15 @@
         <input type="checkbox" id="setReadMark" />
       </div>
       <div class="hint" data-i18n="readMarkHint">播放时用底色标出当前该读的词／字，随速度自动跳到下一个；只在播放时显示，不影响编辑。</div>
+
+      <div class="field">
+        <label data-i18n="readMarkStrengthLabel">高亮强度</label>
+        <select id="setReadMarkStrength">
+          <option value="strong" selected data-i18n="readMarkStrengthStrong">强底色（默认，醒目好跟读）</option>
+          <option value="subtle" data-i18n="readMarkStrengthSubtle">淡下划线（干扰小，适合熟练用户）</option>
+        </select>
+        <div class="hint" data-i18n="readMarkStrengthHint">强底色适合跟读新手；淡下划线视觉更轻，适合熟练用户或对高亮敏感的人。随时可在播放栏点 👁 一键开关。</div>
+      </div>
 
       <div class="field">
         <label data-i18n="scrollSpeed">滚动速度</label>
@@ -722,6 +739,14 @@ const I18N = {
   mirrorLabel:"镜像模式（接物理提词支架时开启）",
   readMarkLabel:"逐词跟随高亮",
   readMarkHint:"播放时用底色标出当前该读的词／字，随速度自动跳到下一个；只在播放时显示，不影响编辑。",
+
+  toggleReadMark:"逐词高亮开关（点一下切换）",
+  readMarkOn:"逐词高亮已开",
+  readMarkOff:"逐词高亮已关",
+  readMarkStrengthLabel:"高亮强度",
+  readMarkStrengthStrong:"强底色（默认，醒目好跟读）",
+  readMarkStrengthSubtle:"淡下划线（干扰小，适合熟练用户）",
+  readMarkStrengthHint:"强底色适合跟读新手；淡下划线视觉更轻，适合熟练用户或对高亮敏感的人。随时可在播放栏点眼睛图标一键开关。",
   scrollSpeed:"滚动速度",
   switchUnit:"切换单位",
   speedHint:"单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。",
@@ -931,6 +956,14 @@ const I18N = {
   mirrorLabel:"Mirror mode (enable when using a physical teleprompter rig)",
   readMarkLabel:"Word-by-word highlight",
   readMarkHint:"During playback the current word is highlighted and moves to the next one at your set speed. Shown only while playing; editing is unaffected.",
+
+  toggleReadMark:"Toggle word highlight (tap to switch)",
+  readMarkOn:"Word highlight on",
+  readMarkOff:"Word highlight off",
+  readMarkStrengthLabel:"Highlight strength",
+  readMarkStrengthStrong:"Strong background (default, easy to follow)",
+  readMarkStrengthSubtle:"Light underline (less distraction, for pros)",
+  readMarkStrengthHint:"Strong background suits beginners; the light underline is subtler for advanced users or those sensitive to highlights. Tap the eye icon on the control bar to toggle anytime.",
   scrollSpeed:"Scroll Speed",
   switchUnit:"Switch Unit",
   speedHint:"Units: pixels/second (px/s) or characters/minute (CPM, estimated from current font size).",
@@ -1153,6 +1186,14 @@ const I18N = {
   mirrorLabel:'Spiegelmodus (bei physischem Teleprompter-Gestell einschalten)',
   readMarkLabel:'Wort-für-Wort-Hervorhebung',
   readMarkHint:'Während der Wiedergabe wird das aktuelle Wort markiert und wandert im eingestellten Tempo weiter. Nur beim Abspielen sichtbar – die Bearbeitung bleibt unberührt.',
+
+  toggleReadMark:"Wort-Hervorhebung umschalten (tippen zum Wechseln)",
+  readMarkOn:"Wort-Hervorhebung an",
+  readMarkOff:"Wort-Hervorhebung aus",
+  readMarkStrengthLabel:"Hervorhebungsstärke",
+  readMarkStrengthStrong:"Starker Hintergrund (Standard, gut zu folgen)",
+  readMarkStrengthSubtle:"Leichte Unterstreichung (weniger Ablenkung, für Profis)",
+  readMarkStrengthHint:"Starker Hintergrund eignet sich für Anfänger; die leichte Unterstreichung ist dezenter für Fortgeschrittene oder sensible Nutzer. Tippe jederzeit auf das Auge in der Steuerleiste.",
   scrollSpeed:'Scrollgeschwindigkeit',
   switchUnit:'Einheit wechseln',
   speedHint:'Einheit: Pixel pro Sekunde (px/s) oder Zeichen pro Minute (CPM, anhand der aktuellen Schriftgröße geschätzt).',
@@ -1375,6 +1416,14 @@ const I18N = {
   mirrorLabel:'Mode miroir (à activer avec un support de téléprompteur physique)',
   readMarkLabel:'Surlignage mot par mot',
   readMarkHint:'Pendant la lecture, le mot en cours est surligné et passe au suivant à la vitesse choisie. Visible uniquement pendant la lecture, sans effet sur la saisie.',
+
+  toggleReadMark:"Activer le surlignage mot par mot (appuyez pour basculer)",
+  readMarkOn:"Surlignage activé",
+  readMarkOff:"Surlignage désactivé",
+  readMarkStrengthLabel:"Intensité du surlignage",
+  readMarkStrengthStrong:"Fond prononcé (par défaut, facile à suivre)",
+  readMarkStrengthSubtle:"Soulignement léger (moins de distraction, pour les pros)",
+  readMarkStrengthHint:"Le fond prononcé convient aux débutants ; le soulignement léger est plus discret pour les utilisateurs avancés ou sensibles. Appuyez sur l'icône œil de la barre pour basculer à tout moment.",
   scrollSpeed:'Vitesse de défilement',
   switchUnit:'Changer d’unité',
   speedHint:'Unité : pixels par seconde (px/s) ou caractères par minute (CPM, estimés selon la taille de police actuelle).',
@@ -1584,6 +1633,14 @@ const I18N = {
   mirrorLabel:"ミラーモード（物理提词台を使う場合はオン）",
   readMarkLabel:"単語追従ハイライト",
   readMarkHint:"再生中に現在読む語／字を背景色で示し、設定した速度で次の語へ移ります。編集中は表示されません。",
+
+  toggleReadMark:"単語ハイライトの切り替え（タップで切替）",
+  readMarkOn:"単語ハイライト：オン",
+  readMarkOff:"単語ハイライト：オフ",
+  readMarkStrengthLabel:"ハイライトの強さ",
+  readMarkStrengthStrong:"強い背景色（既定、追いやすい）",
+  readMarkStrengthSubtle:"淡い下線（邪魔になりにくい、上級者向け）",
+  readMarkStrengthHint:"強い背景色は初心者に、淡い下線は上級者やハイライトが苦手な方に向いています。操作バーの目のアイコンでいつでも切り替えられます。",
   scrollSpeed:"スクロール速度",
   switchUnit:"単位切替",
   speedHint:"単位：ピクセル/秒（px/s）または 文字/分（CPM、現在の文字サイズから算出）。",
@@ -1793,6 +1850,14 @@ const I18N = {
   mirrorLabel:"미러 모드（물리적提词 거치대 사용 시 켜기）",
   readMarkLabel:"단어 따라가기 강조",
   readMarkHint:"재생 중 현재 읽을 단어를 배경색으로 표시하고 설정한 속도에 따라 다음 단어로 이동합니다. 편집에는 영향이 없습니다.",
+
+  toggleReadMark:"단어 강조 켜기/끄기 (탭하여 전환)",
+  readMarkOn:"단어 강조 켜짐",
+  readMarkOff:"단어 강조 꺼짐",
+  readMarkStrengthLabel:"강조 강도",
+  readMarkStrengthStrong:"진한 배경 (기본, 따라가기 쉬움)",
+  readMarkStrengthSubtle:"연한 밑줄 (방해 적음, 숙련자용)",
+  readMarkStrengthHint:"진한 배경은 초보자에게, 연한 밑줄은 숙련자나 강조에 민감한 분에게 적합합니다. 조작 바의 눈 아이콘으로 언제든 전환할 수 있습니다.",
   scrollSpeed:"스크롤 속도",
   switchUnit:"단위 전환",
   speedHint:"단위: 픽셀/초（px/s） 또는 자/분（CPM, 현재 글자 크기 기준 추정）.",
@@ -2002,6 +2067,14 @@ const I18N = {
   mirrorLabel:"Зеркальный режим (включайте при работе с физическим суфлёром)",
   readMarkLabel:"Подсветка по словам",
   readMarkHint:"Во время воспроизведения текущее слово подсвечивается и переходит к следующему с заданной скоростью. Показывает только при воспроизведении, не мешает редактированию.",
+
+  toggleReadMark:"Переключить подсветку слов (нажмите для переключения)",
+  readMarkOn:"Подсветка слов включена",
+  readMarkOff:"Подсветка слов выключена",
+  readMarkStrengthLabel:"Интенсивность подсветки",
+  readMarkStrengthStrong:"Яркий фон (по умолчанию, удобно следить)",
+  readMarkStrengthSubtle:"Лёгкое подчёркивание (меньше отвлекает, для профи)",
+  readMarkStrengthHint:"Яркий фон подходит новичкам, лёгкое подчёркивание — продвинутым или чувствительным к подсветке. Нажмите на значок глаза на панели управления в любой момент.",
   scrollSpeed:"Скорость прокрутки",
   switchUnit:"Ед. изм.",
   speedHint:"Единицы: пиксели в секунду (px/s) или символы в минуту (CPM, оценка по текущему размеру шрифта).",
@@ -2260,6 +2333,7 @@ const defaultState = {
   align: 'center',
   mirror: false,
   readMark: true, // 逐词跟随高亮（默认开；镜像模式与不支持该 API 的设备自动降级隐藏）
+  readMarkStrength: 'strong', // 高亮强度：'strong'=强底色(默认) | 'subtle'=淡下划线（干扰小）
   speedPx: 90,
   speedCpm: 220,
   speedUnit: 'px', // 'px' | 'cpm'
@@ -3094,6 +3168,8 @@ const setColor = document.getElementById('setColor');
 const setAlign = document.getElementById('setAlign');
 const setMirror = document.getElementById('setMirror');
 const setReadMark = document.getElementById('setReadMark');
+const setReadMarkStrength = document.getElementById('setReadMarkStrength');
+const btnReadMark = document.getElementById('btnReadMark');
 const readMarkEl = document.getElementById('readMark');
 const setSpeed = document.getElementById('setSpeed');
 const setSpeedLabel = document.getElementById('setSpeedLabel');
@@ -3261,6 +3337,21 @@ let readTokensText = '';
 const READ_HEAD_RATIO = 0.2;
 function hideReadMark(){
   if (readMarkEl) readMarkEl.style.display = 'none';
+}
+/* 应用高亮强度档：strong=强底色 / subtle=淡下划线。只切 class，不动几何坐标。 */
+function applyReadMarkStrength(){
+  if (!readMarkEl) return;
+  readMarkEl.classList.toggle('subtle', state.readMarkStrength === 'subtle');
+}
+/* 同步主屏眼睛开关与设置面板复选框的状态（两处互为镜像，任一处改动都刷新另一处）。 */
+function syncReadMarkUI(){
+  const on = !!state.readMark;
+  if (btnReadMark){
+    btnReadMark.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btnReadMark.title = t('toggleReadMark') + '：' + (on ? t('readMarkOn') : t('readMarkOff'));
+  }
+  if (setReadMark) setReadMark.checked = on;
+  applyReadMarkStrength();
 }
 /* 按阅读顺序切词：连续 ASCII 字母/数字/下划线算一个词，中文/标点按单字，
    代理对（emoji 等）合并为一个，空白只作分隔不点亮。 */
@@ -3498,6 +3589,7 @@ function updateReadMark(force){
     readMarkEl.style.top = top + 'px';
     readMarkEl.style.width = Math.max(2, tk.w) + 'px';
     readMarkEl.style.height = Math.max(2, tk.h) + 'px';
+    applyReadMarkStrength();
     readMarkEl.style.display = 'block';
   } catch (e){ hideReadMark(); }
 }
@@ -4677,6 +4769,22 @@ setReadMark.addEventListener('change', function(e){
   state.readMark = e.target.checked;
   if (!state.readMark) hideReadMark();
   else if (playing) updateReadMark(true);
+  syncReadMarkUI();
+  saveState();
+});
+// 主屏眼睛按钮：一键切换逐词高亮，与设置面板复选框双向同步
+if (btnReadMark) btnReadMark.addEventListener('click', function(){
+  state.readMark = !state.readMark;
+  if (!state.readMark) hideReadMark();
+  else if (playing) updateReadMark(true);
+  syncReadMarkUI();
+  toast(state.readMark ? t('readMarkOn') : t('readMarkOff'));
+  saveState();
+});
+// 高亮强度：强底色 / 淡下划线；正在高亮时立即换档
+if (setReadMarkStrength) setReadMarkStrength.addEventListener('change', function(e){
+  state.readMarkStrength = (e.target.value === 'subtle') ? 'subtle' : 'strong';
+  applyReadMarkStrength();
   saveState();
 });
 setReferral.addEventListener('input', function(e){ state.referralCode = e.target.value.trim(); saveState(); });
@@ -4947,6 +5055,8 @@ function init(){
   setAlign.value = state.align;
   setMirror.checked = !!state.mirror;
   setReadMark.checked = !!state.readMark;
+  if (setReadMarkStrength) setReadMarkStrength.value = (state.readMarkStrength === 'subtle') ? 'subtle' : 'strong';
+  syncReadMarkUI(); // 眼睛按钮 aria-pressed 与设置面板复选框、高亮强度 class 一并初始化
   setReferral.value = state.referralCode || '';
   setBotUser.value = state.botUser || '';
   if (setDisplayName) setDisplayName.value = state.displayName || '';
