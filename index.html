@@ -175,6 +175,14 @@
   .card-actions{display:flex; gap:10px; margin-top:14px;}
   .card-actions .btn{flex:1;}
 
+  /* Finish card overlay（完成卡：庆祝氛围 + 传播裂变） */
+  #finishOverlay .sheet-inner{text-align:center;}
+  #finishOverlay .finish-inner{background:linear-gradient(180deg,#fffaf2 0%,#ffffff 34%);}
+  .finish-burst{font-size:40px; line-height:1; margin:2px 0 6px; animation:finishPop .5s cubic-bezier(.2,1.4,.5,1);}
+  #finishOverlay h3{font-size:20px; color:#b4690e;}
+  #finishPreview{width:100%; max-width:320px; border-radius:16px; box-shadow:0 10px 30px rgba(180,105,14,.22); margin:6px auto 4px; display:block;}
+  @keyframes finishPop{0%{transform:scale(.3) rotate(-20deg); opacity:0;} 100%{transform:scale(1) rotate(0); opacity:1;}}
+
   /* Toast */
   #toast{
     position:fixed; left:50%; bottom:90px; transform:translateX(-50%) translateY(20px);
@@ -401,6 +409,16 @@
       </div>
 
       <div class="field">
+        <label data-i18n="displayNameLabel">完成卡上的名字</label>
+        <input type="text" id="setDisplayName" data-i18n-ph="displayNamePlaceholder" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+        <div class="hint" data-i18n="displayNameHint">留空则自动使用你的 Telegram 昵称。只保存在本机。</div>
+      </div>
+      <div class="field switch">
+        <span data-i18n="finishCardLabel">读完自动弹完成卡</span>
+        <input type="checkbox" id="setFinishCard" checked />
+      </div>
+
+      <div class="field">
         <label data-i18n="rankTitle">阅读等级</label>
         <div class="rank-box">
           <span class="rank-icon" id="rankIcon">🌱</span>
@@ -464,6 +482,23 @@
       <div class="ad-slot" id="adSlotCard" data-ad-slot="card-bottom" hidden>AD</div>
       <div class="sheet-actions" style="margin-top:10px;">
         <button class="btn" id="btnCloseCard" data-i18n="close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 完成卡：一篇读完自动弹出，展示用户成就并带深链裂变传播 -->
+  <div class="sheet hidden" id="finishOverlay">
+    <div class="sheet-inner finish-inner">
+      <div class="finish-burst" aria-hidden="true">🎉</div>
+      <h3 data-i18n="finishTitle">太棒了，读完一篇！</h3>
+      <img id="finishPreview" alt="完成卡预览" />
+      <div class="hint" data-i18n="finishHint">这张卡记录了你的阅读成就——保存或分享给朋友，邀请他们一起体验。</div>
+      <div class="card-actions">
+        <button class="btn" id="btnFinishSave" data-i18n="finishSave">保存到相册</button>
+        <button class="btn primary" id="btnFinishShare" data-i18n="finishShare">分享给朋友</button>
+      </div>
+      <div class="sheet-actions" style="margin-top:10px;">
+        <button class="btn" id="btnFinishClose" data-i18n="finishContinue">继续提词</button>
       </div>
     </div>
   </div>
@@ -772,6 +807,29 @@ const I18N = {
   cloudSyncPending:"同步中…",
   shareToast:"需在 Telegram 内打开才能分享",
   shareText:"我用 ScriptDeck 顺滑录完了稿子 🎬 你也来试试：",
+
+  finishTitle:"太棒了，读完一篇！",
+  finishHint:"这张卡记录了你的阅读成就——保存或分享给朋友，邀请他们一起体验。",
+  finishSave:"保存卡片",
+  finishShare:"分享给朋友",
+  finishContinue:"继续提词",
+  finishBadge:"阅读成就卡",
+  finishFor:"这是",
+  finishAnon:"一位提词达人",
+  finishScriptsDone:"篇讲稿 · 已流畅读完",
+  finishPersona1:"初露锋芒，开口就是主角",
+  finishPersona2:"渐入佳境，表达越来越稳",
+  finishPersona3:"从容自信，镜头前的实力派",
+  finishPersona4:"稳定输出，把每次表达都做到位",
+  finishPersona5:"表达大师，提词器为你而生",
+  finishBragLine:"我用 ScriptDeck 已经流畅读完 {n} 篇稿子，镜头前再也不慌了。",
+  finishCtaTitle:"你也来试试 ScriptDeck",
+  finishCtaSub:"{name} 邀请你一起流畅表达",
+  finishShareText:"我用 ScriptDeck 读完了 {n} 篇稿子！🎬 你也能镜头前从容表达：",
+  displayNameLabel:"完成卡上的名字",
+  displayNamePlaceholder:"输入你的名字（留空用 Telegram 昵称）",
+  displayNameHint:"留空则自动使用你的 Telegram 昵称。只保存在本机。",
+  finishCardLabel:"读完自动弹完成卡",
   verifyOk:"身份已验证 ✓",
   verifyFail:"验签未通过",
   verifyErr:"验签请求失败",
@@ -958,6 +1016,29 @@ const I18N = {
   cloudSyncPending:"Syncing…",
   shareToast:"Please open inside Telegram to share",
   shareText:"I just recorded my script smoothly with ScriptDeck 🎬 Give it a try:",
+
+  finishTitle:"Nice! You finished a script 🎉",
+  finishHint:"This card captures your reading achievement — save it or share with friends to invite them to try it.",
+  finishSave:"Save card",
+  finishShare:"Share with friends",
+  finishContinue:"Keep prompting",
+  finishBadge:"Reading achievement",
+  finishFor:"This belongs to",
+  finishAnon:"A prompting pro",
+  finishScriptsDone:"scripts · smoothly read",
+  finishPersona1:"Just getting started — already in the spotlight",
+  finishPersona2:"Finding your rhythm, getting steadier every take",
+  finishPersona3:"Calm and confident — a natural in front of the lens",
+  finishPersona4:"Consistent and sharp — nailing every take",
+  finishPersona5:"A true pro — the teleprompter was made for you",
+  finishBragLine:"I've smoothly read {n} scripts with ScriptDeck — no more jitters on camera.",
+  finishCtaTitle:"Try ScriptDeck too",
+  finishCtaSub:"{name} invites you to speak with confidence",
+  finishShareText:"I finished {n} scripts with ScriptDeck! 🎬 You can own the camera too:",
+  displayNameLabel:"Name on your finish card",
+  displayNamePlaceholder:"Your name (blank = Telegram nickname)",
+  displayNameHint:"Leave blank to use your Telegram name automatically. Stored on this device only.",
+  finishCardLabel:"Show finish card after reading",
   verifyOk:"Identity verified ✓",
   verifyFail:"Verification failed",
   verifyErr:"Verification request failed",
@@ -1157,6 +1238,29 @@ const I18N = {
   cloudSyncPending:'Wird synchronisiert …',
   shareToast:'Teilen ist nur innerhalb von Telegram möglich',
   shareText:'Ich habe mein Skript mit ScriptDeck flüssig aufgenommen 🎬 Probier es auch:',
+
+  finishTitle:"Super! Ein Skript geschafft 🎉",
+  finishHint:"Diese Karte zeigt deine Leseleistung — speichere sie oder teile sie mit Freunden.",
+  finishSave:"Karte speichern",
+  finishShare:"Mit Freunden teilen",
+  finishContinue:"Weiter vorlesen",
+  finishBadge:"Lese-Erfolg",
+  finishFor:"Diese gehört",
+  finishAnon:"Ein Profi",
+  finishScriptsDone:"Skripte · flüssig gelesen",
+  finishPersona1:"Gerade am Start — schon im Rampenlicht",
+  finishPersona2:"Du findest deinen Rhythmus, wird stetig sicherer",
+  finishPersona3:"Ruhig und selbstbewusst — ein Naturtalent vor der Kamera",
+  finishPersona4:"Beständig und präzise — jeder Take sitzt",
+  finishPersona5:"Ein echter Profi — das Teleprompter ist für dich gemacht",
+  finishBragLine:"Ich habe mit ScriptDeck schon {n} Skripte flüssig gelesen — kein Lampenfieber mehr.",
+  finishCtaTitle:"Probier ScriptDeck auch",
+  finishCtaSub:"{name} lädt dich ein, sicher aufzutreten",
+  finishShareText:"Ich habe {n} Skripte mit ScriptDeck geschafft! 🎬 Du kannst das auch:",
+  displayNameLabel:"Name auf der Karte",
+  displayNamePlaceholder:"Dein Name (leer = Telegram-Name)",
+  displayNameHint:"Leer lassen, um automatisch deinen Telegram-Namen zu nutzen. Nur lokal gespeichert.",
+  finishCardLabel:"Karte nach dem Lesen anzeigen",
   verifyOk:'Identität bestätigt ✓',
   verifyFail:'Signaturprüfung fehlgeschlagen',
   verifyErr:'Anfrage zur Signaturprüfung fehlgeschlagen',
@@ -1356,6 +1460,29 @@ const I18N = {
   cloudSyncPending:'Synchronisation …',
   shareToast:'Le partage nécessite l’ouverture dans Telegram',
   shareText:'J’ai enregistré mon script sans accroc avec ScriptDeck 🎬 Essayez aussi :',
+
+  finishTitle:"Bravo ! Un script terminé 🎉",
+  finishHint:"Cette carte résume votre exploit de lecture — enregistrez-la ou partagez-la avec vos amis.",
+  finishSave:"Enregistrer la carte",
+  finishShare:"Partager avec des amis",
+  finishContinue:"Continuer",
+  finishBadge:"Exploit de lecture",
+  finishFor:"Elle appartient à",
+  finishAnon:"Un pro du prompteur",
+  finishScriptsDone:"scripts · lus avec aisance",
+  finishPersona1:"Vous débutez — déjà sous les projecteurs",
+  finishPersona2:"Vous trouvez votre rythme, de plus en plus assuré",
+  finishPersona3:"Calme et confiant — né pour la caméra",
+  finishPersona4:"Régulier et précis — chaque prise est réussie",
+  finishPersona5:"Un vrai pro — le prompteur est fait pour vous",
+  finishBragLine:"J'ai déjà lu {n} scripts avec ScriptDeck — plus de trac devant la caméra.",
+  finishCtaTitle:"Essayez aussi ScriptDeck",
+  finishCtaSub:"{name} vous invite à parler avec assurance",
+  finishShareText:"J'ai terminé {n} scripts avec ScriptDeck ! 🎬 Vous pouvez le faire aussi :",
+  displayNameLabel:"Nom sur la carte",
+  displayNamePlaceholder:"Votre nom (vide = pseudo Telegram)",
+  displayNameHint:"Laissez vide pour utiliser votre nom Telegram. Enregistré sur cet appareil uniquement.",
+  finishCardLabel:"Afficher la carte après la lecture",
   verifyOk:'Identité vérifiée ✓',
   verifyFail:'Échec de la vérification de signature',
   verifyErr:'Échec de la demande de vérification',
@@ -1542,6 +1669,29 @@ const I18N = {
   cloudSyncPending:"同期中…",
   shareToast:"共有するには Telegram 内で開いてください",
   shareText:"ScriptDeck で原稿をスムーズに読み上げました 🎬 ぜひお試しを：",
+
+  finishTitle:"すごい！原稿を読み終えました 🎉",
+  finishHint:"このカードはあなたの読書成果を記録しています——保存したり友達とシェアしたりできます。",
+  finishSave:"カードを保存",
+  finishShare:"友達とシェア",
+  finishContinue:"続けて読み上げ",
+  finishBadge:"読書実績",
+  finishFor:"このカードの持ち主：",
+  finishAnon:"テロンプターの達人",
+  finishScriptsDone:"本 · スムーズに朗読",
+  finishPersona1:"デビューしたばかり、もう主役級",
+  finishPersona2:"リズムをつかみ、だんだん安定",
+  finishPersona3:"冷静自信、カメラの前の実力派",
+  finishPersona4:"安定した出力、毎回しっかり伝える",
+  finishPersona5:"表現のマスター、テロンプターはあなたのために",
+  finishBragLine:"ScriptDeck で {n} 本の原稿をスムーズに読みました。カメラの前でもう緊張しません。",
+  finishCtaTitle:"ScriptDeck も試して",
+  finishCtaSub:"{name} さんが自信を持って話すよう招待します",
+  finishShareText:"ScriptDeck で {n} 本の原稿を読み終えました！🎬 あなたもできます：",
+  displayNameLabel:"カードに表示する名前",
+  displayNamePlaceholder:"お名前（空欄 = Telegram ニックネーム）",
+  displayNameHint:"空欄なら Telegram の名前を自動で使います。この端末にのみ保存されます。",
+  finishCardLabel:"読み終えたらカードを表示",
   verifyOk:"本人確認済み ✓",
   verifyFail:"確認に失敗しました",
   verifyErr:"確認リクエストに失敗",
@@ -1728,6 +1878,29 @@ const I18N = {
   cloudSyncPending:"동기화 중…",
   shareToast:"공유하려면 Telegram 내에서 열어주세요",
   shareText:"ScriptDeck으로 대본을 부드럽게 읽었습니다 🎬 한번 써보세요:",
+
+  finishTitle:"멋져요! 대본을 끝냈어요 🎉",
+  finishHint:"이 카드는 당신의 읽기 성과를 기록합니다 — 저장하거나 친구에게 공유해 보세요.",
+  finishSave:"카드 저장",
+  finishShare:"친구에게 공유",
+  finishContinue:"계속 프롬프트",
+  finishBadge:"읽기 업적",
+  finishFor:"이 카드의 주인:",
+  finishAnon:"프롬프터 달인",
+  finishScriptsDone:"편 · 매끄럽게 낭독",
+  finishPersona1:"이제 막 시작, 벌써 주인공",
+  finishPersona2:"리듬을 찾아가며 점점 안정적",
+  finishPersona3:"침착하고 자신감 있게, 카메라 앞의 실력자",
+  finishPersona4:"꾸준하고 정확하게, 매번 잘 해내는",
+  finishPersona5:"표현의 달인, 프롬프터는 당신을 위해",
+  finishBragLine:"ScriptDeck으로 {n}편의 대본을 매끄럽게 읽었어요. 카메라 앞에서 더 이상 떨지 않아요.",
+  finishCtaTitle:"ScriptDeck도 써보세요",
+  finishCtaSub:"{name} 님이 자신 있게 말하기를 초대합니다",
+  finishShareText:"ScriptDeck으로 대본 {n}편을 끝냈어요! 🎬 당신도 할 수 있어요:",
+  displayNameLabel:"카드에 표시할 이름",
+  displayNamePlaceholder:"이름 (비우면 Telegram 닉네임)",
+  displayNameHint:"비우면 Telegram 이름을 자동으로 사용합니다. 이 기기에만 저장됩니다.",
+  finishCardLabel:"읽기 후 완료 카드 표시",
   verifyOk:"신원 확인됨 ✓",
   verifyFail:"확인 실패",
   verifyErr:"확인 요청 실패",
@@ -1914,6 +2087,29 @@ const I18N = {
   cloudSyncPending:"Синхронизация…",
   shareToast:"Откройте в Telegram, чтобы поделиться",
   shareText:"Я записал видео по сценарию со ScriptDeck 🎬 Попробуйте и вы:",
+
+  finishTitle:"Отлично! Скрипт прочитан 🎉",
+  finishHint:"Эта карточка отражает ваше достижение — сохраните её или поделитесь с друзьями.",
+  finishSave:"Сохранить карточку",
+  finishShare:"Поделиться с друзьями",
+  finishContinue:"Продолжить",
+  finishBadge:"Достижение в чтении",
+  finishFor:"Это карточка",
+  finishAnon:"Профи суфлёра",
+  finishScriptsDone:"скриптов · прочитано гладко",
+  finishPersona1:"Только начали — уже в центре внимания",
+  finishPersona2:"Находите свой ритм, становится увереннее",
+  finishPersona3:"Спокойны и уверенны — прирождённый перед камерой",
+  finishPersona4:"Стабильно и чётко — каждый дубль удаётся",
+  finishPersona5:"Мастер слова — суфлёр создан для вас",
+  finishBragLine:"Я уже гладко прочитал {n} скриптов в ScriptDeck — больше нет волнения перед камерой.",
+  finishCtaTitle:"Попробуйте ScriptDeck тоже",
+  finishCtaSub:"{name} приглашает говорить уверенно",
+  finishShareText:"Я прочитал {n} скриптов в ScriptDeck! 🎬 У вас тоже получится:",
+  displayNameLabel:"Имя на карточке",
+  displayNamePlaceholder:"Ваше имя (пусто = имя Telegram)",
+  displayNameHint:"Оставьте пустым, чтобы использовать имя Telegram. Хранится только на этом устройстве.",
+  finishCardLabel:"Показывать карточку после чтения",
   verifyOk:"Личность подтверждена ✓",
   verifyFail:"Подпись не прошла проверку",
   verifyErr:"Не удалось выполнить проверку",
@@ -2069,7 +2265,9 @@ const defaultState = {
   speedUnit: 'px', // 'px' | 'cpm'
   referralCode: '',
   botUser: '',
-  reads: 0, // 完整读完讲稿的次数（驱动免费头衔；本地保存，不上传）
+  displayName: '', // 完成卡上显示的名字（空则用 Telegram first_name，再兜底本地化默认名）
+  finishCard: true, // 一篇读完自动弹完成卡（可关，避免打扰）
+  reads: 0, // 完整读完讲稿的次数（驱动免费头衔 + 完成卡；本地保存，不上传）
   isPro: false // Pro 会员状态（本地缓存；生产以 /payments/pro-status 为准）
 };
 
@@ -2902,6 +3100,8 @@ const setSpeedLabel = document.getElementById('setSpeedLabel');
 const btnSpeedUnit = document.getElementById('btnSpeedUnit');
 const setReferral = document.getElementById('setReferral');
 const setBotUser = document.getElementById('setBotUser');
+const setDisplayName = document.getElementById('setDisplayName');
+const setFinishCard = document.getElementById('setFinishCard');
 const cardOverlay = document.getElementById('cardOverlay');
 const cardPreview = document.getElementById('cardPreview');
 const btnDownloadCard = document.getElementById('btnDownloadCard');
@@ -3049,7 +3249,8 @@ function applyPrompterStyle(){
  * 每帧只用一次 getBoundingClientRect 换算屏幕位置。全程不拆 scrollText DOM。 */
 let lastReadMarkTs = 0;
 let readTokens = null;        // [{node,start,end,left,top,w,h}]
-let readLines = null;         // [{start,end,top,height}] —— readTokens 按视觉行分组的连续区间
+let readLines = null;         // [{start,end,top,height,weight}] —— readTokens 按视觉行分组的连续区间
+let totalReadWeight = 0;      // 全文阅读权重之和（loop 按字符匀速分配时间用）
 let readTokensDirty = true;
 let readTokensText = '';
 /* 阅读头相对视口的高度比例，仅用于"点击空白处、未命中词元"的兜底定位。
@@ -3083,7 +3284,16 @@ function tokenizeForRead(){
       }
       // charStart/charEnd 相对 scrollText 全文的字符位置（UTF-16 码元），
       // 用于把 DOM caret 的 anchorOffset 精确映射到词元（问题1：播放起点跟随光标）
-      out.push({node:node, start:a, end:b, charStart: charBase + a, charEnd: charBase + b});
+      // rw = 阅读权重（read weight）：标点/符号快速略过(0.25)，普通字词按可见字符数(≥1)。
+      // 注意不能复用 w —— w 在 buildReadTokens 里被写为词元几何宽度(rc.width)！
+      // 用于「按字符匀速」推进——阅读头穿过一行的耗时正比于该行权重之和，
+      // 标点不按整字计时，从而在混排文本里每字停留时间恒定（见 loop() / paceScaleForHead）。
+      const tokText = s.slice(a, b);
+      let isPunct = false;
+      try { isPunct = /^[\p{P}\p{S}]+$/u.test(tokText); }
+      catch (e){ isPunct = /^[^\w\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+$/.test(tokText); }
+      const rw = isPunct ? 0.25 : Math.max(1, Array.from(tokText).length);
+      out.push({node:node, start:a, end:b, charStart: charBase + a, charEnd: charBase + b, rw: rw});
       i = b;
     }
     charBase += s.length;
@@ -3160,9 +3370,15 @@ function buildReadTokens(){
   for (let i = 1; i <= readTokens.length; i++){
     const boundary = i === readTokens.length || Math.abs(readTokens[i].top - readTokens[lineStart].top) > 3;
     if (boundary){
-      let lineHeight = 0;
-      for (let k = lineStart; k < i; k++) lineHeight = Math.max(lineHeight, readTokens[k].h);
-      readLines.push({ start: lineStart, end: i - 1, top: readTokens[lineStart].top, height: lineHeight });
+      let lineHeight = 0, lineWeight = 0;
+      for (let k = lineStart; k < i; k++){
+        lineHeight = Math.max(lineHeight, readTokens[k].h);
+        lineWeight += (typeof readTokens[k].rw === 'number' ? readTokens[k].rw : 1);
+      }
+      // weight = 本行「阅读权重」总和（标点 0.25、普通字 1、英文词按字数）。
+      // loop() 用它在混排文本里分配时间：穿过一行的耗时 ∝ weight，
+      // 于是每字停留恒定，不再「短行慢、长行快」。
+      readLines.push({ start: lineStart, end: i - 1, top: readTokens[lineStart].top, height: lineHeight, weight: Math.max(0.25, lineWeight) });
       lineStart = i;
     }
   }
@@ -3185,17 +3401,58 @@ function buildReadTokens(){
       readLines[i].height = Math.max(1, gap > normalGap * 1.6 ? normalGap : gap);
     }
   }
+  totalReadWeight = 0;
+  for (const ln of readLines) totalReadWeight += (ln.weight || 1);
   readTokensText = scrollText.textContent || '';
   readTokensDirty = false;
 }
+/* ---------- 按「阅读权重」定位行内词（按字符匀速 + 标点快过）----------
+ * 行内推进不再按「词数 n 均分」，而按每个词的阅读权重 w 累加：
+ * 普通字 w=1、英文词 w=字数、标点 w=0.25。阅读头穿过一行的耗时 ∝ 行权重和，
+ * 于是每个字停留恒定，标点只占 1/4 时间被快速略过。
+ * 下面两个函数互为逆运算，保证「点击定位 / caret 起点」与「高亮跟随」口径一致。 */
+function tokenWeight(ti){
+  if (!readTokens || ti < 0 || ti >= readTokens.length) return 1;
+  const w = readTokens[ti].rw;
+  return (typeof w === 'number' && w > 0) ? w : 1;
+}
+/** 词 ti 在本行「权重区间」的中点 frac ∈ (0,1)，供 anchor/点击定位把锚点对齐到它 */
+function tokenFracAt(ti){
+  if (!readLines || !readLines.length) return 0.5;
+  let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
+  const ln = readLines[li];
+  let before = 0;
+  for (let k = ln.start; k < ti; k++) before += tokenWeight(k);
+  const self = tokenWeight(ti);
+  // 整行总权重：优先用 buildReadTokens 算好的 ln.weight；
+  // 若 mock/旧缓存缺该字段，则现场累加整行，保证与 tokenIndexAtFrac 口径一致。
+  let total = ln.weight;
+  if (!(total > 0)){
+    total = 0;
+    for (let k = ln.start; k <= ln.end; k++) total += tokenWeight(k);
+  }
+  return Math.max(0, Math.min(1, (before + self / 2) / (total || 1)));
+}
+/** frac 命中本行哪个词——按累积权重查找（与 tokenFracAt 互逆） */
+function tokenIndexAtFrac(line, frac){
+  const f = Math.max(0, Math.min(1, frac));
+  const total = line.weight || 1;
+  const target = f * total;
+  let acc = 0;
+  for (let k = line.start; k <= line.end; k++){
+    acc += tokenWeight(k);
+    if (target < acc) return k;
+  }
+  return line.end;
+}
 /* 把阅读头锚点对齐到词元 ti 的内容坐标（让这个词在它当前位置立刻被高亮），
    但完全不动 offset —— 文稿保持在用户看到的位置，零跳变。
-   行内推进公式与 updateReadMark 一致：headY = line.top + (w+.5)/n * line.height。 */
+   行内推进公式与 updateReadMark 一致：headY = line.top + tokenFracAt(ti) * line.height。 */
 function anchorReadHeadToToken(ti){
   if (ti < 0 || !readLines || !readLines.length) return false;
   let li = 0; while (li < readLines.length - 1 && ti > readLines[li].end) li++;
-  const ln = readLines[li], n = Math.max(1, ln.end - ln.start + 1), w = Math.max(0, Math.min(n - 1, ti - ln.start));
-  readHeadContentY = ln.top + ((w + 0.5) / n) * ln.height;
+  const ln = readLines[li];
+  readHeadContentY = ln.top + tokenFracAt(ti) * ln.height;
   return true;
 }
 function updateReadMark(force){
@@ -3227,7 +3484,7 @@ function updateReadMark(force){
     const count = curLine.end - curLine.start + 1;
     if (count > 1){
       const frac = Math.max(0, Math.min(1, (headContentY - curLine.top) / Math.max(1, curLine.height)));
-      idx = curLine.start + Math.min(count - 1, Math.floor(frac * count));
+      idx = tokenIndexAtFrac(curLine, frac); // 按阅读权重选词：标点快过、每字停留恒定
     }
     const tk = readTokens[Math.max(0, Math.min(readTokens.length - 1, idx))];
     const vp = viewport.getBoundingClientRect();
@@ -3368,13 +3625,33 @@ function blankGapAhead(headY){
   }
   return null;
 }
+/* 按字符匀速的步速缩放因子：
+ * 阅读头穿过某行耗时 ∝ 该行权重和，于是每字停留时间恒定、标点快速略过。
+ * norm = (行高/行权重) / (总行程/总权重)。当各行「每字占高」一致时 norm=1，
+ * 全文总时长与匀速模型完全相同（不改变用户设定速度的整体手感）；
+ * 短行 weight 小 → norm>1 → 快速掠过；长行 weight 大 → norm<1 → 放慢逐字。
+ * 这是「按行匀速(每字停留 ∝ 1/行字数)」与「按字符匀速」的根本区别。 */
+function paceScaleForHead(headY){
+  if (voiceFollowing) return 1; // 语音跟随：速度完全由语速决定，不叠加字符匀速缩放
+  if (!readLines || !readLines.length || !(totalReadWeight > 0)) return 1;
+  let li = 0;
+  while (li < readLines.length - 1 && headY > readLines[li].top + readLines[li].height) li++;
+  const ln = readLines[li];
+  const span = readEndContentY();
+  if (!(span > 0)) return 1;
+  const perWeightPx = (Math.max(1, ln.height) / (ln.weight || 1)); // 本行每个阅读权重占的像素
+  const avgPerWeight = span / totalReadWeight;                     // 全文平均每权重像素
+  const norm = perWeightPx / avgPerWeight;
+  return Math.max(0.15, Math.min(8, norm)); // 限幅，避免极端行（纯标点/超长词）速度失控
+}
 function loop(ts){
   if (lastTs == null) lastTs = ts;
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
   if (playing){
     const max = maxOffset();
-    let step = pxPerSec() * dt;
+    // 按字符匀速：步速随当前行权重缩放；空白带再按像素一步跨完（不被缩放）
+    let step = pxPerSec() * dt * paceScaleForHead(readHeadContentY);
     const bg = blankGapAhead(readHeadContentY);
     if (bg) step = Math.max(step, bg.nextTop - readHeadContentY); // 一步跨完空白带
     offset = Math.min(offset + step, max);   // 文稿位移最多到 max，底部不露白
@@ -3646,11 +3923,11 @@ function stopVoiceFollow(){
 /* ---------- 阅读等级（免费头衔，纯荣誉，不影响任何功能权限） ---------- */
 // 门槛为"完整读完讲稿"的累计次数。仅本地记录，不上传、不参与付费判断。
 const RANKS = [
-  { icon:'🌱', need:0,   name:{ zh:'起步', en:'Starter', ja:'スターター', ko:'스타터', ru:'Старт' } },
-  { icon:'⭐', need:3,   name:{ zh:'星光', en:'Star',    ja:'スター',     ko:'별빛',  ru:'Звезда' } },
-  { icon:'🌙', need:10,  name:{ zh:'月光', en:'Moon',    ja:'ムーン',     ko:'달빛',  ru:'Луна' } },
-  { icon:'☀️', need:30,  name:{ zh:'日光', en:'Sun',     ja:'サン',       ko:'햇빛',  ru:'Солнце' } },
-  { icon:'👑', need:100, name:{ zh:'皇冠', en:'Crown',   ja:'クラウン',   ko:'크라운', ru:'Корона' } },
+  { icon:'🌱', need:0,   name:{ zh:'起步', en:'Starter', de:'Starter',  fr:'Débutant', ja:'スターター', ko:'스타터', ru:'Старт' } },
+  { icon:'⭐', need:3,   name:{ zh:'星光', en:'Star',    de:'Stern',    fr:'Étoile',   ja:'スター',     ko:'별빛',  ru:'Звезда' } },
+  { icon:'🌙', need:10,  name:{ zh:'月光', en:'Moon',    de:'Mond',     fr:'Lune',     ja:'ムーン',     ko:'달빛',  ru:'Луна' } },
+  { icon:'☀️', need:30,  name:{ zh:'日光', en:'Sun',     de:'Sonne',    fr:'Soleil',   ja:'サン',       ko:'햇빛',  ru:'Солнце' } },
+  { icon:'👑', need:100, name:{ zh:'皇冠', en:'Crown',   de:'Krone',    fr:'Couronne', ja:'クラウン',   ko:'크라운', ru:'Корона' } },
 ];
 // 太短的稿子不计次（防止空稿/一句话反复刷等级）
 const MIN_CHARS_FOR_READ = 40;
@@ -3700,6 +3977,8 @@ function onReadComplete(){
   const after = rankIndexOf(state.reads);
   renderRank();
   if (after > before) toast(fmt(t('rankUp'), { name: rankNameOf(RANKS[after]) }));
+  // 一篇读完 → 弹完成卡（成就展示 + 深链裂变传播）。可关；失败不影响主功能。
+  setTimeout(showFinishCard, 250);
 }
 
 /* ---------- 速度 UI 同步 ---------- */
@@ -3921,6 +4200,124 @@ function generateCard(){
   // 同步卡片页底部说明：是否高清无水印
   const tag = document.getElementById('cardExportTag');
   if (tag) tag.textContent = opt.noWatermark ? t('cardExportPro') : t('cardExportFree');
+}
+
+/* ---------- 完成卡（阅读成就卡 · 裂变传播）----------
+ * 借鉴 Duolingo / Spotify Wrapped 的「个性化数据卡」：卡片关于用户本人，
+ * 让每个用户（含新手）都有值得晒的内容，而非只有排行榜顶端的人愿意分享。
+ * 纯 canvas 本地生成，零服务端、零用户间交互（符合产品宪法底线）。
+ * 构成：用户名 + 完成篇数 + 等级徽章 + 人格化称号 + 一句可晒文案 + 产品深链。 */
+let finishCardDataUrl = '';
+function finishDisplayName(){
+  const custom = String(state.displayName || '').trim();
+  if (custom) return custom;
+  try {
+    const u = window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe
+      && Telegram.WebApp.initDataUnsafe.user;
+    if (u){
+      const nm = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+      if (nm) return nm;
+      if (u.username) return '@' + u.username;
+    }
+  } catch (e){}
+  return t('finishAnon');
+}
+// 人格化称号：按完成篇数给正面标签，让新手也有得晒（普适性 > 排行榜）
+function finishPersona(reads){
+  const tiers = [
+    { max: 2,  key: 'finishPersona1' },
+    { max: 9,  key: 'finishPersona2' },
+    { max: 29, key: 'finishPersona3' },
+    { max: 99, key: 'finishPersona4' },
+    { max: Infinity, key: 'finishPersona5' },
+  ];
+  for (const tier of tiers) if (reads <= tier.max) return t(tier.key);
+  return t('finishPersona5');
+}
+function generateFinishCard(){
+  try {
+  const reads = state.reads || 0;
+  const opt = cardExportOptions();
+  const BASE_W = 1080, BASE_H = 1350;
+  const c = document.createElement('canvas');
+  c.width = BASE_W * opt.scale; c.height = BASE_H * opt.scale;
+  const ctx = c.getContext('2d');
+  if (!ctx) return finishCardDataUrl; // 无 canvas 环境（如测试）安全跳过
+  ctx.scale(opt.scale, opt.scale);
+  // 暖色庆祝渐变背景
+  const g = ctx.createLinearGradient(0, 0, 0, BASE_H);
+  g.addColorStop(0, '#fff7e8'); g.addColorStop(0.45, '#fffdf8'); g.addColorStop(1, '#f3f7ff');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, BASE_W, BASE_H);
+  // 顶部装饰光晕
+  const glow = ctx.createRadialGradient(540, 250, 40, 540, 250, 520);
+  glow.addColorStop(0, 'rgba(245,166,35,.20)'); glow.addColorStop(1, 'rgba(245,166,35,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, BASE_W, 620);
+  ctx.textAlign = 'center';
+  // 品牌
+  ctx.fillStyle = '#b4690e'; ctx.font = 'bold 34px sans-serif';
+  ctx.fillText(t('cardBrand'), 540, 96);
+  ctx.fillStyle = '#a9a29a'; ctx.font = '26px sans-serif';
+  ctx.fillText(t('finishBadge'), 540, 142);
+  // 大emoji 庆祝
+  ctx.font = '120px sans-serif'; ctx.fillText('🏆', 540, 320);
+  // 用户名
+  ctx.fillStyle = '#6b7280'; ctx.font = '32px sans-serif';
+  ctx.fillText(t('finishFor'), 540, 400);
+  const name = finishDisplayName();
+  ctx.fillStyle = '#1f2430'; ctx.font = 'bold 58px sans-serif';
+  const nameLines = wrapText(ctx, name, 900);
+  ctx.fillText(nameLines[0] || name, 540, 470);
+  // 核心数字：完成篇数
+  ctx.fillStyle = '#b4690e'; ctx.font = 'bold 180px sans-serif';
+  ctx.fillText(String(reads), 540, 690);
+  ctx.fillStyle = '#8a6a2f'; ctx.font = 'bold 40px sans-serif';
+  ctx.fillText(t('finishScriptsDone'), 540, 748);
+  // 等级徽章 + 人格化称号
+  const rk = RANKS[rankIndexOf(reads)];
+  ctx.font = '44px sans-serif';
+  ctx.fillText(rk.icon + ' ' + rankNameOf(rk), 540, 838);
+  ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 46px sans-serif';
+  const persona = finishPersona(reads);
+  const pLines = wrapText(ctx, persona, 900);
+  for (let i = 0; i < Math.min(2, pLines.length); i++) ctx.fillText(pLines[i], 540, 912 + i * 58);
+  // 可晒文案
+  ctx.fillStyle = '#4b5563'; ctx.font = '30px sans-serif';
+  const shareLine = fmt(t('finishBragLine'), { n: reads });
+  const sLines = wrapText(ctx, shareLine, 920);
+  let sy = pLines.length > 1 ? 1040 : 1010;
+  for (let i = 0; i < Math.min(2, sLines.length); i++) ctx.fillText(sLines[i], 540, sy + i * 44);
+  // 底部分隔
+  ctx.strokeStyle = '#e8eaee'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(90, 1160); ctx.lineTo(990, 1160); ctx.stroke();
+  // 产品名 + 传播引导
+  ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 36px sans-serif';
+  ctx.fillText(t('finishCtaTitle'), 540, 1220);
+  ctx.fillStyle = '#9aa0a8'; ctx.font = '26px sans-serif';
+  const invite = fmt(t('finishCtaSub'), { name: name });
+  const iLines = wrapText(ctx, invite, 920);
+  ctx.fillText(iLines[0] || invite, 540, 1264);
+  // 深链（带推荐码）——朋友扫码/点开即用，形成传播闭环
+  ctx.fillStyle = '#b9bec6'; ctx.font = '22px sans-serif';
+  const dl = deepLink();
+  ctx.fillText(dl.length > 52 ? dl.slice(0, 52) + '…' : dl, 540, 1312);
+  finishCardDataUrl = c.toDataURL('image/png');
+  const preview = document.getElementById('finishPreview');
+  if (preview) preview.src = finishCardDataUrl;
+  return finishCardDataUrl;
+  } catch (e){ return finishCardDataUrl; } // 任何环境异常都不影响提词主功能
+}
+/** 读完一篇后弹出完成卡（可关）。延迟一点让停止动画与滚动条恢复完成。 */
+function showFinishCard(){
+  if (!state.finishCard) return;
+  try {
+    generateFinishCard();
+    const ov = document.getElementById('finishOverlay');
+    if (ov) ov.classList.remove('hidden');
+  } catch (e){ /* canvas 不可用时静默跳过，不影响提词主功能 */ }
+}
+function closeFinishCard(){
+  const ov = document.getElementById('finishOverlay');
+  if (ov) ov.classList.add('hidden');
 }
 
 /* ---------- Toast ---------- */
@@ -4281,6 +4678,8 @@ setReadMark.addEventListener('change', function(e){
 });
 setReferral.addEventListener('input', function(e){ state.referralCode = e.target.value.trim(); saveState(); });
 setBotUser.addEventListener('input', function(e){ state.botUser = e.target.value.trim(); saveState(); });
+if (setDisplayName) setDisplayName.addEventListener('input', function(e){ state.displayName = e.target.value.trim(); saveState(); });
+if (setFinishCard) setFinishCard.addEventListener('change', function(e){ state.finishCard = e.target.checked; saveState(); });
 
 btnDownloadCard.addEventListener('click', function(){
   if (!cardDataUrl) return;
@@ -4311,6 +4710,36 @@ btnShareCard.addEventListener('click', async function () {
   // 降级：Telegram 内分享深链与文案（不带图片）；浏览器内会提示需在 Telegram 打开
   telegramShare(text, url);
 });
+
+// 完成卡按钮：保存图片 / 分享给朋友 / 继续提词
+const btnFinishSave = document.getElementById('btnFinishSave');
+const btnFinishShare = document.getElementById('btnFinishShare');
+const btnFinishClose = document.getElementById('btnFinishClose');
+const finishOverlay = document.getElementById('finishOverlay');
+if (btnFinishSave) btnFinishSave.addEventListener('click', function(){
+  if (!finishCardDataUrl) return;
+  const a = document.createElement('a');
+  a.href = finishCardDataUrl; a.download = 'scriptdeck-finish.png';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+});
+if (btnFinishShare) btnFinishShare.addEventListener('click', async function(){
+  const url = deepLink();
+  const text = fmt(t('finishShareText'), { n: (state.reads || 0), name: finishDisplayName() });
+  if (finishCardDataUrl && navigator.share && window.File) {
+    try {
+      const blob = await (await fetch(finishCardDataUrl)).blob();
+      const file = new File([blob], 'scriptdeck-finish.png', { type: 'image/png' });
+      const canShareFiles = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
+      if (canShareFiles){ await navigator.share({ files: [file], text: text, url: url }); return; }
+    } catch (e){
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+  telegramShare(text, url);
+});
+if (btnFinishClose) btnFinishClose.addEventListener('click', closeFinishCard);
+// 点遮罩空白处也关闭完成卡
+if (finishOverlay) finishOverlay.addEventListener('click', function(e){ if (e.target === finishOverlay) closeFinishCard(); });
 
 // 字幕 / 文本导出（Pro）：SRT 按当前语速生成时间码，TXT 为纯文本
 const btnExportSrt = document.getElementById('btnExportSrt');
@@ -4517,6 +4946,8 @@ function init(){
   setReadMark.checked = !!state.readMark;
   setReferral.value = state.referralCode || '';
   setBotUser.value = state.botUser || '';
+  if (setDisplayName) setDisplayName.value = state.displayName || '';
+  if (setFinishCard) setFinishCard.checked = state.finishCard !== false;
 
   applyPrompterStyle();
   renderSpeedUI();

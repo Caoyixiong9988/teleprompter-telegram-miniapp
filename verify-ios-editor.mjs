@@ -29,7 +29,7 @@ check('六个控制按钮都在 DOM', ['btnPlay','btnReset','btnSettings','btnCa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 197 键且一致', sizes.every(n => n === 197), JSON.stringify(sizes));
+check('七语各 219 键且一致', sizes.every(n => n === 219), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -556,6 +556,139 @@ ev('setPlaying(false);');
   check('修复后无空等（单次停留 <20 帧，节奏连续）', maxAfter<20, 'maxAfter='+maxAfter);
   check('修复后 24 个词全部被高亮覆盖', after.seen.size===24, 'seen='+[...after.seen].sort((a,b)=>a-b).join(','));
   ev('readLines=null; readTokens=null; readTokensDirty=true;');
+}
+
+// --- 21. 按字符匀速：短行不再慢、长行不再快，标点快速略过（第十七轮）---
+// 用户反馈：3字行每字停留约 23 帧、30字行仅 2.3 帧（差10×）。根因=按行匀速
+// （阅读头穿过每行耗时固定）。修复=阅读头穿过一行的耗时 ∝ 行阅读权重和。
+// 这里直接调用页面真实函数 tokenIndexAtFrac / paceScaleForHead 验证。
+{
+  // 注入：短行(3字) 与 长行(30字) 交替，每字 w=1；行高固定 68
+  const GAP = 68, TOP = 28;
+  const toks = [], lines = [];
+  const spec = [3, 30, 3, 30];
+  let gi = 0;
+  for (let L = 0; L < spec.length; L++){
+    const n = spec[L], start = gi;
+    for (let k = 0; k < n; k++){
+      toks.push({ top: TOP+L*GAP, left: 22+k*40, w: 36, h: 44, rw: 1, charStart: gi, charEnd: gi+1 });
+      gi++;
+    }
+    lines.push({ start, end: gi-1, top: TOP+L*GAP, height: GAP, weight: n });
+  }
+  ev('readTokens=' + JSON.stringify(toks) + '; readLines=' + JSON.stringify(lines) +
+     '; totalReadWeight=' + spec.reduce((a,b)=>a+b,0) + '; readTokensDirty=false; readTokensText=scrollText.textContent;');
+  Object.defineProperty(st, 'offsetHeight', { value: 6000, configurable: true });
+  Object.defineProperty(vpEl, 'clientHeight', { value: 800, configurable: true });
+
+  // 真实函数：给定行与 frac 命中哪个词
+  const pickReal = (li, frac) => ev(`tokenIndexAtFrac(readLines[${li}], ${frac})`);
+  // 真实函数：当前 headY 的步速缩放
+  const scaleReal = (hy) => ev(`paceScaleForHead(${hy})`);
+
+  const endY = TOP + spec.length * GAP;
+  const BASE = 0.5; // 基础速度 px/帧
+  let hy = TOP, guard = 0;
+  const holds = new Array(gi).fill(0), seen = new Set();
+  // 逐帧模拟：每帧时间恒为 1，阅读头按 BASE*scale(hy) 前进；
+  // 命中哪个词就用真实 tokenIndexAtFrac，该词停留帧数 +1。
+  while (hy <= endY && guard++ < 200000){
+    let li = 0;
+    const L = lines;
+    while (li < L.length-1 && hy > L[li].top + L[li].height) li++;
+    const frac = Math.max(0, Math.min(1, (hy - L[li].top) / Math.max(1, L[li].height)));
+    const wi = pickReal(li, frac);
+    seen.add(wi);
+    holds[wi] += 1;             // 一帧 = 一个时间单位
+    hy += BASE * scaleReal(hy); // 步速随行权重自适应
+  }
+
+  // 每字停留时间（权重1的字应大致相同）
+  const holdsShort = [], holdsLong = [];
+  let idx = 0;
+  for (let l = 0; l < spec.length; l++){
+    for (let k = 0; k < spec[l]; k++){
+      (spec[l] === 3 ? holdsShort : holdsLong).push(holds[idx++]);
+    }
+  }
+  const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+  const aShort = avg(holdsShort), aLong = avg(holdsLong);
+  const ratio = Math.max(aShort,aLong) / Math.max(0.0001, Math.min(aShort,aLong));
+  check('真实函数存在：tokenIndexAtFrac / paceScaleForHead',
+    ev('typeof tokenIndexAtFrac') === 'function' && ev('typeof paceScaleForHead') === 'function');
+  check('按字符匀速：短行(3字)与长行(30字)每字停留时间接近（比值<1.5）',
+    ratio < 1.5, 'short=' + aShort.toFixed(1) + ' long=' + aLong.toFixed(1) + ' ratio=' + ratio.toFixed(2));
+  check('修复前旧模型该场景比值应≈10（对照）', 23/2.3 > 8, 'old=' + (23/2.3).toFixed(1));
+  check('所有词都被高亮覆盖', seen.size === gi, 'seen=' + seen.size + '/' + gi);
+  check('短行缩放>1、长行缩放<1（步速自适应）',
+    scaleReal(TOP+10) > 1.5 && scaleReal(TOP+GAP+10) < 0.6,
+    'short=' + scaleReal(TOP+10).toFixed(2) + ' long=' + scaleReal(TOP+GAP+10).toFixed(2));
+
+  // 标点快过：注入一行含标点，标点 w 应小于普通字
+  const punctLine = { start: 0, end: 2, top: TOP, height: GAP, weight: 1+0.25+1 };
+  const pt = [
+    { top: TOP, left: 22, w: 36, h: 44, rw: 1 },
+    { top: TOP, left: 60, w: 12, h: 44, rw: 0.25 },
+    { top: TOP, left: 80, w: 36, h: 44, rw: 1 },
+  ];
+  ev('readTokens=' + JSON.stringify(pt) + '; readLines=' + JSON.stringify([punctLine]) +
+     '; totalReadWeight=' + punctLine.weight + '; readTokensDirty=false;');
+  // frac 0.5 应命中第2词（标点权重区间窄，中心在(1+0.125)/2.25≈0.5）
+  check('tokenWeight 读取标点低权重', ev('tokenWeight(1)') === 0.25, 'w=' + ev('tokenWeight(1)'));
+  check('tokenFracAt 与 tokenIndexAtFrac 互逆（普通词）',
+    (() => { const f = ev('tokenFracAt(0)'); return ev(`tokenIndexAtFrac(readLines[0], ${f})`) === 0; })(),
+    'f0=' + ev('tokenFracAt(0)'));
+  check('标点 frac 区间比普通字窄（快速略过）',
+    (() => {
+      const f1 = ev('tokenFracAt(1)'), f2 = ev('tokenFracAt(2)');
+      const spanPunct = f2 - f1; // 标点区间
+      const spanNormal = f1 - ev('tokenFracAt(0)'); // 第0词...近似
+      return spanPunct < 0.4;
+    })(),
+    'f1=' + ev('tokenFracAt(1)') + ' f2=' + ev('tokenFracAt(2)'));
+  ev('readLines=null; readTokens=null; readTokensDirty=true;');
+}
+
+// --- 22. 完成卡（阅读成就卡 · 裂变传播，第十八轮）---
+{
+  const finishKeys = ['finishTitle','finishHint','finishSave','finishShare','finishContinue',
+    'finishBadge','finishFor','finishAnon','finishScriptsDone','finishPersona1','finishPersona2',
+    'finishPersona3','finishPersona4','finishPersona5','finishBragLine','finishCtaTitle',
+    'finishCtaSub','finishShareText','displayNameLabel','displayNamePlaceholder','displayNameHint','finishCardLabel'];
+  check('完成卡 22 键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>${JSON.stringify(finishKeys)}.every(k=>!!I18N[l][k]))`));
+  check('完成卡文案含 {n}/{name} 占位符',
+    ev(`I18N.zh.finishBragLine.includes('{n}') && I18N.en.finishBragLine.includes('{n}') && I18N.zh.finishCtaSub.includes('{name}')`));
+  check('完成卡浮层及按钮都在 DOM',
+    ['finishOverlay','finishPreview','btnFinishSave','btnFinishShare','btnFinishClose','setDisplayName','setFinishCard']
+      .every(id => !!doc.getElementById(id)));
+  check('完成卡函数存在',
+    ev(`['generateFinishCard','showFinishCard','closeFinishCard','finishDisplayName','finishPersona'].every(f=>typeof window[f]==='function')`));
+  // 名字来源：自定义 > Telegram > 兜底
+  ev('state.displayName="测试用户";');
+  check('完成卡显示自定义名字', ev('finishDisplayName()') === '测试用户', ev('finishDisplayName()'));
+  ev('state.displayName="";');
+  check('无自定义名字时有兜底（非空字符串）', (ev('finishDisplayName()')||'').length > 0, ev('finishDisplayName()'));
+  // 人格化称号：五个档位都能取到、且彼此不同（普适性 > 排行榜）
+  const personas = [0,3,10,30,100].map(n => ev(`finishPersona(${n})`));
+  check('人格化称号五档取到且互不相同', personas.every(p => !!p) && new Set(personas).size === 5, JSON.stringify(personas));
+  // 读完触发：onReadComplete 后 setTimeout(showFinishCard,250) 注册
+  check('onReadComplete 注册了完成卡弹出', /setTimeout\(showFinishCard,\s*\d+\)/.test(html));
+  // showFinishCard 受开关控制
+  ev('state.finishCard=false;');
+  ev('showFinishCard();');
+  check('关闭开关后 showFinishCard 不弹卡', doc.getElementById('finishOverlay').classList.contains('hidden'));
+  ev('state.finishCard=true;');
+  // closeFinishCard 能关闭
+  ev('document.getElementById("finishOverlay").classList.remove("hidden"); closeFinishCard();');
+  check('closeFinishCard 关闭完成卡', doc.getElementById('finishOverlay').classList.contains('hidden'));
+  // canvas 生成：jsdom 无 canvas 实现，stub getContext→null 验证安全降级路径
+  const proto = window.HTMLCanvasElement && window.HTMLCanvasElement.prototype;
+  const origGetCtx = proto && proto.getContext;
+  if (proto) proto.getContext = function(){ return null; };
+  let genOk = true;
+  try { ev('generateFinishCard();'); } catch(e){ genOk = false; }
+  check('generateFinishCard 无 canvas 时安全降级不抛错', genOk);
+  if (proto && origGetCtx) proto.getContext = origGetCtx;
 }
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
