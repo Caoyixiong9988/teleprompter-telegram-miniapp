@@ -53,18 +53,19 @@ test('页面无运行时错误，配额与 Pro 开关函数齐备', () => {
     assert.equal(ev(`typeof ${f}`), 'function', `缺 ${f}`);
   }
   assert.ok(ev('addScript.toString().includes("guardScriptLimit")'), '新建入口未接额度');
-  assert.ok(ev('handleImportFile.toString().includes("guardScriptLimit")'), '导入入口未接额度');
-  assert.ok(ev('importTextAsNewScript.toString().includes("guardScriptLimit")'), '导入落库未接额度');
+  assert.ok(ev('handleImportFile.toString().includes("writeImportIntoActiveScript")'), '导入应写入当前选中讲稿，不新建');
+  assert.ok(ev('handleImportFile.toString().includes("importTextAsNewScript")') === false, '导入不得绕过额度隐式新建');
+  assert.ok(ev('importTextAsNewScript.toString().includes("guardScriptLimit")'), '新建落库助手未接额度');
 });
 
-test('七语新增 2 个额度键齐全，键集一致（各 232 键）', () => {
+test('七语新增 2 个额度键齐全，键集一致（各 234 键）', () => {
   for (const lang of ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru']) {
     assert.ok(ev(`I18N.${lang}.scriptQuota`), `${lang} 缺 scriptQuota`);
     assert.ok(ev(`I18N.${lang}.scriptLimitToast`), `${lang} 缺 scriptLimitToast`);
     assert.ok(ev(`I18N.${lang}.scriptLimitToast.includes("{max}")`), `${lang} 额度文案缺 {max} 占位`);
   }
   const sizes = ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-  assert.deepEqual(sizes, [232, 232, 232, 232, 232, 232, 232]);
+  assert.deepEqual(sizes, [234, 234, 234, 234, 234, 234, 234]);
 });
 
 // ── 2. 纯函数边界 ────────────────────────────────────────────────────

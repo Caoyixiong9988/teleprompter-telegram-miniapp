@@ -378,6 +378,7 @@
         <div id="scriptList" class="script-list"></div>
         <button class="btn" id="btnNewScript" data-i18n="scriptNew" style="width:100%;margin-bottom:6px;">＋ 新建讲稿</button>
         <div class="hint" id="scriptCount"></div>
+        <div class="hint" data-i18n="freeAutoSaveHint" style="margin-top:4px;">免费版讲稿会自动保存在本设备中，无需手动保存，也不会上传服务器。</div>
       </div>
 
       <div class="field">
@@ -393,7 +394,7 @@
           <button class="btn" type="button" id="btnImportFile" data-i18n="importBtn">从文件导入讲稿</button>
           <span class="hint" data-i18n="importHint" style="flex:1 1 190px;min-width:180px;">讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。</span>
         </div>
-        <div class="hint" data-i18n="importFormats" style="margin-top:6px;">支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入会新建一篇讲稿，不会覆盖现有内容。</div>
+        <div class="hint" data-i18n="importFormats" style="margin-top:6px;">支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入内容会写入当前选中的讲稿；想导入成新讲稿，请先新建讲稿并选中。</div>
       </div>
 
       <div class="field">
@@ -766,8 +767,9 @@ const I18N = {
   zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
   importBtn:"从文件导入讲稿",
   importHint:"讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。",
-  importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入会新建一篇讲稿，不会覆盖现有内容。",
+  importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入内容会写入当前选中的讲稿；想导入成新讲稿，请先新建讲稿并选中。",
   importOk:"已导入为新讲稿",
+  importIntoActive:"已导入到当前讲稿（篇数不变）",
   importInserted:"已插入到光标位置，原有内容保留",
   importFailType:"不支持的文件类型，请用 TXT / DOC / DOCX 等文本格式",
   importFailSize:"文件过大（上限 2 MB），请拆分后再导入",
@@ -785,6 +787,7 @@ const I18N = {
   scriptLabel:"脚本（粘贴或编辑你的讲稿，自动保存到本机）",
   scriptPlaceholder:"在这里粘贴或输入讲稿……\n支持多段、换行。",
   saveHint:"内容仅保存在你当前设备浏览器中（localStorage），不上传服务器。",
+  freeAutoSaveHint:"免费版讲稿会自动保存在本设备中，无需手动保存，也不会上传服务器。",
   fontSize:"字号",
   colorLabel:"文字颜色",
   colorHint:"用于提词显示与成片卡。",
@@ -989,8 +992,9 @@ const I18N = {
   en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   importBtn:"Import from file",
   importHint:"Already wrote your script in Word or Notepad? Import it here instead of copy-pasting.",
-  importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF and WPS-only formats must be saved in another format first. Each import creates a new script and never overwrites existing ones.",
+  importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF and WPS-only formats must be saved in another format first. Imported content goes into the currently selected script; to import as a new script, create and select one first.",
   importOk:"Imported as a new script",
+  importIntoActive:"Imported into the current script (no new script)",
   importInserted:"Inserted at the cursor; original text kept",
   importFailType:"Unsupported file type. Use TXT, DOC or DOCX.",
   importFailSize:"File too large (2 MB limit). Split it and try again.",
@@ -1008,6 +1012,7 @@ const I18N = {
   scriptLabel:"Script (paste or edit your speech; auto-saved to this device)",
   scriptPlaceholder:"Paste or type your script here…\nSupports multiple paragraphs and line breaks.",
   saveHint:"Content is saved only in this device’s browser (localStorage); nothing is uploaded to any server.",
+  freeAutoSaveHint:"Free-plan scripts are saved automatically on this device — no manual saving, nothing uploaded.",
   fontSize:"Font Size",
   colorLabel:"Text Color",
   colorHint:"Used for the prompter display and the result card.",
@@ -1225,8 +1230,9 @@ const I18N = {
   close:'Schließen',
   importBtn:'Skript aus Datei importieren',
   importHint:'Dein Skript liegt schon in Word oder im Editor? Hier direkt importieren – kein Kopieren und Einfügen nötig.',
-  importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF; PDF und WPS-Formate bitte vorher anders speichern. Der Import erstellt ein neues Skript und überschreibt keine vorhandenen Inhalte.',
+  importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF; PDF und WPS-Formate bitte vorher anders speichern. Der Import schreibt in das aktuell ausgewählte Skript; für ein neues Skript bitte vorher eines erstellen und auswählen.',
   importOk:'Als neues Skript importiert',
+  importIntoActive:'In das aktuelle Skript importiert (kein neues Skript)',
   importInserted:'An der Cursorposition eingefügt – vorhandener Text bleibt erhalten',
   importFailType:'Dateityp nicht unterstützt. Bitte TXT, DOC oder DOCX verwenden.',
   importFailSize:'Datei zu groß (max. 2 MB). Bitte aufteilen und erneut importieren.',
@@ -1244,6 +1250,7 @@ const I18N = {
   scriptLabel:'Skript (Skript einfügen oder bearbeiten, automatisch lokal gespeichert)',
   scriptPlaceholder:'Skript hier einfügen oder eingeben …\nMehrere Absätze und Zeilenumbrüche werden unterstützt.',
   saveHint:'Inhalte werden nur im Browser dieses Geräts gespeichert (localStorage), nicht auf einen Server hochgeladen.',
+  freeAutoSaveHint:'Skripte im Gratisplan werden automatisch auf diesem Gerät gespeichert – kein manuelles Speichern, kein Upload.',
   fontSize:'Schriftgröße',
   colorLabel:'Textfarbe',
   colorHint:'Gilt für die Anzeige beim Vorlesen und für die Karte.',
@@ -1461,8 +1468,9 @@ const I18N = {
   close:'Fermer',
   importBtn:'Importer un script depuis un fichier',
   importHint:'Votre script est déjà dans Word ou dans un éditeur ? Importez-le directement ici, sans copier-coller.',
-  importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF ; le PDF et les formats WPS doivent d’abord être enregistrés autrement. L’import crée un nouveau script et n’écrase pas le contenu existant.',
+  importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF ; le PDF et les formats WPS doivent d’abord être enregistrés autrement. L’import écrit dans le script actuellement sélectionné ; pour un nouveau script, créez-en un et sélectionnez-le d’abord.',
   importOk:'Importé comme nouveau script',
+  importIntoActive:'Importé dans le script actuel (aucun nouveau script)',
   importInserted:'Inséré à la position du curseur ; le texte existant est conservé',
   importFailType:'Type de fichier non pris en charge. Utilisez TXT, DOC ou DOCX.',
   importFailSize:'Fichier trop volumineux (2 Mo max). Divisez-le puis réessayez.',
@@ -1480,6 +1488,7 @@ const I18N = {
   scriptLabel:'Script (collez ou modifiez votre script, enregistrement local automatique)',
   scriptPlaceholder:'Collez ou saisissez votre script ici …\nPlusieurs paragraphes et retours à la ligne sont pris en charge.',
   saveHint:'Le contenu est enregistré uniquement dans le navigateur de cet appareil (localStorage), sans envoi vers un serveur.',
+  freeAutoSaveHint:'Les scripts du forfait gratuit sont enregistrés automatiquement sur cet appareil — aucun enregistrement manuel, aucun envoi.',
   fontSize:'Taille du texte',
   colorLabel:'Couleur du texte',
   colorHint:'Utilisé pour l’affichage pendant la lecture et pour la carte.',
@@ -1684,8 +1693,9 @@ const I18N = {
   ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   importBtn:"ファイルから読み込む",
   importHint:"Word やメモ帳で原稿を書いてありますか？コピペせずにここから直接読み込めます。",
-  importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF。PDF と WPS 専用形式は先に別形式で保存してください。読み込みは新しい原稿として追加され、既存の内容は上書きしません。",
+  importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF。PDF と WPS 専用形式は先に別形式で保存してください。読み込み内容は選択中の原稿に書き込まれます。新しい原稿に読み込む場合は先に新規作成して選択してください。",
   importOk:"新しい原稿として読み込みました",
+  importIntoActive:"現在の原稿に読み込みました（新規作成なし）",
   importInserted:"カーソル位置に挿入しました。既存の文字は保持されます",
   importFailType:"対応していないファイル形式です。TXT / DOC / DOCX をご利用ください",
   importFailSize:"ファイルが大きすぎます（上限 2 MB）。分割して再度お試しください",
@@ -1703,6 +1713,7 @@ const I18N = {
   scriptLabel:"原稿（台本を貼り付け・編集。この端末に自動保存）",
   scriptPlaceholder:"ここに原稿を貼り付けまたは入力……\n段落や改行に対応。",
   saveHint:"内容はこの端末のブラウザ（localStorage）にのみ保存され、サーバーには送信されません。",
+  freeAutoSaveHint:"無料プランの原稿はこの端末に自動保存されます。手動保存は不要で、サーバーへの送信もありません。",
   fontSize:"文字サイズ",
   colorLabel:"文字色",
   colorHint:"提词表示と結果カードに使用します。",
@@ -1907,8 +1918,9 @@ const I18N = {
   ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   importBtn:"파일에서 가져오기",
   importHint:"Word나 메모장에 이미 대본을 써 두셨나요? 복사·붙여넣기 없이 여기서 바로 가져오세요.",
-  importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF와 WPS 전용 형식은 먼저 다른 형식으로 저장해 주세요. 가져오기는 새 대본으로 추가되며 기존 내용을 덮어쓰지 않습니다.",
+  importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF와 WPS 전용 형식은 먼저 다른 형식으로 저장해 주세요. 가져온 내용은 선택한 대본에 기록됩니다. 새 대본에 가져오려면 먼저 새로 만들고 선택하세요.",
   importOk:"새 대본으로 가져왔습니다",
+  importIntoActive:"현재 대본으로 가져왔습니다 (새 대본 없음)",
   importInserted:"커서 위치에 삽입했습니다. 기존 내용은 유지됩니다",
   importFailType:"지원하지 않는 파일 형식입니다. TXT / DOC / DOCX를 사용해 주세요",
   importFailSize:"파일이 너무 큽니다(최대 2 MB). 나누어 다시 시도해 주세요",
@@ -1926,6 +1938,7 @@ const I18N = {
   scriptLabel:"대본（대본을 붙여넣거나 편집하세요. 이 기기에 자동 저장）",
   scriptPlaceholder:"여기에 대본을 붙여넣거나 입력하세요……\n문단 및 줄바꿈 지원.",
   saveHint:"내용은 이 기기의 브라우저（localStorage）에만 저장되며 서버로 전송되지 않습니다.",
+  freeAutoSaveHint:"무료 플랜 대본은 이 기기에 자동으로 저장됩니다. 수동 저장이 필요 없고 서버로 전송되지 않습니다.",
   fontSize:"글자 크기",
   colorLabel:"글자 색상",
   colorHint:"提词 표시와 결과 카드에 사용됩니다.",
@@ -2130,8 +2143,9 @@ const I18N = {
   ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
   importBtn:"Импорт из файла",
   importHint:"Текст уже написан в Word или Блокноте? Загрузите его здесь без копирования.",
-  importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF и форматы WPS нужно сначала сохранить в другом формате. Импорт создаёт новый сценарий и не перезаписывает существующие.",
+  importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF и форматы WPS нужно сначала сохранить в другом формате. Импортируемый текст записывается в выбранный сценарий. Чтобы импортировать в новый, сначала создайте и выберите его.",
   importOk:"Импортировано как новый сценарий",
+  importIntoActive:"Импортировано в текущий сценарий (новый не создан)",
   importInserted:"Вставлено в позицию курсора; исходный текст сохранён",
   importFailType:"Неподдерживаемый формат. Используйте TXT, DOC или DOCX",
   importFailSize:"Файл слишком большой (лимит 2 МБ). Разделите его",
@@ -2149,6 +2163,7 @@ const I18N = {
   scriptLabel:"Сценарий (вставьте или отредактируйте текст; сохраняется на этом устройстве)",
   scriptPlaceholder:"Вставьте или введите текст сценария…\nПоддерживаются несколько абзацев и переносы строк.",
   saveHint:"Текст сохраняется только в браузере этого устройства (localStorage) и не отправляется на сервер.",
+  freeAutoSaveHint:"Сценарии бесплатного плана сохраняются автоматически на этом устройстве — без ручного сохранения и без отправки на сервер.",
   fontSize:"Размер шрифта",
   colorLabel:"Цвет текста",
   colorHint:"Используется в области суфлёра и на итоговой карточке.",
@@ -3165,7 +3180,8 @@ async function parseImportFile(file){
   return { title: title, text: text };
 }
 
-// 导入一律新建讲稿，不覆盖用户当前内容（避免误操作丢稿）。
+// 程序化「新建讲稿并写入内容」的助手：仍受额度守卫，供显式新建路径/测试使用。
+// 注意：「从文件导入」按钮已不再走这里——导入目标固定为当前选中的讲稿。
 function importTextAsNewScript(title, content){
   if (guardScriptLimit()) return null; // 防御：任何绕过入口的新建路径同样受额度约束
   const s = { id: uid(), title: title, titleKind: 'custom', content: content, updatedAt: Date.now(), cloudId: null };
@@ -3174,9 +3190,23 @@ function importTextAsNewScript(title, content){
   return s;
 }
 
-/* ---------- 导入位置：有光标就插入，没光标才新建 ----------
+/* ---------- 导入目标：当前选中的讲稿（绝不隐式新建） ----------
+ * 用户实测：在讲稿库选中「默认讲稿」后点导入，旧实现因为编辑器里没有光标
+ * 就走了「新建」分支，凭空多出一篇讲稿。修复后导入目标恒为 activeScript()：
+ * 想导入到新讲稿，请先点「新建讲稿」并选中它，再导入。 */
+function writeImportIntoActiveScript(text){
+  const s = activeScript();
+  if (!s) return null; // 极端兜底：理论上至少保留一篇讲稿
+  if (scrollText) { scrollText.textContent = text; readTokensDirty = true; }
+  commitImportedEdit(text); // 统一提交：数据模型 + 文本框 + 样式 + 保存 + 同步
+  renderScriptList();       // 列表与选中态同步（篇数、选中 id、标题均不变）
+  return s;
+}
+
+/* ---------- 导入位置：有光标就插到光标处，没光标写入当前选中讲稿 ----------
  * 用户实测：先在提词区输入 AAAAAA、把光标放到第三个 A 后，再导入 4.docx，
- * 期望文件内容插到光标处并保留原有的 6 个 A；旧实现一律新建，原稿「消失」。
+ * 期望文件内容插到光标处并保留原有的 6 个 A；把光标和选中讲稿严格绑定后，
+ * 两条路径都只写当前选中讲稿，不会新建、不会切走。
  * 点按钮会让 contenteditable 失焦，所以选区必须在 mousedown / touchstart
  * 阶段先抓下来（和粘贴按钮同一套做法）。 */
 let importCaretRange = null;
@@ -3239,9 +3269,12 @@ async function handleImportFile(file){
   if (!file) return;
   try {
     const r = await parseImportFile(file);
-    // 插入不增加讲稿篇数，不受免费 3 篇限制；只有「新建」分支才需要 guardScriptLimit。
+    // 导入目标恒为「当前选中的讲稿」，绝不隐式新建、不受免费 3 篇限制：
+    // - 编辑器里有有效光标 → 插到光标处并保留原内容（提示 importInserted）
+    // - 没有光标（如从讲稿库/设置面板导入）→ 整篇写入当前选中讲稿（提示 importIntoActive）
+    // 想导入成新讲稿：先点「新建讲稿」并选中它，再导入。
     if (insertImportedTextAtCaret(r.text)) toast(t('importInserted'));
-    else if (importTextAsNewScript(r.title, r.text)) toast(t('importOk'));
+    else if (writeImportIntoActiveScript(r.text)) toast(t('importIntoActive'));
   } catch (err) {
     // 失败原因要留够时间看清：文案本身长，2 秒容易被忽略成「点了没反应」
     toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'), 4600);
@@ -5433,7 +5466,7 @@ function init(){
   });
   document.getElementById('btnReport').addEventListener('click', submitReport);
 
-  // 从文件导入讲稿（免费功能，无 Pro 门禁）：导入后新建一篇，不覆盖现有内容
+  // 从文件导入讲稿（免费功能，无 Pro 门禁）：写入当前选中的讲稿，不隐式新建
   // 两个入口（设置面板按钮 / 编辑条按钮）共用一个 body 级 input，任一入口都能弹出选择器。
   const importInput = document.getElementById('importFile');
   function pickImportFile(){

@@ -143,7 +143,9 @@ test('页面无运行时错误，导入入口存在且是免费功能', () => {
   assert.equal(ev('typeof handleImportFile'), 'function');
   assert.equal(ev('parseImportFile.toString().includes("isPro")'), false, '解析层不应有 Pro 门禁');
   assert.equal(ev('handleImportFile.toString().includes("isPro")'), false, '导入入口不应按 Pro 身份拒绝');
-  assert.equal(ev('handleImportFile.toString().includes("guardScriptLimit")'), true, '导入入口应受通用讲稿额度约束（不是 Pro 门禁）');
+  assert.equal(ev('handleImportFile.toString().includes("writeImportIntoActiveScript")'), true, '导入应写入当前选中讲稿（不新建，故不占额度）');
+  assert.equal(ev('handleImportFile.toString().includes("importTextAsNewScript")'), false, '导入入口不得隐式新建讲稿');
+  assert.equal(ev('typeof writeImportIntoActiveScript'), 'function', '写入当前讲稿的助手应存在');
   assert.equal(ev('state.isPro'), false, '默认应为免费用户');
 });
 
@@ -154,7 +156,7 @@ test('七语新增 12 个导入键齐全，投稿提示已清除', () => {
     for (const k of keys) assert.ok(ev(`I18N.${lang}[${JSON.stringify(k)}]`), `${lang} 缺 ${k}`);
     assert.equal(ev(`"submitNotice" in I18N.${lang}`), false, `${lang} 仍残留 submitNotice`);
   }
-  assert.equal(ev('Object.keys(I18N.zh).length'), 232);
+  assert.equal(ev('Object.keys(I18N.zh).length'), 234);
 });
 
 test('文件输入不藏在设置面板里，且接受 .doc / .rtf', () => {
@@ -391,8 +393,8 @@ test('仍不支持的格式 / 二进制乱码 / 大文件 / 空文件 / 超长�
   assert.equal(await longCode, 'big');
 });
 
-// ── 6. 导入不覆盖现有讲稿 ────────────────────────────────────────────
-test('免费用户导入后新建讲稿，原有稿件内容不变', () => {
+// ── 6. 底层助手：程序化新建讲稿并写入（导入按钮本身已不走此路径）────
+test('importTextAsNewScript 助手：新建讲稿，原有稿件内容不变', () => {
   const before = ev('state.scripts.length');
   const original = ev('state.scripts[0] ? state.scripts[0].content : ""');
   const r = ev(`(() => { const s = importTextAsNewScript("导入稿", "新的内容"); return { id: s.id, scripts: state.scripts.length, active: state.activeScriptId }; })()`);
@@ -403,19 +405,22 @@ test('免费用户导入后新建讲稿，原有稿件内容不变', () => {
   assert.equal(ev('state.isPro'), false, '全程无需 Pro');
 });
 
-// ── 6b. 真实交互链路：选文件 → change → 新建讲稿 ─────────────────────
-test('模拟用户选一个 .doc：change 事件走完整条链路，讲稿真的落库', async () => {
-  // 先把讲稿数压到 1 篇，避免免费额度把这次导入拦在门口
-  ev('state.scripts = state.scripts.slice(0, 1); state.activeScriptId = state.scripts[0].id;');
+// ── 6b. 真实交互链路：选文件 → change → 写入当前选中的讲稿 ───────────
+test('模拟用户选一个 .doc：change 事件写入当前讲稿，不新建、不改选中', async () => {
+  // 选中第 2 篇作为目标，验证「导入目标 = 选中讲稿」而非列表末尾/新建
+  ev("state.scripts = [{ id: 'a', title: '第一篇', titleKind: 'custom', content: '原文A', updatedAt: 0 }, { id: 'b', title: '选中稿', titleKind: 'custom', content: '原文B', updatedAt: 0 }]; state.activeScriptId = 'b'; importCaretRange = null; loadActiveIntoEditor();");
   const input = w.document.getElementById('importFile');
   const file = new w.File([buildWord97Doc()], '会议纪要.doc', { type: 'application/msword' });
   Object.defineProperty(input, 'files', { value: [file], configurable: true });
   const before = ev('state.scripts.length');
   input.dispatchEvent(new w.Event('change'));
   await new Promise(r => setTimeout(r, 300));
-  assert.equal(ev('state.scripts.length'), before + 1, '应新增一篇讲稿');
-  assert.equal(ev('state.scripts[state.scripts.length - 1].content'), 'Hello 中文讲');
-  assert.equal(ev('state.scripts[state.scripts.length - 1].title'), '会议纪要');
+  assert.equal(ev('state.scripts.length'), before, '不得新增讲稿');
+  assert.equal(ev('state.activeScriptId'), 'b', '选中状态不得改变');
+  assert.equal(ev("state.scripts.find(s => s.id === 'b').content"), 'Hello 中文讲', '内容写入选中稿');
+  assert.equal(ev("state.scripts.find(s => s.id === 'b').title"), '选中稿', '标题保持选中稿标题');
+  assert.equal(ev("state.scripts.find(s => s.id === 'a').content"), '原文A', '其他讲稿不受影响');
+  assert.equal(ev('getActiveContent()'), 'Hello 中文讲');
   assert.equal(input.value, '', 'change 后应清空 input，允许连续选同一个文件');
 });
 

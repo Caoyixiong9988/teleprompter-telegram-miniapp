@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 232 键且一致', sizes.every(n => n === 232), JSON.stringify(sizes));
+check('七语各 234 键且一致', sizes.every(n => n === 234), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -946,6 +946,37 @@ check('失败态显示错误原因且按钮可重试（ready）',
 // 还原 stub，避免污染后续
 ev('canCloudSync = window.__origCanSync; state.isPro = false; CONFIG.API_BASE = ""; syncPhase=""; renderSyncStatus();');
 check('还原后回到未解锁态', btnSync.getAttribute('data-mode') === 'locked');
+
+// --- 导入目标 = 当前选中讲稿（BUG 修复：选中默认稿后导入却新建）---
+check('存在 writeImportIntoActiveScript 且导入入口调用它',
+  /function writeImportIntoActiveScript/.test(html) && /handleImportFile[\s\S]{0,600}writeImportIntoActiveScript/.test(html));
+check('导入入口不再调用 importTextAsNewScript（不隐式新建）',
+  /function handleImportFile[\s\S]{0,600}importTextAsNewScript/.test(html) === false);
+// 运行时：选中第 2 篇、无光标 → 导入写入它，篇数/选中/标题不变
+ev("state.scripts=[{id:'a',title:'第一篇',titleKind:'custom',content:'原文A',updatedAt:0},{id:'b',title:'选中稿',titleKind:'custom',content:'原文B',updatedAt:0}]; state.activeScriptId='b'; importCaretRange=null; loadActiveIntoEditor();");
+ev("writeImportIntoActiveScript('导入的内容');");
+check('无光标导入：写入选中稿而非新建', ev("state.scripts.length") === 2 && ev("state.scripts[1].content") === '导入的内容');
+check('无光标导入：选中状态与导入目标一致', ev('state.activeScriptId') === 'b' && ev('getActiveContent()') === '导入的内容');
+check('无光标导入：标题保持且其他稿不受影响', ev("state.scripts[1].title") === '选中稿' && ev("state.scripts[0].content") === '原文A');
+check('无光标导入：dataset.isDefault 归零（不再被当默认稿覆盖）', doc.getElementById('scrollText').dataset.isDefault === '0');
+// 有光标：插到光标处且不新建（既有功能回归）
+ev("state.scripts=[{id:'a',title:'稿',titleKind:'custom',content:'AAAAAA',updatedAt:0}]; state.activeScriptId='a'; loadActiveIntoEditor();");
+const stImp = doc.getElementById('scrollText');
+const selImp = window.getSelection(); const rImp = doc.createRange();
+rImp.setStart(stImp.firstChild, 3); rImp.collapse(true); selImp.removeAllRanges(); selImp.addRange(rImp);
+ev('captureImportCaret()');
+const cntImp = ev('state.scripts.length');
+check('有光标导入：插入光标处且不新建', ev('insertImportedTextAtCaret("【文件】")') === true && stImp.textContent === 'AAA【文件】AAA' && ev('state.scripts.length') === cntImp);
+selImp.removeAllRanges(); ev('importCaretRange=null;');
+// 文案与提示
+check('七语均有 importIntoActive 与 freeAutoSaveHint 文案',
+  ['zh','en','de','fr','ja','ko','ru'].every(l => ev(`!!I18N.${l}.importIntoActive && !!I18N.${l}.freeAutoSaveHint`)));
+check('免费版本地自动保存提示在讲稿库中常驻显示',
+  !!doc.querySelector('#scriptList') &&
+  /data-i18n="freeAutoSaveHint"/.test(html) &&
+  /免费版讲稿会自动保存在本设备/.test(html));
+check('importFormats 文案已改为写入当前稿（不再宣称新建）',
+  !/导入会新建一篇讲稿/.test(html) && /写入当前选中的讲稿/.test(ev("I18N.zh.importFormats")));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
