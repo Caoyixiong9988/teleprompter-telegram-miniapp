@@ -180,6 +180,25 @@
   .field .row{display:flex; align-items:center; gap:10px;}
   .field input[type=range]{flex:1; accent-color:var(--primary);}
   .field input[type=color]{width:48px; height:36px; border:none; background:none; padding:0;}
+  /* 自定义取色器：光标固定 16px、精确落在色相/深浅长条与色卡上，拖动实时生效 */
+  .cp-wrap{display:flex; flex-direction:column; gap:6px;}
+  .cp-preview{display:flex; align-items:center; gap:10px; margin-bottom:2px;}
+  .cp-swatch{width:34px; height:34px; border-radius:9px; border:1px solid rgba(0,0,0,.15); background:#1f2430; flex:0 0 auto; box-shadow:0 1px 4px rgba(0,0,0,.15);}
+  .cp-hex{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; min-width:56px;}
+  .cp-row-label{font-size:12px; color:var(--muted); margin-top:2px;}
+  .cp-hue, .cp-light{width:100%; height:16px; margin:0; padding:0; -webkit-appearance:none; appearance:none; background:transparent; cursor:pointer;}
+  /* 色相条：红→黄→绿→青→蓝→品红→红 */
+  .cp-hue::-webkit-slider-runnable-track{height:14px; border-radius:7px; background:linear-gradient(90deg,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%);}
+  /* 深浅条：黑→纯色→白，纯色由 JS 按当前色相注入 --cp-pure */
+  .cp-light::-webkit-slider-runnable-track{height:14px; border-radius:7px; background:linear-gradient(90deg,#000 0%,var(--cp-pure,#3498db) 50%,#fff 100%);}
+  .cp-hue::-moz-range-track{height:14px; border-radius:7px; background:linear-gradient(90deg,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%);}
+  .cp-light::-moz-range-track{height:14px; border-radius:7px; background:linear-gradient(90deg,#000 0%,var(--cp-pure,#3498db) 50%,#fff 100%);}
+  .cp-hue::-webkit-slider-thumb, .cp-light::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:16px; height:16px; margin-top:-1px; border-radius:50%; background:#fff; border:2px solid #333; box-shadow:0 0 0 1px rgba(255,255,255,.9),0 1px 4px rgba(0,0,0,.35);}
+  .cp-hue::-moz-range-thumb, .cp-light::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:#fff; border:2px solid #333; box-shadow:0 0 0 1px rgba(255,255,255,.9),0 1px 4px rgba(0,0,0,.35);}
+  .cp-swatches{display:grid; grid-template-columns:repeat(8,1fr); gap:6px; margin-top:6px;}
+  .cp-swatch-btn{position:relative; aspect-ratio:1; border-radius:8px; border:1px solid rgba(0,0,0,.15); cursor:pointer; padding:0;}
+  /* 圆形取色光标：固定 10px、居中落在色卡上（BUG3：缩小且位于色卡上） */
+  .cp-swatch-btn[aria-pressed="true"]::after{content:""; position:absolute; left:50%; top:50%; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); background:#fff; border:2px solid #222; box-shadow:0 0 0 1px rgba(255,255,255,.85);}
   .field select{
     flex:1; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px; background:#fff;
   }
@@ -393,9 +412,21 @@
 
       <div class="field">
         <label data-i18n="colorLabel">文字颜色</label>
-        <div class="row">
-          <input type="color" id="setColor" value="#1f2430" />
-          <span class="hint" style="margin:0;" data-i18n="colorHint">用于提词显示与成片卡。</span>
+        <!-- BUG3/4 修复：原生 <input type=color> 弹窗的圆形光标大小/位置和长条拖动由浏览器控制，
+             在部分手机 WebView 上光标过大错位、长条拖动不改色。改用网页自绘取色器，全部可控。
+             保留隐藏 input 作为状态载体，兼容原有 state.color 读写路径。 -->
+        <input type="color" id="setColor" value="#1f2430" tabindex="-1" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />
+        <div class="cp-wrap" id="cpWrap">
+          <div class="cp-preview">
+            <span class="cp-swatch" id="cpSwatch" aria-hidden="true"></span>
+            <span class="cp-hex" id="cpHex">#1f2430</span>
+            <span class="hint" style="margin:0;" data-i18n="colorHint">用于提词显示与成片卡。</span>
+          </div>
+          <label class="cp-row-label" data-i18n="colorHueLabel">色相</label>
+          <input type="range" class="cp-hue" id="cpHue" min="0" max="360" value="222" aria-label="hue" />
+          <label class="cp-row-label" data-i18n="colorLightLabel">深浅</label>
+          <input type="range" class="cp-light" id="cpLight" min="12" max="95" value="21" aria-label="lightness" />
+          <div class="cp-swatches" id="cpSwatches" role="group" aria-label="preset colors"></div>
         </div>
       </div>
 
@@ -757,6 +788,8 @@ const I18N = {
   fontSize:"字号",
   colorLabel:"文字颜色",
   colorHint:"用于提词显示与成片卡。",
+  colorHueLabel:"色相（拖动换色）",
+  colorLightLabel:"深浅（拖动调整）",
   alignLabel:"对齐方式",
   alignLeft:"左对齐",
   alignCenter:"居中",
@@ -843,6 +876,7 @@ const I18N = {
   remoteFail:"操作失败：",
   scriptLibTitle:"讲稿库",
   scriptNew:"＋ 新建讲稿",
+  scriptCreated:"已新建讲稿，可修改标题和内容",
   scriptNewTitle:"新讲稿",
   scriptDefaultTitle:"默认讲稿",
   scriptTitleLabel:"讲稿标题",
@@ -977,6 +1011,8 @@ const I18N = {
   fontSize:"Font Size",
   colorLabel:"Text Color",
   colorHint:"Used for the prompter display and the result card.",
+  colorHueLabel:"Hue (drag to change color)",
+  colorLightLabel:"Lightness (drag to adjust)",
   alignLabel:"Alignment",
   alignLeft:"Left",
   alignCenter:"Center",
@@ -1063,6 +1099,7 @@ const I18N = {
   remoteFail:"Operation failed: ",
   scriptLibTitle:"Script library",
   scriptNew:"＋ New script",
+  scriptCreated:"New script created — edit its title and content",
   scriptNewTitle:"New script",
   scriptDefaultTitle:"Default script",
   scriptTitleLabel:"Script title",
@@ -1210,6 +1247,8 @@ const I18N = {
   fontSize:'Schriftgröße',
   colorLabel:'Textfarbe',
   colorHint:'Gilt für die Anzeige beim Vorlesen und für die Karte.',
+  colorHueLabel:'Farbton (ziehen zum Ändern)',
+  colorLightLabel:'Helligkeit (ziehen zum Anpassen)',
   alignLabel:'Ausrichtung',
   alignLeft:'Linksbündig',
   alignCenter:'Zentriert',
@@ -1296,6 +1335,7 @@ const I18N = {
   remoteFail:'Aktion fehlgeschlagen: ',
   scriptLibTitle:'Skriptbibliothek',
   scriptNew:'＋ Neues Skript',
+  scriptCreated:'Neues Skript erstellt — Titel und Inhalt bearbeiten',
   scriptNewTitle:'Neues Skript',
   scriptDefaultTitle:'Standardskript',
   scriptTitleLabel:'Skripttitel',
@@ -1443,6 +1483,8 @@ const I18N = {
   fontSize:'Taille du texte',
   colorLabel:'Couleur du texte',
   colorHint:'Utilisé pour l’affichage pendant la lecture et pour la carte.',
+  colorHueLabel:'Teinte (glisser pour changer)',
+  colorLightLabel:'Clarté (glisser pour ajuster)',
   alignLabel:'Alignement',
   alignLeft:'Gauche',
   alignCenter:'Centré',
@@ -1529,6 +1571,7 @@ const I18N = {
   remoteFail:'Échec de l’opération : ',
   scriptLibTitle:'Bibliothèque de scripts',
   scriptNew:'＋ Nouveau script',
+  scriptCreated:'Nouveau script créé — modifiez le titre et le contenu',
   scriptNewTitle:'Nouveau script',
   scriptDefaultTitle:'Script par défaut',
   scriptTitleLabel:'Titre du script',
@@ -1663,6 +1706,8 @@ const I18N = {
   fontSize:"文字サイズ",
   colorLabel:"文字色",
   colorHint:"提词表示と結果カードに使用します。",
+  colorHueLabel:"色相（ドラッグで変更）",
+  colorLightLabel:"明るさ（ドラッグで調整）",
   alignLabel:"配置",
   alignLeft:"左揃え",
   alignCenter:"中央",
@@ -1749,6 +1794,7 @@ const I18N = {
   remoteFail:"操作に失敗：",
   scriptLibTitle:"原稿ライブラリ",
   scriptNew:"＋ 新しい原稿",
+  scriptCreated:"新しい原稿を作成しました。タイトルと内容を編集できます",
   scriptNewTitle:"新しい原稿",
   scriptDefaultTitle:"既定の原稿",
   scriptTitleLabel:"原稿タイトル",
@@ -1883,6 +1929,8 @@ const I18N = {
   fontSize:"글자 크기",
   colorLabel:"글자 색상",
   colorHint:"提词 표시와 결과 카드에 사용됩니다.",
+  colorHueLabel:"색상 (드래그하여 변경)",
+  colorLightLabel:"명도 (드래그하여 조절)",
   alignLabel:"정렬",
   alignLeft:"왼쪽",
   alignCenter:"가운데",
@@ -1969,6 +2017,7 @@ const I18N = {
   remoteFail:"작업 실패：",
   scriptLibTitle:"대본 보관함",
   scriptNew:"＋ 새 대본",
+  scriptCreated:"새 대본을 만들었습니다. 제목과 내용을 수정하세요",
   scriptNewTitle:"새 대본",
   scriptDefaultTitle:"기본 대본",
   scriptTitleLabel:"대본 제목",
@@ -2103,6 +2152,8 @@ const I18N = {
   fontSize:"Размер шрифта",
   colorLabel:"Цвет текста",
   colorHint:"Используется в области суфлёра и на итоговой карточке.",
+  colorHueLabel:"Оттенок (перетащите для изменения)",
+  colorLightLabel:"Яркость (перетащите для настройки)",
   alignLabel:"Выравнивание",
   alignLeft:"По левому краю",
   alignCenter:"По центру",
@@ -2189,6 +2240,7 @@ const I18N = {
   remoteFail:"Ошибка：",
   scriptLibTitle:"Библиотека сценариев",
   scriptNew:"＋ Новый сценарий",
+  scriptCreated:"Новый сценарий создан — отредактируйте заголовок и текст",
   scriptNewTitle:"Новый сценарий",
   scriptDefaultTitle:"Сценарий по умолчанию",
   scriptTitleLabel:"Название сценария",
@@ -2393,9 +2445,16 @@ function applyI18n() {
     scrollText.textContent = def;
     const sc = document.getElementById('setScript');
     if (sc) sc.value = def;
-    // 默认示例稿随语言刷新，标题复位为当前语言的「默认讲稿」文案
+    // BUG1 修复：内容仍是示例稿时，只有标题也「仍是系统文案」才随语言复位。
+    // 用户若只改了标题（如「讲稿1」）而没动内容，titleKind 已被标为 custom，
+    // 此时切语言绝不能把他的标题改回「默认讲稿」——否则自定义标题莫名丢失。
     const s = activeScript();
-    if (s) { s.content = def; s.updatedAt = 0; s.title = t('scriptDefaultTitle'); s.titleKind = 'default'; }
+    if (s) {
+      const titleIsSystem = (s.titleKind === 'default') ||
+        (!s.titleKind && autoTitleKind(s.title) === 'default');
+      s.content = def; s.updatedAt = 0;
+      if (titleIsSystem) { s.title = t('scriptDefaultTitle'); s.titleKind = 'default'; }
+    }
   }
   // 关键修复：所有系统生成的讲稿标题（默认/新建）都随语言刷新，列表与输入框同步；
   // 用户自定标题（含导入文件名、手改过的）保持原样。旧逻辑只刷输入框且依赖 isDefault，
@@ -2467,6 +2526,13 @@ function addScript(){
   const s = { id: uid(), title: t('scriptNewTitle'), titleKind: 'new', content: '', updatedAt: Date.now(), cloudId: null };
   state.scripts.push(s); state.activeScriptId = s.id;
   saveState(); renderScriptList(); loadActiveIntoEditor(); maybeSync();
+  // BUG2 修复：新建成功后必须给出明确反馈并让用户立刻看到新讲稿，
+  // 否则列表在设置面板上方、新建项又是空标题，用户会误以为「没生成」。
+  toast(t('scriptCreated'));
+  const rows = document.querySelectorAll('#scriptList .script-row');
+  const lastRow = rows.length ? rows[rows.length - 1] : null;
+  if (lastRow && typeof lastRow.scrollIntoView === 'function') lastRow.scrollIntoView({ block: 'nearest' });
+  if (setScriptTitle) { try { setScriptTitle.focus({ preventScroll: true }); setScriptTitle.select(); } catch (e) {} }
 }
 /* ---------- 从文件导入讲稿（免费 · 纯本地 · 零依赖） ----------
  * 依据《产品宪法 · 所有 APP 共同底线》：入口功能一律免费，不设 Pro 门禁。
@@ -3259,6 +3325,97 @@ const setReadMarkStrength = document.getElementById('setReadMarkStrength');
 const btnReadMark = document.getElementById('btnReadMark');
 const readMarkStatus = document.getElementById('readMarkStatus');
 const readMarkEl = document.getElementById('readMark');
+
+/* ===== 自定义取色器（BUG3/4）：色相条 + 深浅条 + 预设色卡，全部网页可控 =====
+ * 原生 <input type=color> 的弹窗光标大小/位置与长条拖动由浏览器决定，
+ * 在部分手机 WebView 上光标过大、错位、拖动不改色。这里自绘控件，
+ * 转换逻辑为纯函数便于单测；最终颜色仍写回 setColor.value → state.color。 */
+const CP_PRESETS = ['#1f2430','#000000','#ffffff','#e74c3c','#e67e22','#f1c40f',
+                    '#2ecc71','#1abc9c','#3498db','#9b59b6','#e84393','#7f8c8d',
+                    '#c0392b','#d35400','#27ae60','#2980b9'];
+const cpWrap = document.getElementById('cpWrap');
+const cpHue = document.getElementById('cpHue');
+const cpLight = document.getElementById('cpLight');
+const cpSwatch = document.getElementById('cpSwatch');
+const cpHex = document.getElementById('cpHex');
+const cpSwatches = document.getElementById('cpSwatches');
+function hexToRgb(hex){
+  const h = String(hex || '').replace(/^#/, '');
+  const n = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  if (!/^[0-9a-fA-F]{6}$/.test(n)) return null;
+  return { r: parseInt(n.slice(0,2),16), g: parseInt(n.slice(2,4),16), b: parseInt(n.slice(4,6),16) };
+}
+function rgbToHex(r,g,b){
+  const h = v => ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2);
+  return '#' + h(r) + h(g) + h(b);
+}
+function rgbToHsv(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+  let h = 0;
+  if (d){
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  if (h < 0) h += 360;
+  return { h: h, s: max ? d / max : 0, v: max };
+}
+function hsvToRgb(h,s,v){
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r=0,g=0,b=0;
+  if (h < 60){ r=c; g=x; } else if (h < 120){ r=x; g=c; } else if (h < 180){ g=c; b=x; }
+  else if (h < 240){ g=x; b=c; } else if (h < 300){ r=x; b=c; } else { r=c; b=x; }
+  return { r: (r+m)*255, g: (g+m)*255, b: (b+m)*255 };
+}
+function hsvToHex(h,s,v){ const c = hsvToRgb(h,s,v); return rgbToHex(c.r,c.g,c.b); }
+// 由色相+深浅条合成颜色：饱和固定 0.85，深浅按滑块 L∈[12,95] 映射为 V
+function cpBarsToHex(){
+  const h = cpHue ? Number(cpHue.value) : 222;
+  const v = cpLight ? (Number(cpLight.value) / 100) : 0.22;
+  return hsvToHex(h, 0.85, v);
+}
+// 由 setState 反向同步色相/深浅滑块（保留近似色相，深浅取 V）
+function cpSyncFromHex(hex){
+  const rgb = hexToRgb(hex); if (!rgb) return;
+  const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+  const pure = hsvToHex(hsv.h, 1, 1);
+  if (cpWrap) cpWrap.style.setProperty('--cp-pure', pure);
+  if (cpHue) cpHue.value = String(Math.round(hsv.h));
+  if (cpLight) cpLight.value = String(Math.max(12, Math.min(95, Math.round(hsv.v * 100))));
+  if (cpSwatch) cpSwatch.style.background = hex;
+  if (cpHex) cpHex.textContent = hex.toLowerCase();
+  if (cpSwatches){
+    [...cpSwatches.children].forEach(function(btn){
+      btn.setAttribute('aria-pressed', String(btn.dataset.hex || '').toLowerCase() === String(hex).toLowerCase() ? 'true' : 'false');
+    });
+  }
+}
+function cpApplyHex(hex){
+  if (!/^#[0-9a-fA-F]{6}$/.test(String(hex))) return;
+  // 写回隐藏 input 并触发同一条 input 事件链 → state.color / 提词样式 / 持久化全部复用
+  if (setColor){ setColor.value = hex; setColor.dispatchEvent(new Event('input', { bubbles: true })); }
+  cpSyncFromHex(hex);
+}
+function initColorPicker(){
+  if (!cpSwatches) return;
+  cpSwatches.innerHTML = '';
+  CP_PRESETS.forEach(function(hex){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cp-swatch-btn';
+    btn.style.background = hex;
+    btn.dataset.hex = hex;
+    btn.title = hex;
+    btn.setAttribute('aria-label', hex);
+    btn.addEventListener('click', function(){ cpApplyHex(hex); });
+    cpSwatches.appendChild(btn);
+  });
+  if (cpHue) cpHue.addEventListener('input', function(){ cpApplyHex(cpBarsToHex()); });
+  if (cpLight) cpLight.addEventListener('input', function(){ cpApplyHex(cpBarsToHex()); });
+  cpSyncFromHex((setColor && setColor.value) || state.color || '#1f2430');
+}
+
 const setSpeed = document.getElementById('setSpeed');
 const setSpeedLabel = document.getElementById('setSpeedLabel');
 const btnSpeedUnit = document.getElementById('btnSpeedUnit');
@@ -5175,6 +5332,8 @@ function init(){
   setFontSize.value = state.fontSize;
   setFontSizeLabel.textContent = state.fontSize + 'px';
   setColor.value = state.color;
+  initColorPicker();       // 构建预设色卡并绑定色相/深浅拖动（BUG3/4）
+  cpSyncFromHex(state.color);
   setAlign.value = state.align;
   setMirror.checked = !!state.mirror;
   setReadMark.checked = !!state.readMark;

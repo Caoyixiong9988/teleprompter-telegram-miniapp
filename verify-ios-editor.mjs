@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 229 键且一致', sizes.every(n => n === 229), JSON.stringify(sizes));
+check('七语各 232 键且一致', sizes.every(n => n === 232), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -847,6 +847,58 @@ check('老数据无 titleKind 也按文案识别并跟随（补齐标记）', ev
 check('applyI18n 调用 refreshScriptTitles（源码守卫）', /refreshScriptTitles\(\);/.test(html) && /if \(changed\) saveState\(\);/.test(html));
 check('手改标题标记 custom（源码守卫）', /setScriptTitle\.addEventListener\('input'[\s\S]{0,160}titleKind = 'custom'/.test(html));
 check('导入讲稿标题标记 custom（源码守卫）', /importTextAsNewScript[\s\S]{0,260}titleKind: 'custom'/.test(html));
+
+// --- 25. 第二十五轮：4 个 BUG 修复（标题保持 / 新建反馈 / 自定义取色器） ---
+// 25a. BUG1：默认讲稿内容仍是示例稿时，用户改过的标题切语言不能被复位
+ev("setLang('zh'); state.scripts=[{id:'default',title:'默认讲稿',titleKind:'default',content:t('defaultScript'),updatedAt:0}]; state.activeScriptId='default'; document.getElementById('scrollText').dataset.isDefault='1'; loadActiveIntoEditor();");
+const titleInput = doc.getElementById('setScriptTitle');
+titleInput.value = '讲稿1';
+titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+check('BUG1 前置：改标题为「讲稿1」被标为 custom', ev('state.scripts[0].titleKind') === 'custom' && ev('state.scripts[0].title') === '讲稿1');
+ev("setLang('en')");
+check('BUG1 核心：内容仍是示例稿但标题已改 → 切语言后标题保持「讲稿1」', ev('state.scripts[0].title') === '讲稿1' && doc.querySelector('.script-row-title').textContent === '讲稿1');
+ev("setLang('fr')");
+check('BUG1 再切 fr 仍保持「讲稿1」', ev('state.scripts[0].title') === '讲稿1');
+// 未改标题的默认稿仍应随语言刷新（不因修复而失效）
+ev("setLang('zh'); state.scripts=[{id:'default',title:'默认讲稿',titleKind:'default',content:t('defaultScript'),updatedAt:0}]; state.activeScriptId='default'; document.getElementById('scrollText').dataset.isDefault='1'; loadActiveIntoEditor();");
+ev("setLang('en')");
+check('BUG1 边界：未改标题的默认稿切 en 仍=Default script', ev('state.scripts[0].title') === 'Default script');
+
+// 25b. BUG2：新建讲稿成功要给反馈（scriptCreated 键 + addScript 调用 toast）
+check('BUG2 新键 scriptCreated 七语齐全', ev("['zh','en','de','fr','ja','ko','ru'].every(l=>!!I18N[l].scriptCreated && I18N[l].scriptCreated.length>0)"));
+check('BUG2 addScript 成功后 toast 提示（源码守卫）', /function addScript\(\)[\s\S]{0,400}toast\(t\('scriptCreated'\)\)/.test(html));
+ev("setLang('zh'); state.scripts=[{id:'d',title:'默认讲稿',titleKind:'default',content:'x',updatedAt:0}]; state.activeScriptId='d'; saveState();");
+const nBefore = ev('state.scripts.length');
+ev("document.getElementById('btnNewScript').click()");
+check('BUG2 新建后篇数+1 且有 toast', ev('state.scripts.length') === nBefore + 1 && doc.getElementById('toast').textContent.includes('新建'));
+
+// 25c. BUG3/4：自定义取色器（替换原生弹窗），拖动/点选实时改色
+check('BUG3/4 自定义取色器 DOM 齐全（色相/深浅/色卡/预览）',
+  !!doc.getElementById('cpWrap') && doc.getElementById('cpHue')?.type === 'range' &&
+  doc.getElementById('cpLight')?.type === 'range' && !!doc.getElementById('cpSwatches'));
+check('BUG3/4 预设色卡已生成 16 个', doc.querySelectorAll('#cpSwatches .cp-swatch-btn').length === 16);
+check('BUG3/4 原生 color input 已隐藏（pointer-events:none 源码守卫）', /id="setColor"[^>]*pointer-events:none/.test(html));
+check('BUG3/4 圆形取色光标 10px 居中在色卡上（源码守卫）', /\.cp-swatch-btn\[aria-pressed="true"\]::after\{[^}]*left:50%[^}]*top:50%[^}]*width:10px/.test(html));
+// 纯函数：HSV↔HEX 往返
+check('BUG3/4 hexToRgb/rgbToHsv/hsvToHex 纯函数可用', ev("hexToRgb('#ff0000').r===255 && Math.round(rgbToHsv(255,0,0).h)===0 && hsvToHex(0,1,1)==='#ff0000'"));
+// 真实拖动色相条 → 颜色改变（BUG4 核心：拖动后不再保持黑色）
+ev("setColor.value='#1f2430'; state.color='#1f2430';");
+const cpHue = doc.getElementById('cpHue');
+cpHue.value = '0'; cpHue.dispatchEvent(new window.Event('input', { bubbles: true }));
+const colorAfterHue0 = ev('state.color');
+check('BUG4 拖色相条到 0 → 颜色改变（不再维持黑色）', colorAfterHue0 !== '#1f2430' && /^#[0-9a-f]{6}$/i.test(colorAfterHue0));
+cpHue.value = '240'; cpHue.dispatchEvent(new window.Event('input', { bubbles: true }));
+check('BUG4 拖色相条到 240 → 颜色再次改变', ev('state.color') !== colorAfterHue0);
+const cpLight = doc.getElementById('cpLight');
+const beforeLight = ev('state.color');
+cpLight.value = '95'; cpLight.dispatchEvent(new window.Event('input', { bubbles: true }));
+check('BUG4 拖深浅条 → 颜色改变', ev('state.color') !== beforeLight);
+// 点色卡换色 + aria-pressed 选中态（光标位置可视化）
+doc.querySelectorAll('#cpSwatches .cp-swatch-btn')[5].click();
+check('BUG3 点色卡切换到对应颜色', ev('state.color') === '#f1c40f');
+check('BUG3 选中色卡 aria-pressed=true（圆形光标落在色卡上）', doc.querySelectorAll('#cpSwatches .cp-swatch-btn')[5].getAttribute('aria-pressed') === 'true');
+// 色卡/取色器随 state.color 初始化回填
+check('取色器 cpSyncFromHex 随颜色回填预览', /function cpSyncFromHex/.test(html) && /cpSyncFromHex\(state\.color\)/.test(html));
 
 // 还原状态，避免影响后续（虽然本测试已近末尾）
 ev("setLang('zh'); state.scripts=[{id:'default',title:'默认讲稿',titleKind:'default',content:t('defaultScript'),updatedAt:0}]; state.activeScriptId='default'; document.getElementById('scrollText').dataset.isDefault='1'; loadActiveIntoEditor();");
