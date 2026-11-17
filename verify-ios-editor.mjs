@@ -753,9 +753,9 @@ try {
   check('短稿高亮 DOM 验证', false, e.message);
 }
 
-// --- 23. 第二十轮：眼睛一键开关 + 高亮强度两档 ---
-// 23a. 七语新增 7 键齐全
-check('眼睛开关/强度两档 7 个 i18n 键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['toggleReadMark','readMarkOn','readMarkOff','readMarkStrengthLabel','readMarkStrengthStrong','readMarkStrengthSubtle','readMarkStrengthHint'].every(k=>!!I18N[l][k] && I18N[l][k].length>0))`));
+// --- 23. 第二十~二十一轮：眼睛三态循环(强底色/淡下划线/关) + 高亮强度两档，一处按钮全覆盖 ---
+// 23a. 七语新增 7 键齐全（三态循环复用原键，不新增键 → 仍 226 键）
+check('眼睛三态/强度 7 个 i18n 键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['toggleReadMark','readMarkOn','readMarkOff','readMarkStrengthLabel','readMarkStrengthStrong','readMarkStrengthSubtle','readMarkStrengthHint'].every(k=>!!I18N[l][k] && I18N[l][k].length>0))`));
 
 // 23b. CSS 两档样式存在 + 眼睛开态样式
 check('高亮 subtle 淡下划线档 CSS 存在', /#readMark\.subtle\{[^}]*background:[^}]*border-bottom/.test(css));
@@ -766,36 +766,47 @@ const btnRM = doc.getElementById('btnReadMark');
 check('眼睛按钮在顶部 header 内', !!btnRM && !!btnRM.closest('header'));
 check('眼睛按钮紧邻字体缩放按钮（同一 quick controls 组）', btnRM.parentElement === doc.getElementById('btnFontDown').parentElement && [...btnRM.parentElement.children].map(e=>e.id).join(',') === 'btnReadMark,btnFontDown,btnFontUp');
 
-// 23c. 眼睛按钮一键切换 + 与设置复选框双向同步（纯状态层验证，不依赖布局）
+// 23c. 眼睛按钮三态循环 + 与设置面板双向同步（纯状态层验证，不依赖布局）
 const cbRM = doc.getElementById('setReadMark');
-ev('state.readMark=true; syncReadMarkUI();');
-check('默认开启：眼睛 aria-pressed=true、复选框勾选', btnRM.getAttribute('aria-pressed') === 'true' && cbRM.checked === true);
+const selStrength = doc.getElementById('setReadMarkStrength');
+ev('state.readMark=true; state.readMarkStrength="strong"; syncReadMarkUI();');
+check('起始 strong 档：data-mode=strong、aria-pressed=true、复选框勾选', btnRM.getAttribute('data-mode') === 'strong' && btnRM.getAttribute('aria-pressed') === 'true' && cbRM.checked === true);
+check('title 明确当前档→下一档（状态可见、下一击可预期）', btnRM.title === ev("t('toggleReadMark')+'：'+readMarkModeName('strong')+' → '+readMarkModeName('subtle')"));
 btnRM.click();
-check('点眼睛关闭：state.readMark=false、复选框同步取消', ev('state.readMark') === false && cbRM.checked === false && btnRM.getAttribute('aria-pressed') === 'false');
+check('点1 strong→subtle：仍开、改淡下划线、data-mode=subtle、下拉同步', ev('state.readMark') === true && ev('state.readMarkStrength') === 'subtle' && btnRM.getAttribute('data-mode') === 'subtle' && cbRM.checked === true && selStrength.value === 'subtle');
 btnRM.click();
-check('再点眼睛开启：state.readMark=true、复选框同步勾选', ev('state.readMark') === true && cbRM.checked === true && btnRM.getAttribute('aria-pressed') === 'true');
+check('点2 subtle→off：关闭、data-mode=off、aria-pressed=false、复选框取消', ev('state.readMark') === false && btnRM.getAttribute('data-mode') === 'off' && btnRM.getAttribute('aria-pressed') === 'false' && cbRM.checked === false);
+btnRM.click();
+check('点3 off→strong：重开且回强底色', ev('state.readMark') === true && ev('state.readMarkStrength') === 'strong' && btnRM.getAttribute('data-mode') === 'strong' && btnRM.getAttribute('aria-pressed') === 'true' && cbRM.checked === true);
 // 反向：设置面板复选框改动 → 眼睛按钮同步
 cbRM.checked = false; cbRM.dispatchEvent(new window.Event('change', { bubbles: true }));
-check('设置复选框关闭 → 眼睛按钮同步为关', ev('state.readMark') === false && btnRM.getAttribute('aria-pressed') === 'false');
+check('设置复选框关闭 → 眼睛同步为 off 档', ev('state.readMark') === false && btnRM.getAttribute('data-mode') === 'off' && btnRM.getAttribute('aria-pressed') === 'false');
 cbRM.checked = true; cbRM.dispatchEvent(new window.Event('change', { bubbles: true }));
-check('设置复选框开启 → 眼睛按钮同步为开', ev('state.readMark') === true && btnRM.getAttribute('aria-pressed') === 'true');
+check('设置复选框开启 → 眼睛同步为开（档位按当前强度）', ev('state.readMark') === true && btnRM.getAttribute('data-mode') === ev('readMarkMode()') && btnRM.getAttribute('aria-pressed') === 'true');
+// 三态循环函数本身
+check('三态循环顺序 strong→subtle→off→strong', ev("nextReadMarkMode('strong')==='subtle' && nextReadMarkMode('subtle')==='off' && nextReadMarkMode('off')==='strong'"));
+check('data-mode 三态视觉标记 CSS 存在（subtle 金线 / off 斜杠）', /#btnReadMark\[data-mode="subtle"\]::after/.test(css) && /#btnReadMark\[data-mode="off"\]::after/.test(css));
 
-// 23d. 高亮强度两档切换
-const selStrength = doc.getElementById('setReadMarkStrength');
+// 23d. 高亮强度两档切换（设置面板保留为精确入口，且与眼睛按钮同步）
 check('强度选择器存在且有 strong/subtle 两档', !!selStrength && [...selStrength.options].map(o=>o.value).join(',') === 'strong,subtle');
 selStrength.value = 'subtle'; selStrength.dispatchEvent(new window.Event('change', { bubbles: true }));
-check('切到淡下划线：state 更新且 readMarkEl 带 subtle class', ev('state.readMarkStrength') === 'subtle' && ev("document.getElementById('readMark').classList.contains('subtle')") === true);
+check('切到淡下划线：state 更新、readMarkEl 带 subtle class、眼睛 data-mode 同步', ev('state.readMarkStrength') === 'subtle' && ev("document.getElementById('readMark').classList.contains('subtle')") === true && btnRM.getAttribute('data-mode') === 'subtle');
 selStrength.value = 'strong'; selStrength.dispatchEvent(new window.Event('change', { bubbles: true }));
-check('切回强底色：state 更新且 readMarkEl 移除 subtle class', ev('state.readMarkStrength') === 'strong' && ev("document.getElementById('readMark').classList.contains('subtle')") === false);
+check('切回强底色：state 更新、readMarkEl 移除 subtle class、眼睛 data-mode 同步', ev('state.readMarkStrength') === 'strong' && ev("document.getElementById('readMark').classList.contains('subtle')") === false && btnRM.getAttribute('data-mode') === 'strong');
 // 非法值兜底为 strong
 selStrength.value = 'bogus'; selStrength.dispatchEvent(new window.Event('change', { bubbles: true }));
 check('非法强度值兜底为 strong', ev('state.readMarkStrength') === 'strong');
 
 // 23e. 源码层：切换事件都调用 syncReadMarkUI / applyReadMarkStrength，且初始化回填
-check('眼睛/设置切换均双向同步（源码守卫）', (html.match(/syncReadMarkUI\(\)/g)||[]).length >= 4);
-check('强度 change 调用 applyReadMarkStrength（源码守卫）', /setReadMarkStrength\.addEventListener[\s\S]{0,180}applyReadMarkStrength\(\)/.test(html));
+check('眼睛/设置切换均双向同步（源码守卫）', (html.match(/syncReadMarkUI\(\)/g)||[]).length >= 5);
+check('强度 change 调用 applyReadMarkStrength + syncReadMarkUI（源码守卫）', /setReadMarkStrength\.addEventListener[\s\S]{0,220}applyReadMarkStrength\(\)[\s\S]{0,80}syncReadMarkUI\(\)/.test(html));
 check('初始化回填强度并同步 UI（源码守卫）', /setReadMarkStrength\.value[\s\S]{0,120}syncReadMarkUI\(\)/.test(html));
 check('退出编辑态开关仍可一键切换（眼睛按钮独立于设置面板）', /btnReadMark\.addEventListener\('click'/.test(html));
+// 23f. 语言切换后眼睛的动态 title 不被 applyI18n 的通用 data-i18n-title 覆盖
+ev("state.readMark=true; state.readMarkStrength='subtle'; syncReadMarkUI();");
+ev("setLang('en')");
+check('切语言后眼睛 title 仍含当前档→下一档（非纯 toggleReadMark）', /\u2192/.test(btnRM.title) && btnRM.getAttribute('data-mode') === 'subtle' && btnRM.title !== ev("t('toggleReadMark')"));
+ev("setLang('zh')");
 
 // 还原状态，避免影响后续（虽然本测试已近末尾）
 ev('state.readMark=true; state.readMarkStrength="strong"; syncReadMarkUI();');
