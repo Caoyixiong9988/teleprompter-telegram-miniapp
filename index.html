@@ -539,6 +539,7 @@
           <button class="btn" id="btnCopyId" data-i18n="btnCopyId" style="min-width:auto; padding:8px 12px;">使用 ID</button>
           <button class="btn" id="btnResetId" data-i18n="btnResetId" style="min-width:auto; padding:8px 12px;">换一个</button>
         </div>
+        <button class="btn primary" id="btnConfirmId" data-i18n="btnConfirmId" style="min-width:auto; padding:9px 14px; margin-top:8px; width:100%; display:none;">确认换 ID</button>
         <div class="hint" data-i18n="localIdHint">系统自动分配，只存在这台手机，不会上传。完成卡上会用它标识你。</div>
         <button class="btn" id="btnPreviewFinish" data-i18n="btnPreviewFinish" style="min-width:auto; padding:9px 14px; margin-top:8px; width:100%;">预览完成卡</button>
       </div>
@@ -982,7 +983,8 @@ const I18N = {
   btnCopyId:"使用 ID",
   btnResetId:"换一个",
   resetIdArm:"再点一次确认换 ID",
-  idRegenerated:"专属 ID 已更新",
+  idRegenerated:"新 ID 已生成，名字未变；确认后才同步",
+  btnConfirmId:"确认换 ID",
   btnPreviewFinish:"预览完成卡",
 
   idCopied:"已用 ID 填入名字框",
@@ -1220,7 +1222,8 @@ const I18N = {
   btnCopyId:"Use ID",
   btnResetId:"Regenerate",
   resetIdArm:"Tap again to confirm",
-  idRegenerated:"Personal ID updated",
+  idRegenerated:"New ID generated, name unchanged; confirm to sync",
+  btnConfirmId:"Confirm new ID",
   btnPreviewFinish:"Preview finish card",
 
   idCopied:"ID filled into your name",
@@ -1471,7 +1474,8 @@ const I18N = {
   btnCopyId:"ID verwenden",
   btnResetId:"Neu erzeugen",
   resetIdArm:"Erneut tippen zum Bestätigen",
-  idRegenerated:"Persönliche ID aktualisiert",
+  idRegenerated:"Neue ID erzeugt, Name unverändert – zum Synchronisieren bestätigen",
+  btnConfirmId:"Neue ID bestätigen",
   btnPreviewFinish:"Karte voranschauen",
 
   idCopied:"ID in deinen Namen eingefügt",
@@ -1722,7 +1726,8 @@ const I18N = {
   btnCopyId:"Utiliser l'ID",
   btnResetId:"Régénérer",
   resetIdArm:"Touchez à nouveau pour confirmer",
-  idRegenerated:"ID personnel mis à jour",
+  idRegenerated:"Nouvel ID généré, nom inchangé ; confirmez pour synchroniser",
+  btnConfirmId:"Confirmer l'ID",
   btnPreviewFinish:"Aperçu de la carte",
 
   idCopied:"ID inscrit dans votre nom",
@@ -1960,7 +1965,8 @@ const I18N = {
   btnCopyId:"ID を使用",
   btnResetId:"作り直す",
   resetIdArm:"もう一度タップして確認",
-  idRegenerated:"専用 ID を更新しました",
+  idRegenerated:"新しい ID を生成しました。名前は未変更、確認で同期します",
+  btnConfirmId:"新しい ID を確定",
   btnPreviewFinish:"カードをプレビュー",
 
   idCopied:"ID を名前に入力しました",
@@ -2198,7 +2204,8 @@ const I18N = {
   btnCopyId:"ID 사용",
   btnResetId:"다시 만들기",
   resetIdArm:"한 번 더 눌러 확인",
-  idRegenerated:"전용 ID가 업데이트되었습니다",
+  idRegenerated:"새 ID가 생성되었습니다. 이름은 그대로, 확인하면 동기화",
+  btnConfirmId:"새 ID 확정",
   btnPreviewFinish:"카드 미리보기",
 
   idCopied:"ID가 이름에 입력되었습니다",
@@ -2436,7 +2443,8 @@ const I18N = {
   btnCopyId:"Использовать ID",
   btnResetId:"Создать заново",
   resetIdArm:"Нажмите ещё раз для подтверждения",
-  idRegenerated:"Личный ID обновлён",
+  idRegenerated:"Новый ID создан, имя не изменилось — подтвердите для синхронизации",
+  btnConfirmId:"Подтвердить ID",
   btnPreviewFinish:"Предпросмотр карточки",
 
   idCopied:"ID вставлен в имя",
@@ -4297,9 +4305,11 @@ function seekAtClientY(clientY, clientX){
     const ti = readTokenAtPoint(clientX - rect.left, contentY);
     if (ti >= 0){
       let li=0; while (li<readLines.length-1 && ti>readLines[li].end) li++;
-      const ln=readLines[li], n=Math.max(1, ln.end-ln.start+1), w=Math.max(0,Math.min(n-1,ti-ln.start));
-      // 让 updateReadMark 的 frac 命中第 w 个词：headY=line.top+(w+.5)/n*line.height
-      headAt = ln.top + ((w+0.5)/n)*ln.height;
+      const ln=readLines[li];
+      // 与高亮跟随用同一「阅读权重」口径：tokenFracAt(ti) 给出该词在行内权重区间的中点，
+      // 再反推 headY。旧版用词数均分 (w+.5)/n，英文词权重=字数、长短差异大时会命中
+      // 相邻词（实测 24 词里 4 词落错，标点尤甚），表现为"位置随机/高亮不在点的词上"。
+      headAt = ln.top + tokenFracAt(ti) * ln.height;
     }
   }
   // 文稿滚到让 headAt 落在视口 20%（非负钳制：点第一行不会把文稿往下推）。
@@ -4387,9 +4397,12 @@ function loop(ts){
     // 读完条件：锚点扫过最后一个词（有词缓存）；无缓存则退回文稿到底
     const finished = endY > 0 ? (readHeadContentY >= endY) : (offset >= maxOffset());
     if (finished){
-      if (endY > 0) readHeadContentY = endY; // 钉在末行末尾，高亮最终落在最后一个词
+      if (endY > 0) readHeadContentY = endY; // 阅读头钉在末行末尾（仅用于下次重播起点计算）
       reachedEnd = true;   // 真正读完（含末行），供下次 ▶ 决定重头播放
-      setPlaying(false, true); // 读完：高亮定格在最后一个词，让用户看到读完位置
+      // 读完 = 完成态，不是暂停态：收起高亮（不 keepMark）。
+      // 旧版这里 setPlaying(false,true) 让黄块永久定格在最后一个词，用户误以为卡住/还在播放。
+      // 手动暂停才定格；读完由 onReadComplete 弹完成卡作为结束反馈，故此处须隐藏高亮。
+      setPlaying(false);
       if (!readCounted){ readCounted = true; onReadComplete(); }
     } else {
       const scale = state.mirror ? -1 : 1;
@@ -5532,11 +5545,14 @@ if (setDisplayName) setDisplayName.addEventListener('input', function(e){
   if (v !== e.target.value) e.target.value = v; // 护栏即时生效
   state.displayName = v; saveState();
 });
-// 本机 ID：使用（填入名字框）/ 换一个
-const btnCopyId = document.getElementById('btnCopyId');   // 元素 id 沿用，语义已改为"使用 ID"
+// 本机 ID：使用（填入名字框）/ 换一个 / 确认换 ID（两步走）
+const btnCopyId = document.getElementById('btnCopyId');   // 元素 id 沿用，语义为"使用 ID"
 const btnResetId = document.getElementById('btnResetId');
+const btnConfirmId = document.getElementById('btnConfirmId');
 const myLocalIdEl = document.getElementById('myLocalId');
 function renderLocalId(){ if (myLocalIdEl) myLocalIdEl.textContent = ensureLocalId(); }
+// "确认换 ID"按钮的显隐：仅在刚换新 ID、且名字尚未被用户改动时出现
+function showConfirmId(show){ if (btnConfirmId) btnConfirmId.style.display = show ? 'inline-block' : 'none'; }
 function applyLocalIdAsName(){
   renderLocalId();
   const id = state.localId;
@@ -5544,44 +5560,31 @@ function applyLocalIdAsName(){
   state.displayName = cleaned;
   if (setDisplayName) setDisplayName.value = cleaned;
   saveState();
-  toast(t('idCopied')); // 该键文案已改为"已用 ID 填入名字框"
+  showConfirmId(false); // 已确认同步，收起确认按钮
+  toast(t('idCopied')); // 该键文案为"已用 ID 填入名字框"
 }
 if (btnCopyId) btnCopyId.addEventListener('click', applyLocalIdAsName);
-// 换一个 ID：Telegram WebView 里原生 confirm 被禁用 → 优先用 Telegram 原生确认框，
-// 无 Telegram 环境（普通浏览器/测试）降级为"两段式点击"（第一次点击进入待确认，第二次才换）。
-let resetIdArmed = false, resetIdTimer = null;
-function disarmResetId(){
-  resetIdArmed = false;
-  clearTimeout(resetIdTimer);
-  if (btnResetId) btnResetId.textContent = t('btnResetId');
-}
+/* 两步语义（按用户 2026-11-18 明确的预期）：
+   1) 点"换一个" → 只把专属 ID 换成新的，名字输入框保持原样；同时显示"确认换 ID"。
+   2) 点"确认换 ID" → 才把名字输入框同步为新 ID，并收起确认按钮。
+   不再用"连点两次同一按钮"，也不在换 ID 时擅自改名字（名字归用户自己决定）。
+   Telegram WebView 里原生 confirm 被禁用，故用 SDK showConfirm；无 SDK 时直接换（换 ID 无破坏性）。 */
 function doRegenerateId(){
-  const oldId = state.localId;
-  const next = makeLocalId();
-  // 若用户正"用 ID 当名字"，换 ID 时名字要跟着换，避免卡上名字=旧ID、ID行=新ID 的脱节
-  const nameWasId = cleanDisplayName(state.displayName) === cleanDisplayName(oldId);
-  state.localId = next;
-  if (nameWasId){
-    state.displayName = next;
-    if (setDisplayName) setDisplayName.value = next;
-  }
-  saveState(); renderLocalId(); toast(t('idRegenerated'));
+  state.localId = makeLocalId();
+  saveState(); renderLocalId();
+  showConfirmId(true);   // 给用户"确认同步名字"的机会；名字此刻不变
+  toast(t('idRegenerated')); // "新 ID 已生成，名字未变；确认后才同步"
 }
 if (btnResetId) btnResetId.addEventListener('click', function(){
   const tg = window.Telegram && window.Telegram.WebApp;
   if (tg && typeof tg.showConfirm === 'function'){
     try { tg.showConfirm(t('resetIdConfirm'), function(ok){ if (ok) doRegenerateId(); }); return; } catch(e){}
   }
-  if (!resetIdArmed){
-    resetIdArmed = true;
-    btnResetId.textContent = t('resetIdArm');
-    toast(t('resetIdConfirm'));
-    resetIdTimer = setTimeout(disarmResetId, 5000);
-    return;
-  }
-  disarmResetId();
-  doRegenerateId();
+  doRegenerateId(); // 普通浏览器：换 ID 无破坏性，直接换
 });
+if (btnConfirmId) btnConfirmId.addEventListener('click', applyLocalIdAsName);
+// 用户手动编辑名字框 → 说明他不用 ID 当名字，收起"确认换 ID"
+if (setDisplayName) setDisplayName.addEventListener('input', function(){ showConfirmId(false); });
 // 预览完成卡：随时查看当前名字/ID/称号在卡片上的效果，不必等读完一篇
 const btnPreviewFinish = document.getElementById('btnPreviewFinish');
 if (btnPreviewFinish) btnPreviewFinish.addEventListener('click', function(){

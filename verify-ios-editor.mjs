@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 246 键且一致', sizes.every(n => n === 246), JSON.stringify(sizes));
+check('七语各 247 键且一致', sizes.every(n => n === 247), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -728,33 +728,37 @@ ev('setPlaying(false);');
   if (proto && origGetCtx) proto.getContext = origGetCtx;
 
   // --- 第35轮：使用ID / 换一个（不依赖原生confirm）/ 预览完成卡 ---
-  check('新增 3 个流程键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['resetIdArm','idRegenerated','btnPreviewFinish'].every(k=>!!I18N[l][k]))`));
+  check('新增键七语齐全（含 btnConfirmId）', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['resetIdArm','idRegenerated','btnPreviewFinish','btnConfirmId'].every(k=>!!I18N[l][k]))`));
   check('按钮文案已改为"使用 ID"（btnCopyId 新文案）', ev(`I18N.zh.btnCopyId==='使用 ID' && I18N.en.btnCopyId==='Use ID'`));
   check('设置页有"预览完成卡"按钮', !!doc.getElementById('btnPreviewFinish'));
+  check('设置页有独立的"确认换 ID"按钮', !!doc.getElementById('btnConfirmId'));
   check('换一个不再使用 window.confirm', !/window\.confirm\s*\(/.test(html));
   check('换一个优先用 Telegram 原生 showConfirm', /Telegram\.WebApp[\s\S]{0,120}showConfirm/.test(html));
-  check('换一个有非 Telegram 两段式降级（resetIdArmed）', /resetIdArmed/.test(html) && /disarmResetId/.test(html));
+  check('已废弃旧两段式（无 resetIdArmed）', !/resetIdArmed/.test(html));
   check('applyLocalIdAsName 函数存在', ev(`typeof applyLocalIdAsName==='function'`));
   // 使用 ID → 自动填入名字框（走护栏 + saveState）
   ev(`state.displayName=''; if(setDisplayName) setDisplayName.value=''; applyLocalIdAsName();`);
   check('点"使用 ID"后名字框自动填入本机 ID', ev(`state.displayName===state.localId && setDisplayName.value===state.localId`));
   check('填入的 ID 符合护栏长度（<24）', ev(`state.displayName.length<=24`));
   ev(`state.displayName=''; if(setDisplayName) setDisplayName.value='';`);
-  // 两段式降级：第一次点击进入待确认态，第二次才换 ID，且无 confirm 抛错
-  ev(`window.Telegram=undefined; resetIdArmed=false; disarmResetId(); state.localId='TP-AAAAAA'; renderLocalId();`);
+  // 两步语义（用户 11-18 明确预期）：点"换一个"只换ID、名字不变；点"确认换ID"才同步名字
+  ev(`window.Telegram=undefined; state.localId='TP-AAAAAA'; state.displayName='我的名字'; if(setDisplayName) setDisplayName.value='我的名字'; renderLocalId(); showConfirmId(false);`);
   ev(`btnResetId.click();`);
-  check('第一次点换一个 → 进入待确认态、按钮变文案', ev(`resetIdArmed===true && btnResetId.textContent===I18N[curLang].resetIdArm`));
-  check('第一次点换一个 → ID 尚未改变', ev(`state.localId==='TP-AAAAAA'`));
-  ev(`btnResetId.click();`);
-  check('第二次点换一个 → ID 真的换了', ev(`state.localId!=='TP-AAAAAA' && /^TP-[A-HJ-NP-Z2-9]{6}$/.test(state.localId)`));
-  check('换完后退出待确认态、按钮文案复原', ev(`resetIdArmed===false && btnResetId.textContent===I18N[curLang].btnResetId`));
-  // 用 ID 当名字时，换 ID 后名字要跟着换，避免卡上名字=旧ID、ID行=新ID 脱节
-  ev(`state.localId='TP-BBBBBB'; state.displayName='TP-BBBBBB'; if(setDisplayName) setDisplayName.value='TP-BBBBBB';`);
-  ev(`window.Telegram={WebApp:{showConfirm:(m,cb)=>cb(true)}}; doRegenerateId();`);
-  check('用ID当名字时换ID → 名字同步为新ID', ev(`state.localId!=='TP-BBBBBB' && state.displayName===state.localId && setDisplayName.value===state.localId`));
-  ev(`window.Telegram=undefined; state.displayName='自定义名字'; state.localId='TP-CCCCCC';`);
-  ev(`resetIdArmed=false; doRegenerateId();`);
-  check('自定义名字时换ID → 名字不被覆盖', ev(`state.displayName==='自定义名字' && state.localId!=='TP-CCCCCC'`));
+  check('点"换一个" → ID 已换新', ev(`state.localId!=='TP-AAAAAA' && /^TP-[A-HJ-NP-Z2-9]{6}$/.test(state.localId)`));
+  check('点"换一个" → 名字框保持不变', ev(`state.displayName==='我的名字' && setDisplayName.value==='我的名字'`));
+  check('点"换一个" → 显示"确认换 ID"按钮', ev(`btnConfirmId.style.display==='inline-block'`));
+  const newId = ev(`state.localId`);
+  ev(`btnConfirmId.click();`);
+  check('点"确认换 ID" → 名字同步为新 ID', ev(`state.displayName===${JSON.stringify(newId)} && setDisplayName.value===${JSON.stringify(newId)}`));
+  check('点"确认换 ID" → 确认按钮收起', ev(`btnConfirmId.style.display==='none'`));
+  // 用户手动编辑名字框 → 收起确认按钮（他不要 ID 当名字）
+  ev(`state.localId='TP-DDDDDD'; renderLocalId(); showConfirmId(true); if(setDisplayName){setDisplayName.value='手改名字'; setDisplayName.dispatchEvent(new Event('input',{bubbles:true}));}`);
+  check('手动编辑名字后 → 收起"确认换 ID"按钮', ev(`btnConfirmId.style.display==='none'`));
+  // Telegram showConfirm 路径仍可换 ID（名字不变）
+  ev(`state.localId='TP-EEEEEE'; state.displayName='保持不变'; if(setDisplayName) setDisplayName.value='保持不变';`);
+  ev(`window.Telegram={WebApp:{showConfirm:(m,cb)=>cb(true)}}; btnResetId.click();`);
+  check('Telegram showConfirm 确认后换 ID、名字不变', ev(`state.localId!=='TP-EEEEEE' && state.displayName==='保持不变'`));
+  ev(`window.Telegram=undefined;`);
   // 预览完成卡：直接显示 overlay（不依赖读完、不改 reads）
   // jsdom 无 canvas：stub getContext→null，避免 "Not implemented" 进虚拟控制台
   if (proto) proto.getContext = function(){ return null; };
@@ -770,7 +774,7 @@ ev('setPlaying(false);');
 check('setPlaying 支持 keepMark 参数', /function setPlaying\(on,\s*keepMark\)/.test(html));
 check('暂停分支不隐藏高亮（else if !keepMark 才 hideReadMark）', /else if \(!keepMark\) hideReadMark\(\)/.test(html));
 check('手动暂停传入 keepMark=true', /caretSeekOffset\s*=\s*null;\s*\n\s*setPlaying\(false,\s*true\)/.test(html));
-check('读完定格末词（setPlaying false,true）', /钉在末行末尾[\s\S]{0,120}setPlaying\(false,\s*true\)/.test(html));
+check('读完收起高亮（结束态用 setPlaying false，不再定格常显）', /读完 = 完成态[\s\S]{0,180}setPlaying\(false\);/.test(html));
 check('远程暂停也保留高亮', /cmd === 'pause'\)\{ setPlaying\(false,\s*true\)/.test(html));
 // 归零/改稿仍隐藏（不误用 keepMark）
 check('刷新归零隐藏高亮（默认无 keepMark）', /caretSeekOffset = 0;[\s\S]{0,120}setPlaying\(false\);/.test(html));
@@ -1272,6 +1276,30 @@ ev('setPlaying(false);');
   check('高亮开关关闭时暂停态也不画', mk.style.display === 'none');
   ev('state.readMark=true; readTokens=null; readLines=null; readTokensDirty=true; hideReadMark();');
 }
+
+// --- 第36轮：播放结束收起高亮 + 英文整词高亮口径 ---
+check('播放读完用 setPlaying(false) 收起高亮（非 keepMark）', /读完 = 完成态[\s\S]{0,220}setPlaying\(false\);/.test(html));
+check('点击定位改用 tokenFracAt 权重口径（与高亮跟随一致）', /headAt = ln\.top \+ tokenFracAt\(ti\) \* ln\.height/.test(html));
+check('旧词数均分 (w+.5)/n 点击口径已移除', !/\(w\+0\.5\)\/n/.test(html));
+// 英文按整词切分：tokenizeForRead 对连续字母数字是整词，不拆成单字母
+check('英文整词切分（quick 是一个词元而非 q/u/i/c/k）',
+  html.includes("if (/[A-Za-z0-9'_]/.test(ch))") && html.includes("while (b < s.length && /[A-Za-z0-9'_]/.test(s.charAt(b))) b++"));
+// tokenFracAt 与 tokenIndexAtFrac 互逆：构造英文长短词混排的 mock 行（jsdom 无布局，用 mock 数据）
+// 验证"权重口径命中自身"，与真实点击定位同一函数，覆盖旧均分法会落错词的标点/长短词场景。
+const kou = ev(`(() => {
+  const saveT = readTokens, saveL = readLines;
+  const words = ['The','quick','brown','fox','jumps','over','the','lazy','dog','.']; // rw=字数，标点0.25
+  readTokens = words.map(w => ({ rw: /^\\p{P}$/u.test(w) ? 0.25 : w.length }));
+  const totalW = readTokens.reduce((s,t)=>s+t.rw,0);
+  readLines = [{ start:0, end:words.length-1, top:0, height:68, weight:totalW }];
+  let mismatch = 0;
+  for (let ti = 0; ti < words.length; ti++){
+    if (tokenIndexAtFrac(readLines[0], tokenFracAt(ti)) !== ti) mismatch++;
+  }
+  readTokens = saveT; readLines = saveL;
+  return { total: words.length, mismatch };
+})()`);
+check('英文混排：权重口径点击定位 100% 命中正确词（0 偏差）', kou.total === 10 && kou.mismatch === 0, JSON.stringify(kou));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
