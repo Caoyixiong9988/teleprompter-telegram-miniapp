@@ -536,10 +536,11 @@
         <label data-i18n="localIdLabel">我的专属 ID</label>
         <div class="row" style="align-items:center; gap:8px; flex-wrap:wrap;">
           <code id="myLocalId" style="flex:1; min-width:120px; font-size:17px; letter-spacing:1px; color:var(--primary); user-select:all;">TP-XXXXXX</code>
-          <button class="btn" id="btnCopyId" data-i18n="btnCopyId" style="min-width:auto; padding:8px 12px;">复制 ID</button>
+          <button class="btn" id="btnCopyId" data-i18n="btnCopyId" style="min-width:auto; padding:8px 12px;">使用 ID</button>
           <button class="btn" id="btnResetId" data-i18n="btnResetId" style="min-width:auto; padding:8px 12px;">换一个</button>
         </div>
         <div class="hint" data-i18n="localIdHint">系统自动分配，只存在这台手机，不会上传。完成卡上会用它标识你。</div>
+        <button class="btn" id="btnPreviewFinish" data-i18n="btnPreviewFinish" style="min-width:auto; padding:9px 14px; margin-top:8px; width:100%;">预览完成卡</button>
       </div>
       <div class="field switch">
         <span data-i18n="finishCardLabel">读完自动弹完成卡</span>
@@ -978,9 +979,13 @@ const I18N = {
   nameRequired:"请先填写完成卡上的名字",
   localIdLabel:"我的专属 ID",
   localIdHint:"系统自动分配，只存在这台手机，不会上传。完成卡上会用它标识你。",
-  btnCopyId:"复制 ID",
+  btnCopyId:"使用 ID",
   btnResetId:"换一个",
-  idCopied:"ID 已复制",
+  resetIdArm:"再点一次确认换 ID",
+  idRegenerated:"专属 ID 已更新",
+  btnPreviewFinish:"预览完成卡",
+
+  idCopied:"已用 ID 填入名字框",
   resetIdConfirm:"换 ID 后，旧完成卡上的标识会作废，确定吗？",
   finishCardLabel:"读完自动弹完成卡",
   verifyOk:"身份已验证 ✓",
@@ -1212,9 +1217,13 @@ const I18N = {
   nameRequired:"Please enter your name for the finish card first",
   localIdLabel:"My personal ID",
   localIdHint:"Assigned automatically, stored only on this device, never uploaded. Your finish card uses it to identify you.",
-  btnCopyId:"Copy ID",
+  btnCopyId:"Use ID",
   btnResetId:"Regenerate",
-  idCopied:"ID copied",
+  resetIdArm:"Tap again to confirm",
+  idRegenerated:"Personal ID updated",
+  btnPreviewFinish:"Preview finish card",
+
+  idCopied:"ID filled into your name",
   resetIdConfirm:"Regenerating will invalidate the ID on old finish cards. Continue?",
   finishCardLabel:"Show finish card after reading",
   verifyOk:"Identity verified ✓",
@@ -1459,9 +1468,13 @@ const I18N = {
   nameRequired:"Bitte gib zuerst deinen Namen für die Karte ein",
   localIdLabel:"Meine persönliche ID",
   localIdHint:"Automatisch zugewiesen, nur auf diesem Gerät gespeichert, nie hochgeladen. Die Karte nutzt es zu deiner Kennzeichnung.",
-  btnCopyId:"ID kopieren",
+  btnCopyId:"ID verwenden",
   btnResetId:"Neu erzeugen",
-  idCopied:"ID kopiert",
+  resetIdArm:"Erneut tippen zum Bestätigen",
+  idRegenerated:"Persönliche ID aktualisiert",
+  btnPreviewFinish:"Karte voranschauen",
+
+  idCopied:"ID in deinen Namen eingefügt",
   resetIdConfirm:"Nach dem Neuerzeugen wird die ID auf alten Karten ungültig. Fortfahren?",
   finishCardLabel:"Karte nach dem Lesen anzeigen",
   verifyOk:'Identität bestätigt ✓',
@@ -1706,9 +1719,13 @@ const I18N = {
   nameRequired:"Veuillez d'abord saisir votre nom pour la carte",
   localIdLabel:"Mon ID personnel",
   localIdHint:"Attribué automatiquement, stocké uniquement sur cet appareil, jamais téléversé. Votre carte l'utilise pour vous identifier.",
-  btnCopyId:"Copier l'ID",
+  btnCopyId:"Utiliser l'ID",
   btnResetId:"Régénérer",
-  idCopied:"ID copié",
+  resetIdArm:"Touchez à nouveau pour confirmer",
+  idRegenerated:"ID personnel mis à jour",
+  btnPreviewFinish:"Aperçu de la carte",
+
+  idCopied:"ID inscrit dans votre nom",
   resetIdConfirm:"La régénération invalidera l'ID sur les anciennes cartes. Continuer ?",
   finishCardLabel:"Afficher la carte après la lecture",
   verifyOk:'Identité vérifiée ✓',
@@ -1940,9 +1957,13 @@ const I18N = {
   nameRequired:"まず完成カードに表示する名前を入力してください",
   localIdLabel:"自分の専用 ID",
   localIdHint:"自動で割り当てられ、この端末にのみ保存され、アップロードされません。カードであなたを識別します。",
-  btnCopyId:"ID をコピー",
+  btnCopyId:"ID を使用",
   btnResetId:"作り直す",
-  idCopied:"ID をコピーしました",
+  resetIdArm:"もう一度タップして確認",
+  idRegenerated:"専用 ID を更新しました",
+  btnPreviewFinish:"カードをプレビュー",
+
+  idCopied:"ID を名前に入力しました",
   resetIdConfirm:"作り直すと古いカードの ID が無効になります。続けますか？",
   finishCardLabel:"読み終えたらカードを表示",
   verifyOk:"本人確認済み ✓",
@@ -2174,9 +2195,13 @@ const I18N = {
   nameRequired:"완료 카드에 표시할 이름을 먼저 입력해 주세요",
   localIdLabel:"나만의 전용 ID",
   localIdHint:"자동으로 배정되며 이 기기에만 저장되고 업로드되지 않습니다. 카드에서 당신을 표시합니다.",
-  btnCopyId:"ID 복사",
+  btnCopyId:"ID 사용",
   btnResetId:"다시 만들기",
-  idCopied:"ID가 복사되었습니다",
+  resetIdArm:"한 번 더 눌러 확인",
+  idRegenerated:"전용 ID가 업데이트되었습니다",
+  btnPreviewFinish:"카드 미리보기",
+
+  idCopied:"ID가 이름에 입력되었습니다",
   resetIdConfirm:"다시 만들면 이전 카드의 ID가 무효가 됩니다. 계속할까요?",
   finishCardLabel:"읽기 후 완료 카드 표시",
   verifyOk:"신원 확인됨 ✓",
@@ -2408,9 +2433,13 @@ const I18N = {
   nameRequired:"Сначала введите имя для карточки",
   localIdLabel:"Мой личный ID",
   localIdHint:"Назначается автоматически, хранится только на этом устройстве и не загружается. Карточка использует его для вашей идентификации.",
-  btnCopyId:"Копировать ID",
+  btnCopyId:"Использовать ID",
   btnResetId:"Создать заново",
-  idCopied:"ID скопирован",
+  resetIdArm:"Нажмите ещё раз для подтверждения",
+  idRegenerated:"Личный ID обновлён",
+  btnPreviewFinish:"Предпросмотр карточки",
+
+  idCopied:"ID вставлен в имя",
   resetIdConfirm:"После повторного создания ID на старых карточках станет недействительным. Продолжить?",
   finishCardLabel:"Показывать карточку после чтения",
   verifyOk:"Личность подтверждена ✓",
@@ -5503,28 +5532,62 @@ if (setDisplayName) setDisplayName.addEventListener('input', function(e){
   if (v !== e.target.value) e.target.value = v; // 护栏即时生效
   state.displayName = v; saveState();
 });
-// 本机 ID：复制 / 换一个
-const btnCopyId = document.getElementById('btnCopyId');
+// 本机 ID：使用（填入名字框）/ 换一个
+const btnCopyId = document.getElementById('btnCopyId');   // 元素 id 沿用，语义已改为"使用 ID"
 const btnResetId = document.getElementById('btnResetId');
 const myLocalIdEl = document.getElementById('myLocalId');
 function renderLocalId(){ if (myLocalIdEl) myLocalIdEl.textContent = ensureLocalId(); }
-if (btnCopyId) btnCopyId.addEventListener('click', async function(){
+function applyLocalIdAsName(){
   renderLocalId();
   const id = state.localId;
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(id); }
-    else {
-      const ta = document.createElement('textarea'); ta.value = id; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); } catch(e){}
-      document.body.removeChild(ta);
-    }
-    toast(t('idCopied'));
-  } catch(e){ toast(id); } // 复制失败也把 ID 显示出来，用户可手动抄
-});
+  const cleaned = cleanDisplayName(id); // 走同一护栏，保证卡片排版不被撑破
+  state.displayName = cleaned;
+  if (setDisplayName) setDisplayName.value = cleaned;
+  saveState();
+  toast(t('idCopied')); // 该键文案已改为"已用 ID 填入名字框"
+}
+if (btnCopyId) btnCopyId.addEventListener('click', applyLocalIdAsName);
+// 换一个 ID：Telegram WebView 里原生 confirm 被禁用 → 优先用 Telegram 原生确认框，
+// 无 Telegram 环境（普通浏览器/测试）降级为"两段式点击"（第一次点击进入待确认，第二次才换）。
+let resetIdArmed = false, resetIdTimer = null;
+function disarmResetId(){
+  resetIdArmed = false;
+  clearTimeout(resetIdTimer);
+  if (btnResetId) btnResetId.textContent = t('btnResetId');
+}
+function doRegenerateId(){
+  const oldId = state.localId;
+  const next = makeLocalId();
+  // 若用户正"用 ID 当名字"，换 ID 时名字要跟着换，避免卡上名字=旧ID、ID行=新ID 的脱节
+  const nameWasId = cleanDisplayName(state.displayName) === cleanDisplayName(oldId);
+  state.localId = next;
+  if (nameWasId){
+    state.displayName = next;
+    if (setDisplayName) setDisplayName.value = next;
+  }
+  saveState(); renderLocalId(); toast(t('idRegenerated'));
+}
 if (btnResetId) btnResetId.addEventListener('click', function(){
-  if (!window.confirm(t('resetIdConfirm'))) return;
-  state.localId = makeLocalId(); saveState(); renderLocalId();
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg && typeof tg.showConfirm === 'function'){
+    try { tg.showConfirm(t('resetIdConfirm'), function(ok){ if (ok) doRegenerateId(); }); return; } catch(e){}
+  }
+  if (!resetIdArmed){
+    resetIdArmed = true;
+    btnResetId.textContent = t('resetIdArm');
+    toast(t('resetIdConfirm'));
+    resetIdTimer = setTimeout(disarmResetId, 5000);
+    return;
+  }
+  disarmResetId();
+  doRegenerateId();
+});
+// 预览完成卡：随时查看当前名字/ID/称号在卡片上的效果，不必等读完一篇
+const btnPreviewFinish = document.getElementById('btnPreviewFinish');
+if (btnPreviewFinish) btnPreviewFinish.addEventListener('click', function(){
+  try { generateFinishCard(); } catch(e){ return; }
+  const ov = document.getElementById('finishOverlay');
+  if (ov) ov.classList.remove('hidden');
 });
 if (setFinishCard) setFinishCard.addEventListener('change', function(e){ state.finishCard = e.target.checked; saveState(); });
 

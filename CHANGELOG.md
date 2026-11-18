@@ -8,6 +8,27 @@
 
 ---
 
+## 2026-11-18 · fix/feat — ID 流程四项：使用ID填入名字 + 换一个不用原生confirm + 预览完成卡（第三十五轮）
+
+- **类型**：fix（Telegram WebView 原生 confirm 失效）/ feat（使用 ID、预览完成卡）
+- **用户反馈**：①复制专属ID后无法粘进名字框；②点"换一个"ID 不变；③要把"复制ID"改为"使用ID"一键填入名字；④填名字后没看到"完成"按钮。
+- **逐项结论**：
+  - ①**非 BUG**：复制按钮本就只写剪贴板、不碰名字框，且 Telegram WebView 剪贴板常受限——真实诉求由③解决。
+  - ②**确认为 BUG**：`btnResetId` 用了 `window.confirm()`，Telegram WebView 禁用原生 confirm → 点击被静默拦掉、ID 永不变（真 Chrome 复现：confirm 抛错/返回 false 时 ID 保持原值）。
+  - ③功能改造，按用户要求实现。
+  - ④**非 BUG**：设置页"完成"=关闭面板、编辑条"完成"=结束编辑；完成卡是"读完一篇自动弹"，与填名字无因果，故此链路本就不存在。但为回应"想立刻看效果"的诉求，新增"预览完成卡"入口。
+- **改了什么**：
+  - `btnCopyId` 语义由"复制 ID"改为"使用 ID"：点击把本机 ID 经名字护栏填入 `setDisplayName` + state 并保存（不再写剪贴板）。七语文案同步。
+  - 换 ID 去掉 `window.confirm`：优先 `Telegram.WebApp.showConfirm`，无 Telegram 时降级为两段式点击（第一次进入"再点一次确认换 ID"待确认态、5 秒超时，第二次才换），彻底摆脱被禁用的原生弹窗。
+  - 边缘修复：若用户正"用 ID 当名字"，换 ID 时名字同步更新为新 ID，避免卡上名字=旧ID、ID 行=新ID 脱节；自定义名字则不被覆盖。
+  - 新增"预览完成卡"按钮 `btnPreviewFinish`：随时查看当前名字/ID/称号在卡上的效果，不改 reads、不依赖读完。
+  - i18n 新增 `resetIdArm`/`idRegenerated`/`btnPreviewFinish` 三键（七语），键数 243→246；`btnCopyId`/`idCopied` 文案改口径。
+- **为什么**：Telegram Mini App 明确禁用 `window.alert/confirm/prompt`，必须用 SDK 原生确认框；让"专属 ID"从展示代号升级为可一键署名的身份入口。
+- **怎么验证**：npm 147/147、iOS 编辑器 338/338（+15）、i18n 32/32（七语各 246 键）、Worker 18/18；真 Chrome（390×844）复验四项全过：使用ID填入一致、两段式与 Telegram 原生确认两条路径换ID成功、预览卡显示且 reads 不变、用ID当名字换ID后名字同步；截图确认完成卡排版正常。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`
+
+---
+
 ## 2026-11-18 · feat — 完成卡人格称号升级 + 名字★必填 + 本机专属 ID（第三十四轮）
 
 - **类型**：feat（身份体系 / 成就感）/ copy（七语文案）
