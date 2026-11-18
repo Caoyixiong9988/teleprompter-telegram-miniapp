@@ -20,6 +20,7 @@
   4. 七语文案 `readMarkHint` 由"只在播放时显示"改为"暂停时同一个高亮标出下次播放的起点（点文字或滚动即可改）"，键数不变（236）。
 - **验证**：npm 147/147、iOS 编辑器 305/305（新增 7 项）、i18n 32/32；CDP 真浏览器：修复前点首行后 `#readMark.style.top` 停在旧词坐标，修复后 = 首行 top 101.8（截图确认黄块落在"圆觉经原文"的"圆"上，提示"已定位到这一行"）。
 - **涉及文件**：`index.html`、`verify-ios-editor.mjs`
+- **线上**：Cloudflare Pages 生产部署 `fc8ff7e7`（`--branch main`），`https://teleprompter-49y.pages.dev/` 354,514 字节、sha256 `f76ed8a1…`，与本地逐字节一致；Gitee `13239f9`。
 
 ---
 
