@@ -245,9 +245,12 @@ check('速度滑块下限已降到 5px/s（原 20 对跟读偏快）', doc.getEl
   'min=' + doc.getElementById('speedBar').min);
 check('pxPerSec 精确等于设置值，无单位换算 bug', ev('pxPerSec()') === 20, 'pxPerSec=' + ev('pxPerSec()'));
 // 手动推进 1 秒（60 帧 ×1/60s），位移应恰为 20px
-ev('offset=0; setPlaying(true); lastTs=0;');
+// 第三十二轮改口径：offset 由阅读点反推（offset = head - 视口20%），所以先把两者摆成一致再推进
+ev('readTokens=null; readLines=null; readTokensDirty=true; offset=200; readHeadContentY=260; setPlaying(true); lastTs=0;');
+const _offPre = ev('offset');
 let _t = 0; for (let i = 0; i < 60; i++) { _t += 1000/60; ev('loop(' + _t + ')'); }
-check('推进 1 秒位移恰好 20px（20px/s 真实生效）', Math.abs(ev('offset') - 20) < 0.001, 'offset=' + ev('offset'));
+check('推进 1 秒位移恰好 20px（20px/s 真实生效）', Math.abs(ev('offset') - _offPre - 20) < 0.001,
+  'before=' + _offPre + ' after=' + ev('offset'));
 ev('setPlaying(false);');
 
 // --- 13. 逐词高亮：行内逐词 + 跨行连续，速率只由滚动决定（第十一轮）---
@@ -447,15 +450,18 @@ ev('setPlaying(false);');
     ev('readHeadContentY') > 0 && ev('readHeadContentY') < 100, 'anchor=' + ev('readHeadContentY'));
   ev('setPlaying(false);');
 
-  // 匀速：推进 1 秒，锚点与 offset 必须同步 += 速度
+  // 匀速：推进 1 秒，锚点推进多少，文稿就必须推进多少（且阅读点恒在视口 20%）
   ev('state.speedUnit="px"; state.speedPx=90; remoteSpeedMul=1; voiceFollowing=false;');
-  ev('offset=200; readHeadContentY=230; setPlaying(true); lastTs=0;');
+  ev('readHeadContentY=400; offset=offsetForHead(readHeadContentY); setPlaying(true); lastTs=0;');
   inject();
   const a0 = ev('readHeadContentY'), o0 = ev('offset');
   let _t17 = 0; for (let i=0;i<60;i++){ _t17 += 1000/60; ev('loop(' + _t17 + ')'); }
   const a1 = ev('readHeadContentY'), o1 = ev('offset');
   check('播放中锚点与文稿同步前进（匀速保持）', Math.abs((o1-o0)-(a1-a0)) < 0.01,
     'offsetΔ=' + (o1-o0).toFixed(1) + ' anchorΔ=' + (a1-a0).toFixed(1));
+  check('阅读点稳定在视口 20%（高亮不再贴顶边划出屏幕）',
+    Math.abs((a1 - o1) - ev('readHeadScreenY()')) < 1,
+    'head-offset=' + (a1-o1).toFixed(1) + ' screenY=' + ev('readHeadScreenY()'));
   ev('setPlaying(false);');
 
   // 源码守卫
@@ -482,7 +488,8 @@ ev('setPlaying(false);');
     /normalGap\s*=\s*Infinity/.test(html) && /normalGap \* 1\.6/.test(html));
   check('播放终点改为 readEndContentY（锚点扫过末行），不再仅 offset>=max',
     /function readEndContentY\(\)/.test(html) && /readHeadContentY >= endY/.test(html));
-  check('文稿位移钳在 max 不露底部空白', /offset = Math\.min\(offset \+ step, max\)/.test(html));
+  check('文稿位移由阅读点反推并钳在 max（底部不露白）',
+    /offset = offsetForHead\(readHeadContentY\)/.test(html) && /function offsetForHead[\s\S]{0,120}clampOffset\(head - readHeadScreenY\(\)\)/.test(html));
 
   const VH=600, LINE=68, PER=8, TOP=100;
   Object.defineProperty(vpEl,'clientHeight',{value:VH,configurable:true});
@@ -515,7 +522,7 @@ ev('setPlaying(false);');
 // --- 20. 第十七轮：空白带快进，逐词高亮节奏连续（不再空等）---
 {
   check('空白带快进函数 blankGapAhead 存在', /function blankGapAhead\(headY\)/.test(html));
-  check('loop 使用空白带快进步长（offset 与锚点共用同一 step）',
+  check('loop 使用空白带快进步长（一步跨完，不被行权重缩放）',
     /const bg = blankGapAhead\(readHeadContentY\)/.test(html) &&
     /step = Math\.max\(step, bg\.nextTop - readHeadContentY\)/.test(html));
 
@@ -1120,6 +1127,49 @@ ev("caretSeekOffset = 999; togglePlay();");
 check('导入后点 ▶ 正常开播（不因末尾意图直接判定读完）',
   ev('playing') === true && ev('reachedEnd') === false);
 ev('setPlaying(false);');
+
+// --- 第三十二轮：播放起点/阅读点/播放进度条 ---
+{
+  check('阅读点屏幕位置函数 readHeadScreenY + offset 反推函数 offsetForHead',
+    /function readHeadScreenY\(\)/.test(html) && /function offsetForHead\(head\)/.test(html));
+  check('loop 中 offset 由阅读点反推（不再与阅读点各自加 step 而恒等）',
+    /readHeadContentY \+= step;[\s\S]{0,200}offset = offsetForHead\(readHeadContentY\)/.test(html));
+  check('无 caret 且从头播时把阅读点锚到第一个词（不再停在 padding 里）',
+    /else if \(!hadCaret\)[\s\S]{0,600}anchorReadHeadToToken\(0\)/.test(html));
+  check('手动滚动同步阅读点（续播不闪回旧坐标）',
+    /addEventListener\('scroll'[\s\S]{0,300}readHeadContentY = offset \+ readHeadScreenY\(\)/.test(html));
+  check('播放进度条 DOM + 样式 + 每帧更新（替代被关闭的原生滚动条）',
+    /id="playProgress"/.test(html) && /#app\.playing #playProgress\{display:block;\}/.test(html) &&
+    /function updatePlayProgress\(\)/.test(html) &&
+    /updateReadMark\(\); \/\/ 跟随速度自动切到下一个词\/字[\s\S]{0,160}updatePlayProgress\(\)/.test(html));
+
+  // 行为：首行文字在 padding 之后（top=100），导入后点播放必须从第一个词起步
+  Object.defineProperty(vpEl, 'clientHeight', { value: 600, configurable: true });
+  Object.defineProperty(st, 'offsetHeight', { value: 3000, configurable: true });
+  ev("state.scripts=[{id:'r32',title:'节奏',titleKind:'custom',content:'第一行文字\\n第二行文字\\n第三行文字',updatedAt:0}]; state.activeScriptId='r32'; loadActiveIntoEditor();");
+  const toks32 = [], lines32 = [];
+  for (let L = 0; L < 10; L++) {
+    for (let k = 0; k < 8; k++) {
+      const gi = L * 8 + k;
+      toks32.push({ top: 100 + L * 68, left: 22 + k * 40, w: 36, h: 44, charStart: gi, charEnd: gi + 1 });
+    }
+    lines32.push({ start: L * 8, end: L * 8 + 7, top: 100 + L * 68, height: 68 });
+  }
+  ev('readTokens=' + JSON.stringify(toks32) + '; readLines=' + JSON.stringify(lines32) + '; readTokensDirty=false; readTokensText=scrollText.textContent;');
+  ev('offset=0; readHeadContentY=0; caretSeekOffset=null; reachedEnd=false; state.speedUnit="px"; state.speedPx=90; remoteSpeedMul=1; voiceFollowing=false;');
+  ev('togglePlay();');
+  check('导入后播放：阅读点落在第一行文字上（不是 0 的 padding 起点）',
+    ev('readHeadContentY') >= 100 && ev('readHeadContentY') < 168, 'head=' + ev('readHeadContentY'));
+  check('导入后播放：起点处文稿不跳变（offset 仍为 0）', ev('offset') <= 2, 'offset=' + ev('offset'));
+  let _t32 = 0; for (let i = 0; i < 120; i++) { _t32 += 1000 / 60; ev('loop(' + _t32 + ')'); }
+  const h32 = ev('readHeadContentY'), o32 = ev('offset');
+  check('播放中阅读点恒在视口 20%（高亮不再贴顶边划出屏幕）',
+    Math.abs((h32 - o32) - ev('readHeadScreenY()')) < 1,
+    'head-offset=' + (h32 - o32).toFixed(1) + ' screenY=' + ev('readHeadScreenY()'));
+  check('播放进度条滑块有高度与位置（可见的位置指示）',
+    ev("(function(){var b=document.getElementById('playProgress'),i=b.firstElementChild;return !!i && parseFloat(i.style.height)>20 && parseFloat(i.style.top)>=0;})()"));
+  ev('setPlaying(false); caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
+}
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);

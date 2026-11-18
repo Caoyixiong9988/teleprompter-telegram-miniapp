@@ -47,6 +47,17 @@
     background:#c2cad8; border-radius:8px; border:2px solid #f3f5f9;
   }
   #app.playing #viewport{overflow:hidden;}
+  /* 播放进度条：播放态关掉原生滚动条后，右侧仍有"读到哪儿"的位置指示。
+     只读（pointer-events:none），不抢点按/编辑；轨道淡、滑块主色。 */
+  #playProgress{
+    position:absolute; top:0; right:0; width:5px; height:100%; display:none;
+    background:rgba(20,24,33,.06); z-index:6; pointer-events:none;
+  }
+  #app.playing #playProgress{display:block;}
+  #playProgress > i{
+    position:absolute; left:0; top:0; width:100%; height:24px; border-radius:3px;
+    background:rgba(45,108,223,.55);
+  }
   /* 逐词跟随标记：固定在视口阅读点（上 1/5），由 JS 把词/字的屏幕坐标写进来。
      pointer-events:none 保证它永远不会挡住点按定位与文字编辑。 */
   #readMark{
@@ -349,6 +360,9 @@
     <div id="scrollText" contenteditable="true" role="textbox" aria-multiline="true" aria-label="讲稿编辑区" spellcheck="false" autocapitalize="off" data-i18n-title="editHint"></div>
     <!-- 逐词跟随高亮：独立覆盖层，不拆 scrollText 的 DOM，编辑能力完全不受影响 -->
     <div id="readMark" aria-hidden="true"></div>
+    <!-- 播放进度条：播放态原生滚动条被关闭（位移交给 transform），这条只读指示条
+         补偿"这一块完全没有滚动指示"的缺失，让用户随时知道读到全篇的哪个位置。 -->
+    <div id="playProgress" aria-hidden="true"><i></i></div>
   </div>
 
   <!-- 工具条与兜底面板放在 #viewport 之外：长稿只在 viewport 内滚动，
@@ -3732,6 +3746,28 @@ let readTokensText = '';
    与文稿长度无关。旧式 offset/maxOffset×总词数 会放大 contentH/maxOffset 倍
    （短稿最高 6 倍），那才是「高亮跑得过快」的真因。 */
 const READ_HEAD_RATIO = 0.2;
+/* 阅读点在视口里的固定高度（px）：高亮就该稳定停在这条水平线上，文稿从下方滚过。
+   之前 offset 与阅读点各自从 0 同步 +step，两者恒等 → 高亮行永远贴在视口最顶边，
+   每推进一行就向上划出屏幕（实测 markTop 从 +100 一路掉到 -85 后被隐藏），
+   用户看到的就是"翻页太快、高亮一会儿就找不到了"。
+   现在唯一真源是阅读点 readHeadContentY，offset 由它反推，两者的差值恒等于这条线。 */
+function readHeadScreenY(){ return Math.max(0, Math.round(viewport.clientHeight * READ_HEAD_RATIO)); }
+function offsetForHead(head){
+  return clampOffset(head - readHeadScreenY());
+}
+/* 播放进度条：offset / max 映射成右侧滑块位置。max=0（短稿不滚）时铺满整条。 */
+function updatePlayProgress(){
+  const bar = document.getElementById('playProgress');
+  if (!bar || !viewport || !scrollText) return;
+  const thumb = bar.firstElementChild;
+  if (!thumb) return;
+  const track = viewport.clientHeight;
+  const max = maxOffset();
+  const contentH = Math.max(1, scrollText.offsetHeight);
+  const thumbH = max > 0 ? Math.max(24, Math.round(track * Math.min(1, track / contentH))) : track;
+  thumb.style.height = Math.min(track, thumbH) + 'px';
+  thumb.style.top = (max > 0 ? Math.round((track - thumbH) * Math.min(1, Math.max(0, offset / max))) : 0) + 'px';
+}
 function hideReadMark(){
   if (readMarkEl) readMarkEl.style.display = 'none';
 }
@@ -3876,6 +3912,14 @@ function seekToCaret(){
   readCounted = false;
   reachedEnd = false;
   return ok;
+}
+/* 按需构建词元缓存（导入/改稿/换字号后 readTokensDirty 置位）。
+   播放起点、点击定位、caret 定位共用，避免三处各写一遍判定条件而漂移。 */
+function ensureReadTokens(){
+  if (readTokensDirty || !readTokens || !readLines){
+    const txt = scrollText ? (scrollText.textContent || '') : '';
+    if (txt) buildReadTokens();
+  }
 }
 function buildReadTokens(){
   const list = tokenizeForRead();
@@ -4051,6 +4095,7 @@ function setPlaying(on, keepMark){
   //   否则（刷新归零/切换文稿/改稿/停止语音）→ 隐藏旧高亮，避免定格在过期位置。
   if (playing) updateReadMark(true);
   else if (!keepMark) hideReadMark();
+  updatePlayProgress();
 }
 function placeCaretAtStartDOM(){
   try {
@@ -4207,16 +4252,15 @@ function loop(ts){
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
   if (playing){
-    const max = maxOffset();
     // 按字符匀速：步速随当前行权重缩放；空白带再按像素一步跨完（不被缩放）
     let step = pxPerSec() * dt * paceScaleForHead(readHeadContentY);
     const bg = blankGapAhead(readHeadContentY);
     if (bg) step = Math.max(step, bg.nextTop - readHeadContentY); // 一步跨完空白带
-    offset = Math.min(offset + step, max);   // 文稿位移最多到 max，底部不露白
-    readHeadContentY += step;                // 锚点不受 max 限制，继续推进到末尾
+    readHeadContentY += step;                    // 阅读点先在内容坐标里前进（可越过 max）
+    offset = offsetForHead(readHeadContentY);    // 文稿位移由阅读点反推：高亮恒在视口 20% 处
     const endY = readEndContentY();
     // 读完条件：锚点扫过最后一个词（有词缓存）；无缓存则退回文稿到底
-    const finished = endY > 0 ? (readHeadContentY >= endY) : (offset >= max);
+    const finished = endY > 0 ? (readHeadContentY >= endY) : (offset >= maxOffset());
     if (finished){
       if (endY > 0) readHeadContentY = endY; // 钉在末行末尾，高亮最终落在最后一个词
       reachedEnd = true;   // 真正读完（含末行），供下次 ▶ 决定重头播放
@@ -4226,6 +4270,7 @@ function loop(ts){
       const scale = state.mirror ? -1 : 1;
       scrollText.style.transform = 'translateY(' + (-offset) + 'px) scaleX(' + scale + ')';
       updateReadMark(); // 跟随速度自动切到下一个词/字
+      updatePlayProgress(); // 播放态右侧进度条（替代被关闭的原生滚动条）
     }
   }
   rafId = requestAnimationFrame(loop);
@@ -4264,14 +4309,16 @@ function togglePlay(){
        1) 用户在暂停/浏览态主动放置过 caret（caretSeekOffset 有效）→ 以该字符为准，
           精确从光标所在词开始；这是"每次播放以当前光标位置为准"的明确意图。
        2) 自然播放到底（reachedEnd）→ 从头重播。
-       3) 否则保留 offset 续播（暂停后未动光标 / 手动滚动 / 点击定位）。 */
-    if (caretSeekOffset != null && caretSeekOffset >= 0){
+       3) 否则延续当前位置：offset<=0 视为"从头播"，把阅读点锚到第一个词；
+          已滚动过则让阅读点对齐视口 20%（与所见一致，不闪回）。
+       为什么必须显式锚定：导入/清空后 readHeadContentY 归 0，而首行文字在
+       padding-top（约 2.2em）之后、top≈100px —— 阅读点从 0 起步会先在内边距里
+       空跑 1 秒多，文字已经滚走、高亮却钉在第一个词上（"第一个字停留过久"）。 */
+    const hadCaret = (caretSeekOffset != null && caretSeekOffset >= 0);
+    if (hadCaret){
       // caret 字符偏移先把 readTokens 建好，再借 caretOffsetToWord 命中，
       // 但这里用保存的偏移而非实时 selection（▶ 按钮点击已让 contenteditable 失焦）
-      if (readTokensDirty || !readTokens || !readLines){
-        const txt = scrollText ? (scrollText.textContent || '') : '';
-        if (txt) buildReadTokens();
-      }
+      ensureReadTokens();
       const ch = caretSeekOffset; caretSeekOffset = null; // 消费一次性意图
       let ti = -1;
       if (readTokens && readTokens.length){
@@ -4285,7 +4332,10 @@ function togglePlay(){
         if (ti < 0) ti = best >= 0 ? best : readTokens.length - 1;
       }
       // 只把阅读头锚点对齐到起点词，文稿 offset 保持不动——零跳变
-      if (ti >= 0) anchorReadHeadToToken(ti);
+      if (ti >= 0){
+        anchorReadHeadToToken(ti);
+        offset = offsetForHead(readHeadContentY); // 保持"阅读点恒在视口 20%"不变式
+      }
       reachedEnd = false; readCounted = false;
     }
     // 若 max 变小（改稿/字号变化）导致 offset 越界，只做钳制，不回开头。
@@ -4293,12 +4343,19 @@ function togglePlay(){
     if (reachedEnd){
       // 读完重播：文稿回到顶端，阅读头锚点对齐第一个词
       offset = 0;
-      if (readTokensDirty || !readTokens || !readLines){
-        const txt = scrollText ? (scrollText.textContent || '') : '';
-        if (txt) buildReadTokens();
-      }
+      ensureReadTokens();
       anchorReadHeadToToken(0);
       readCounted = false; reachedEnd = false;
+    } else if (!hadCaret){
+      if (offset <= 0.5){
+        // 从头播：阅读点落在第一个词上（而不是 top=0 的内边距里）
+        offset = 0;
+        ensureReadTokens();
+        anchorReadHeadToToken(0);
+      } else {
+        // 从当前可见位置续播：阅读点=视口 20% 处那一行，和用户看到的完全一致
+        readHeadContentY = offset + readHeadScreenY();
+      }
     }
     setPlaying(true);
     toast(t('playResumed'));
@@ -5199,9 +5256,20 @@ document.addEventListener('keydown', function (e) {
   }
 });
 
-/* 浏览态手动滚动 → 同步阅读位置：滚到哪里，再点 ▶ 就从哪里开始 */
+/* 浏览态手动滚动 → 同步阅读位置：滚到哪里，再点 ▶ 就从哪里开始。
+   阅读点必须一起走位，否则高亮仍停在旧坐标、再播放会先"闪回"上次的位置。
+   只在"滚动位置与已知 offset 不一致"时才同步——程序化赋值（暂停还原位置、
+   点击定位、导入归零）都会写 scrollTop = offset，二者相等，不能把精心对齐好的
+   阅读点（例如点击定位命中的那一行）覆盖成视口 20% 处。 */
 viewport.addEventListener('scroll', function(){
-  if (!playing){ offset = clampOffset(viewport.scrollTop); readCounted = false; }
+  if (!playing){
+    const st = clampOffset(viewport.scrollTop);
+    if (Math.abs(st - offset) > 0.5){
+      offset = st;
+      readHeadContentY = offset + readHeadScreenY();
+    }
+    readCounted = false;
+  }
 }, { passive: true });
 /* 点击提词内容任意一行 → 定位播放起点。拖选文字时不触发，避免误跳。
    点文字下方的空白（短稿常见）只进编辑态，不设播放起点（见 clickBelowText）。 */
