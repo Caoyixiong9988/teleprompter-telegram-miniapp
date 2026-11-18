@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 236 键且一致', sizes.every(n => n === 236), JSON.stringify(sizes));
+check('七语各 243 键且一致', sizes.every(n => n === 243), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -690,6 +690,34 @@ ev('setPlaying(false);');
   // closeFinishCard 能关闭
   ev('document.getElementById("finishOverlay").classList.remove("hidden"); closeFinishCard();');
   check('closeFinishCard 关闭完成卡', doc.getElementById('finishOverlay').classList.contains('hidden'));
+
+  // --- 名字★必填 + 本机 ID + 成就感称号（本轮） ---
+  check('新增 7 个身份键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['nameRequired','localIdLabel','localIdHint','btnCopyId','btnResetId','idCopied','resetIdConfirm'].every(k=>!!I18N[l][k]))`));
+  check('名字输入框有红色必填标记（CSS + 红框）', /\.req-label::after\{content:' ★'; color:#e02424;\}/.test(html) && /id="setDisplayName"[^>]*border:1px solid #d92d20/.test(html));
+  check('设置页有专属 ID 区块（复制/换一个按钮）',
+    ['myLocalId','btnCopyId','btnResetId'].every(id => !!doc.getElementById(id)));
+  check('本机 ID 格式合法（TP- + 6位 base32，无易混淆字符）',
+    /^TP-[A-HJ-NP-Z2-9]{6}$/.test(ev('ensureLocalId()')) || /^TP-[A-HJ-NP-Z2-9]{6}$/.test(ev('state.localId')));
+  check('本机 ID 只存 state、不进云端字段', !/localId[\s\S]{0,40}(syncScripts|maybeSync)/.test(html));
+  const idBefore = ev('state.localId');
+  ev('state.localId=""; ensureLocalId();');
+  check('清空后自动补发合法 ID', /^TP-[A-HJ-NP-Z2-9]{6}$/.test(ev('state.localId')) && ev('state.localId') !== '');
+  ev(`state.localId=${JSON.stringify(idBefore)};`);
+  check('名字护栏：控制字符与超长被清理', ev(`cleanDisplayName('  测试\\n用户\\u0001' + 'x'.repeat(50)).length`) === 24);
+  check('名字护栏：普通名字原样保留', ev(`cleanDisplayName('  小明  ') === '小明'`));
+  check('★必填只认用户输入，Telegram 昵称/匿名不算', ev(`(function(){ state.displayName=''; return hasOwnDisplayName()===false; })()`));
+  ev('state.displayName="测试用户";');
+  check('填入名字后 hasOwnDisplayName 为真', ev('hasOwnDisplayName() === true'));
+  ev('state.displayName="";');
+  check('必填校验函数存在且缺名字时返回 false 并给出提示',
+    ev(`typeof requireDisplayNameForCard==='function' && requireDisplayNameForCard()===false`) && ev(`toastEl.textContent.length>0`));
+  ev('state.displayName="回归用户"; toastEl.textContent="";');
+  check('有名字时必填校验放行', ev('requireDisplayNameForCard() === true'));
+  check('称号拆分：五种语言都能取出「称号」+ 宣言', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>{ curLang=l; const p=finishPersonaParts(30); return !!p.title && !!p.claim; })`));
+  ev(`curLang='zh';`);
+  check('成就称号文案升级为「勋章式」五档（含称号符号）', ev(`['finishPersona1','finishPersona2','finishPersona3','finishPersona4','finishPersona5'].every(k=>/[「"«]/.test(I18N.zh[k]))`));
+  check('完成卡在名字下绘制本机 ID 行', /'ID  ' \+ state\.localId/.test(html));
+  check('完成卡绘制称号牌（圆角勋章 + 宣言）', /finishPersonaParts\(reads\)/.test(html) && /ctx\.roundRect\(tx, ty, tw, th, 33\)/.test(html));
   // canvas 生成：jsdom 无 canvas 实现，stub getContext→null 验证安全降级路径
   const proto = window.HTMLCanvasElement && window.HTMLCanvasElement.prototype;
   const origGetCtx = proto && proto.getContext;

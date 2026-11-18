@@ -254,6 +254,8 @@
   .finish-burst{font-size:40px; line-height:1; margin:2px 0 6px; animation:finishPop .5s cubic-bezier(.2,1.4,.5,1);}
   #finishOverlay h3{font-size:20px; color:#b4690e;}
   #finishPreview{width:100%; max-width:320px; border-radius:16px; box-shadow:0 10px 30px rgba(180,105,14,.22); margin:6px auto 4px; display:block;}
+  .req-label::after{content:' ★'; color:#e02424;}
+  .finish-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; letter-spacing:1px;}
   @keyframes finishPop{0%{transform:scale(.3) rotate(-20deg); opacity:0;} 100%{transform:scale(1) rotate(0); opacity:1;}}
 
   /* Toast */
@@ -526,9 +528,18 @@
       </div>
 
       <div class="field">
-        <label data-i18n="displayNameLabel">完成卡上的名字</label>
-        <input type="text" id="setDisplayName" data-i18n-ph="displayNamePlaceholder" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+        <label class="req-label" data-i18n="displayNameLabel">完成卡上的名字</label>
+        <input type="text" id="setDisplayName" data-i18n-ph="displayNamePlaceholder" style="width:100%; padding:10px; border:1px solid #d92d20; border-radius:10px; font-size:15px;" />
         <div class="hint" data-i18n="displayNameHint">留空则自动使用你的 Telegram 昵称。只保存在本机。</div>
+      </div>
+      <div class="field">
+        <label data-i18n="localIdLabel">我的专属 ID</label>
+        <div class="row" style="align-items:center; gap:8px; flex-wrap:wrap;">
+          <code id="myLocalId" style="flex:1; min-width:120px; font-size:17px; letter-spacing:1px; color:var(--primary); user-select:all;">TP-XXXXXX</code>
+          <button class="btn" id="btnCopyId" data-i18n="btnCopyId" style="min-width:auto; padding:8px 12px;">复制 ID</button>
+          <button class="btn" id="btnResetId" data-i18n="btnResetId" style="min-width:auto; padding:8px 12px;">换一个</button>
+        </div>
+        <div class="hint" data-i18n="localIdHint">系统自动分配，只存在这台手机，不会上传。完成卡上会用它标识你。</div>
       </div>
       <div class="field switch">
         <span data-i18n="finishCardLabel">读完自动弹完成卡</span>
@@ -952,18 +963,25 @@ const I18N = {
   finishFor:"这是",
   finishAnon:"一位提词达人",
   finishScriptsDone:"篇讲稿 · 已流畅读完",
-  finishPersona1:"初露锋芒，开口就是主角",
-  finishPersona2:"渐入佳境，表达越来越稳",
-  finishPersona3:"从容自信，镜头前的实力派",
-  finishPersona4:"稳定输出，把每次表达都做到位",
-  finishPersona5:"表达大师，提词器为你而生",
+  finishPersona1:"「表达新星」你的第一句话，就值得被听见。",
+  finishPersona2:"「镜头新秀」从紧张到自然，每一次开口都在进步。",
+  finishPersona3:"「口播实力派」从容稳定有感染力，镜头前的你自带光芒。",
+  finishPersona4:"「表达艺术家」你让文字有温度，让每次讲述成为作品。",
+  finishPersona5:"「传奇讲述者」百次登台出口成章，你就是这个舞台的主角。",
   finishBragLine:"我用 ScriptDeck 已经流畅读完 {n} 篇稿子，镜头前再也不慌了。",
   finishCtaTitle:"你也来试试 ScriptDeck",
   finishCtaSub:"{name} 邀请你一起流畅表达",
   finishShareText:"我用 ScriptDeck 读完了 {n} 篇稿子！🎬 你也能镜头前从容表达：",
   displayNameLabel:"完成卡上的名字",
   displayNamePlaceholder:"输入你的名字（留空用 Telegram 昵称）",
-  displayNameHint:"留空则自动使用你的 Telegram 昵称。只保存在本机。",
+  displayNameHint:"★ 必填：完成卡上会显示这个名字。留空则自动使用 Telegram 昵称。只保存在本机。",
+  nameRequired:"请先填写完成卡上的名字",
+  localIdLabel:"我的专属 ID",
+  localIdHint:"系统自动分配，只存在这台手机，不会上传。完成卡上会用它标识你。",
+  btnCopyId:"复制 ID",
+  btnResetId:"换一个",
+  idCopied:"ID 已复制",
+  resetIdConfirm:"换 ID 后，旧完成卡上的标识会作废，确定吗？",
   finishCardLabel:"读完自动弹完成卡",
   verifyOk:"身份已验证 ✓",
   verifyFail:"验签未通过",
@@ -1179,18 +1197,25 @@ const I18N = {
   finishFor:"This belongs to",
   finishAnon:"A prompting pro",
   finishScriptsDone:"scripts · smoothly read",
-  finishPersona1:"Just getting started — already in the spotlight",
-  finishPersona2:"Finding your rhythm, getting steadier every take",
-  finishPersona3:"Calm and confident — a natural in front of the lens",
-  finishPersona4:"Consistent and sharp — nailing every take",
-  finishPersona5:"A true pro — the teleprompter was made for you",
+  finishPersona1:"\"Rising Voice\" Your first words deserve to be heard.",
+  finishPersona2:"\"Camera Newcomer\" From nerves to natural — every take moves you forward.",
+  finishPersona3:"\"Confident Speaker\" Calm, steady, magnetic — you light up the lens.",
+  finishPersona4:"\"Expression Artist\" You give words warmth and turn every take into a piece.",
+  finishPersona5:"\"Legendary Storyteller\" A hundred takes in, the stage is yours.",
   finishBragLine:"I've smoothly read {n} scripts with ScriptDeck — no more jitters on camera.",
   finishCtaTitle:"Try ScriptDeck too",
   finishCtaSub:"{name} invites you to speak with confidence",
   finishShareText:"I finished {n} scripts with ScriptDeck! 🎬 You can own the camera too:",
   displayNameLabel:"Name on your finish card",
   displayNamePlaceholder:"Your name (blank = Telegram nickname)",
-  displayNameHint:"Leave blank to use your Telegram name automatically. Stored on this device only.",
+  displayNameHint:"★ Required: this name appears on your finish card. Leave blank to use your Telegram name. Stored on this device only.",
+  nameRequired:"Please enter your name for the finish card first",
+  localIdLabel:"My personal ID",
+  localIdHint:"Assigned automatically, stored only on this device, never uploaded. Your finish card uses it to identify you.",
+  btnCopyId:"Copy ID",
+  btnResetId:"Regenerate",
+  idCopied:"ID copied",
+  resetIdConfirm:"Regenerating will invalidate the ID on old finish cards. Continue?",
   finishCardLabel:"Show finish card after reading",
   verifyOk:"Identity verified ✓",
   verifyFail:"Verification failed",
@@ -1419,18 +1444,25 @@ const I18N = {
   finishFor:"Diese gehört",
   finishAnon:"Ein Profi",
   finishScriptsDone:"Skripte · flüssig gelesen",
-  finishPersona1:"Gerade am Start — schon im Rampenlicht",
-  finishPersona2:"Du findest deinen Rhythmus, wird stetig sicherer",
-  finishPersona3:"Ruhig und selbstbewusst — ein Naturtalent vor der Kamera",
-  finishPersona4:"Beständig und präzise — jeder Take sitzt",
-  finishPersona5:"Ein echter Profi — das Teleprompter ist für dich gemacht",
+  finishPersona1:"\"Aufsteigende Stimme\" Dein erster Satz verdient es, gehört zu werden.",
+  finishPersona2:"\"Kamera-Neuling\" Von nervös zu sicher – jeder Take bringt dich weiter.",
+  finishPersona3:"\"Souveräner Sprecher\" Ruhig, stetig, charismatisch – du strahlst vor der Kamera.",
+  finishPersona4:"\"Ausdruck-Künstler\" Du gibst Worten Wärme und machst jeden Take zum Werk.",
+  finishPersona5:"\"Legendärer Erzähler\" Hundert Takes später – die Bühne gehört dir.",
   finishBragLine:"Ich habe mit ScriptDeck schon {n} Skripte flüssig gelesen — kein Lampenfieber mehr.",
   finishCtaTitle:"Probier ScriptDeck auch",
   finishCtaSub:"{name} lädt dich ein, sicher aufzutreten",
   finishShareText:"Ich habe {n} Skripte mit ScriptDeck geschafft! 🎬 Du kannst das auch:",
   displayNameLabel:"Name auf der Karte",
   displayNamePlaceholder:"Dein Name (leer = Telegram-Name)",
-  displayNameHint:"Leer lassen, um automatisch deinen Telegram-Namen zu nutzen. Nur lokal gespeichert.",
+  displayNameHint:"★ Pflicht: Dieser Name erscheint auf deiner Karte. Leer lassen für deinen Telegram-Namen. Nur lokal gespeichert.",
+  nameRequired:"Bitte gib zuerst deinen Namen für die Karte ein",
+  localIdLabel:"Meine persönliche ID",
+  localIdHint:"Automatisch zugewiesen, nur auf diesem Gerät gespeichert, nie hochgeladen. Die Karte nutzt es zu deiner Kennzeichnung.",
+  btnCopyId:"ID kopieren",
+  btnResetId:"Neu erzeugen",
+  idCopied:"ID kopiert",
+  resetIdConfirm:"Nach dem Neuerzeugen wird die ID auf alten Karten ungültig. Fortfahren?",
   finishCardLabel:"Karte nach dem Lesen anzeigen",
   verifyOk:'Identität bestätigt ✓',
   verifyFail:'Signaturprüfung fehlgeschlagen',
@@ -1659,18 +1691,25 @@ const I18N = {
   finishFor:"Elle appartient à",
   finishAnon:"Un pro du prompteur",
   finishScriptsDone:"scripts · lus avec aisance",
-  finishPersona1:"Vous débutez — déjà sous les projecteurs",
-  finishPersona2:"Vous trouvez votre rythme, de plus en plus assuré",
-  finishPersona3:"Calme et confiant — né pour la caméra",
-  finishPersona4:"Régulier et précis — chaque prise est réussie",
-  finishPersona5:"Un vrai pro — le prompteur est fait pour vous",
+  finishPersona1:"\"Voix montante\" Vos premiers mots méritent d'être entendus.",
+  finishPersona2:"\"Nouveau venu\" Du trac à l'aisance — chaque prise vous fait progresser.",
+  finishPersona3:"\"Orateur assuré\" Calme, sûr, charismatique — vous illuminez l'objectif.",
+  finishPersona4:"\"Artiste de l'expression\" Vous donnez chaleur aux mots et faites de chaque prise une œuvre.",
+  finishPersona5:"\"Conteur légendaire\" Cent prises plus tard, la scène est à vous.",
   finishBragLine:"J'ai déjà lu {n} scripts avec ScriptDeck — plus de trac devant la caméra.",
   finishCtaTitle:"Essayez aussi ScriptDeck",
   finishCtaSub:"{name} vous invite à parler avec assurance",
   finishShareText:"J'ai terminé {n} scripts avec ScriptDeck ! 🎬 Vous pouvez le faire aussi :",
   displayNameLabel:"Nom sur la carte",
   displayNamePlaceholder:"Votre nom (vide = pseudo Telegram)",
-  displayNameHint:"Laissez vide pour utiliser votre nom Telegram. Enregistré sur cet appareil uniquement.",
+  displayNameHint:"★ Obligatoire : ce nom apparaît sur votre carte. Laissez vide pour utiliser votre nom Telegram. Enregistré sur cet appareil uniquement.",
+  nameRequired:"Veuillez d'abord saisir votre nom pour la carte",
+  localIdLabel:"Mon ID personnel",
+  localIdHint:"Attribué automatiquement, stocké uniquement sur cet appareil, jamais téléversé. Votre carte l'utilise pour vous identifier.",
+  btnCopyId:"Copier l'ID",
+  btnResetId:"Régénérer",
+  idCopied:"ID copié",
+  resetIdConfirm:"La régénération invalidera l'ID sur les anciennes cartes. Continuer ?",
   finishCardLabel:"Afficher la carte après la lecture",
   verifyOk:'Identité vérifiée ✓',
   verifyFail:'Échec de la vérification de signature',
@@ -1886,18 +1925,25 @@ const I18N = {
   finishFor:"このカードの持ち主：",
   finishAnon:"テロンプターの達人",
   finishScriptsDone:"本 · スムーズに朗読",
-  finishPersona1:"デビューしたばかり、もう主役級",
-  finishPersona2:"リズムをつかみ、だんだん安定",
-  finishPersona3:"冷静自信、カメラの前の実力派",
-  finishPersona4:"安定した出力、毎回しっかり伝える",
-  finishPersona5:"表現のマスター、テロンプターはあなたのために",
+  finishPersona1:"「フレッシュボイス」最初の一言は、聞かれる価値がある。",
+  finishPersona2:"「カメラ新秀」緊張から自然へ、話すたびに成長している。",
+  finishPersona3:"「話しの実力派」冷静で安定、レンズの前で自然に輝く。",
+  finishPersona4:"「表現のアーティスト」言葉に温もりを、毎回の朗読に作品を。",
+  finishPersona5:"「伝説の語り手」百回の登壇、今や舞台はあなたのもの。",
   finishBragLine:"ScriptDeck で {n} 本の原稿をスムーズに読みました。カメラの前でもう緊張しません。",
   finishCtaTitle:"ScriptDeck も試して",
   finishCtaSub:"{name} さんが自信を持って話すよう招待します",
   finishShareText:"ScriptDeck で {n} 本の原稿を読み終えました！🎬 あなたもできます：",
   displayNameLabel:"カードに表示する名前",
   displayNamePlaceholder:"お名前（空欄 = Telegram ニックネーム）",
-  displayNameHint:"空欄なら Telegram の名前を自動で使います。この端末にのみ保存されます。",
+  displayNameHint:"★ 必須：この名前がカードに表示されます。空欄なら Telegram 名を使います。この端末にのみ保存。",
+  nameRequired:"まず完成カードに表示する名前を入力してください",
+  localIdLabel:"自分の専用 ID",
+  localIdHint:"自動で割り当てられ、この端末にのみ保存され、アップロードされません。カードであなたを識別します。",
+  btnCopyId:"ID をコピー",
+  btnResetId:"作り直す",
+  idCopied:"ID をコピーしました",
+  resetIdConfirm:"作り直すと古いカードの ID が無効になります。続けますか？",
   finishCardLabel:"読み終えたらカードを表示",
   verifyOk:"本人確認済み ✓",
   verifyFail:"確認に失敗しました",
@@ -2113,18 +2159,25 @@ const I18N = {
   finishFor:"이 카드의 주인:",
   finishAnon:"프롬프터 달인",
   finishScriptsDone:"편 · 매끄럽게 낭독",
-  finishPersona1:"이제 막 시작, 벌써 주인공",
-  finishPersona2:"리듬을 찾아가며 점점 안정적",
-  finishPersona3:"침착하고 자신감 있게, 카메라 앞의 실력자",
-  finishPersona4:"꾸준하고 정확하게, 매번 잘 해내는",
-  finishPersona5:"표현의 달인, 프롬프터는 당신을 위해",
+  finishPersona1:"「떠오르는 목소리」첫 한마디도 들을 만한 가치가 있어요.",
+  finishPersona2:"「카메라 신수」긴장에서 자연스럽게, 말할 때마다 성장해요.",
+  finishPersona3:"「표현의 실력자」침착하고 안정감 있게, 렌즈 앞에서 빛납니다.",
+  finishPersona4:"「표현의 아티스트」말에 온기를, 매번의 낭독을 작품으로.",
+  finishPersona5:"「전설의 이야기꾼」백 번의 무대, 이제 무대는 당신의 것.",
   finishBragLine:"ScriptDeck으로 {n}편의 대본을 매끄럽게 읽었어요. 카메라 앞에서 더 이상 떨지 않아요.",
   finishCtaTitle:"ScriptDeck도 써보세요",
   finishCtaSub:"{name} 님이 자신 있게 말하기를 초대합니다",
   finishShareText:"ScriptDeck으로 대본 {n}편을 끝냈어요! 🎬 당신도 할 수 있어요:",
   displayNameLabel:"카드에 표시할 이름",
   displayNamePlaceholder:"이름 (비우면 Telegram 닉네임)",
-  displayNameHint:"비우면 Telegram 이름을 자동으로 사용합니다. 이 기기에만 저장됩니다.",
+  displayNameHint:"★ 필수: 이 이름이 카드에 표시됩니다. 비우면 Telegram 이름을 사용합니다. 이 기기에만 저장됩니다.",
+  nameRequired:"완료 카드에 표시할 이름을 먼저 입력해 주세요",
+  localIdLabel:"나만의 전용 ID",
+  localIdHint:"자동으로 배정되며 이 기기에만 저장되고 업로드되지 않습니다. 카드에서 당신을 표시합니다.",
+  btnCopyId:"ID 복사",
+  btnResetId:"다시 만들기",
+  idCopied:"ID가 복사되었습니다",
+  resetIdConfirm:"다시 만들면 이전 카드의 ID가 무효가 됩니다. 계속할까요?",
   finishCardLabel:"읽기 후 완료 카드 표시",
   verifyOk:"신원 확인됨 ✓",
   verifyFail:"확인 실패",
@@ -2340,18 +2393,25 @@ const I18N = {
   finishFor:"Это карточка",
   finishAnon:"Профи суфлёра",
   finishScriptsDone:"скриптов · прочитано гладко",
-  finishPersona1:"Только начали — уже в центре внимания",
-  finishPersona2:"Находите свой ритм, становится увереннее",
-  finishPersona3:"Спокойны и уверенны — прирождённый перед камерой",
-  finishPersona4:"Стабильно и чётко — каждый дубль удаётся",
-  finishPersona5:"Мастер слова — суфлёр создан для вас",
+  finishPersona1:"«Восходящий голос» Ваши первые слова достойны быть услышанными.",
+  finishPersona2:"\"Новичок в кадре\" От волнения к естественности — каждый дубль вас продвигает.",
+  finishPersona3:"\"Уверенный оратор\" Спокойно, чётко, притягательно — вы светитесь в объективе.",
+  finishPersona4:"\"Мастер выражения\" Вы согреваете слова и превращаете каждый дубль в произведение.",
+  finishPersona5:"\"Легендарный рассказчик\" Сто дублей — и сцена ваша.",
   finishBragLine:"Я уже гладко прочитал {n} скриптов в ScriptDeck — больше нет волнения перед камерой.",
   finishCtaTitle:"Попробуйте ScriptDeck тоже",
   finishCtaSub:"{name} приглашает говорить уверенно",
   finishShareText:"Я прочитал {n} скриптов в ScriptDeck! 🎬 У вас тоже получится:",
   displayNameLabel:"Имя на карточке",
   displayNamePlaceholder:"Ваше имя (пусто = имя Telegram)",
-  displayNameHint:"Оставьте пустым, чтобы использовать имя Telegram. Хранится только на этом устройстве.",
+  displayNameHint:"★ Обязательно: это имя появится на вашей карточке. Оставьте пустым, чтобы использовать имя Telegram. Хранится только на этом устройстве.",
+  nameRequired:"Сначала введите имя для карточки",
+  localIdLabel:"Мой личный ID",
+  localIdHint:"Назначается автоматически, хранится только на этом устройстве и не загружается. Карточка использует его для вашей идентификации.",
+  btnCopyId:"Копировать ID",
+  btnResetId:"Создать заново",
+  idCopied:"ID скопирован",
+  resetIdConfirm:"После повторного создания ID на старых карточках станет недействительным. Продолжить?",
   finishCardLabel:"Показывать карточку после чтения",
   verifyOk:"Личность подтверждена ✓",
   verifyFail:"Подпись не прошла проверку",
@@ -2561,7 +2621,8 @@ const defaultState = {
   speedUnit: 'px', // 'px' | 'cpm'
   referralCode: '',
   botUser: '',
-  displayName: '', // 完成卡上显示的名字（空则用 Telegram first_name，再兜底本地化默认名）
+  displayName: '', // 完成卡上显示的名字（★必填；保存/分享卡时校验，仅存本机）
+  localId: '', // 本机专属短 ID（TP- + 6位 base32），首次启动生成，仅存本机、不上传
   finishCard: true, // 一篇读完自动弹完成卡（可关，避免打扰）
   reads: 0, // 完整读完讲稿的次数（驱动免费头衔 + 完成卡；本地保存，不上传）
   isPro: false // Pro 会员状态（本地缓存；生产以 /payments/pro-status 为准）
@@ -3608,6 +3669,33 @@ function loadState(){
   if (!state.activeScriptId || !state.scripts.some(function (x) { return x.id === state.activeScriptId; })) {
     state.activeScriptId = state.scripts[0].id;
   }
+  ensureLocalId(); // 本机 ID：老用户升级也自动补发一次
+}
+
+/* ---------- 本机专属短 ID（仅存本机，不上传） ----------
+   6 位 base32，剔除易混淆的 0/O/1/I/L；用 crypto 安全随机，失败回退 Math.random。
+   它只是一个"这张卡属于谁"的展示代号，无服务端背书、不能找回账号。 */
+const ID_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function makeLocalId(){
+  let out = '';
+  const bytes = new Uint8Array(6);
+  let ok = false;
+  try {
+    const c = (window.crypto || (typeof crypto !== 'undefined' ? crypto : null));
+    if (c && c.getRandomValues){ c.getRandomValues(bytes); ok = true; }
+  } catch(e){}
+  for (let i = 0; i < 6; i++){
+    const v = ok ? bytes[i] : Math.floor(Math.random() * 256);
+    out += ID_ALPHABET[v % ID_ALPHABET.length];
+  }
+  return 'TP-' + out;
+}
+function ensureLocalId(){
+  if (typeof state.localId !== 'string' || !/^TP-[A-HJ-NP-Z2-9]{6}$/.test(state.localId)){
+    state.localId = makeLocalId();
+    saveState();
+  }
+  return state.localId;
 }
 let saveTimer = null;
 function debounceSave(){
@@ -4834,8 +4922,13 @@ function generateCard(){
  * 纯 canvas 本地生成，零服务端、零用户间交互（符合产品宪法底线）。
  * 构成：用户名 + 完成篇数 + 等级徽章 + 人格化称号 + 一句可晒文案 + 产品深链。 */
 let finishCardDataUrl = '';
+// 名字护栏：去掉控制字符与换行，限 24 字符，避免卡片排版被撑破 / 注入奇怪内容
+function cleanDisplayName(v){
+  return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f\u200b-\u200f]/g, '')
+    .replace(/\s+/g, ' ').trim().slice(0, 24);
+}
 function finishDisplayName(){
-  const custom = String(state.displayName || '').trim();
+  const custom = cleanDisplayName(state.displayName);
   if (custom) return custom;
   try {
     const u = window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe
@@ -4860,6 +4953,15 @@ function finishPersona(reads){
   for (const tier of tiers) if (reads <= tier.max) return t(tier.key);
   return t('finishPersona5');
 }
+// 称号拆分：「称号」+ 宣言，用于卡片上"称号牌"两行排版；无引号时整段当宣言
+function finishPersonaParts(reads){
+  const raw = finishPersona(reads);
+  const m = String(raw).match(/^([「"«][^」"»]+[」"»])\s*(.*)$/s);
+  if (m) return { title: m[1], claim: (m[2] || '').trim() };
+  return { title: '', claim: String(raw) };
+}
+// 名字是否已填（★必填）：仅认用户自己输入的名字，Telegram 昵称与匿名兜底都不算
+function hasOwnDisplayName(){ return !!cleanDisplayName(state.displayName); }
 function generateFinishCard(){
   try {
   const reads = state.reads || 0;
@@ -4892,25 +4994,45 @@ function generateFinishCard(){
   const name = finishDisplayName();
   ctx.fillStyle = '#1f2430'; ctx.font = 'bold 58px sans-serif';
   const nameLines = wrapText(ctx, name, 900);
-  ctx.fillText(nameLines[0] || name, 540, 470);
+  ctx.fillText(nameLines[0] || name, 540, 466);
+  // 本机专属 ID（名字正下方， monospace 小字，像"号码牌"）
+  if (ensureLocalId()){
+    ctx.fillStyle = '#a9a29a'; ctx.font = '24px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.fillText('ID  ' + state.localId, 540, 506);
+  }
   // 核心数字：完成篇数
   ctx.fillStyle = '#b4690e'; ctx.font = 'bold 180px sans-serif';
   ctx.fillText(String(reads), 540, 690);
   ctx.fillStyle = '#8a6a2f'; ctx.font = 'bold 40px sans-serif';
   ctx.fillText(t('finishScriptsDone'), 540, 748);
-  // 等级徽章 + 人格化称号
+  // 称号牌：等级徽章 + 「称号」+ 荣耀宣言，做成"勋章卡"增强成就感
   const rk = RANKS[rankIndexOf(reads)];
-  ctx.font = '44px sans-serif';
-  ctx.fillText(rk.icon + ' ' + rankNameOf(rk), 540, 838);
-  ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 46px sans-serif';
-  const persona = finishPersona(reads);
-  const pLines = wrapText(ctx, persona, 900);
-  for (let i = 0; i < Math.min(2, pLines.length); i++) ctx.fillText(pLines[i], 540, 912 + i * 58);
+  ctx.font = '40px sans-serif';
+  ctx.fillText(rk.icon + ' ' + rankNameOf(rk), 540, 830);
+  const pp = finishPersonaParts(reads);
+  if (pp.title){
+    ctx.fillStyle = '#fffdf6';
+    const tw = Math.min(900, ctx.measureText(pp.title).width + 96);
+    const tx = 540 - tw / 2, ty = 856, th = 66;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(tx, ty, tw, th, 33);
+    else { ctx.rect(tx, ty, tw, th); }
+    ctx.fillStyle = '#b4690e'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 40px sans-serif';
+    ctx.fillText(pp.title, 540, ty + 44);
+    ctx.fillStyle = '#4b5563'; ctx.font = '30px sans-serif';
+    const cl = wrapText(ctx, pp.claim, 920);
+    for (let i = 0; i < Math.min(2, cl.length); i++) ctx.fillText(cl[i], 540, 962 + i * 40);
+  } else {
+    ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 44px sans-serif';
+    const pLines = wrapText(ctx, pp.claim, 900);
+    for (let i = 0; i < Math.min(2, pLines.length); i++) ctx.fillText(pLines[i], 540, 900 + i * 54);
+  }
   // 可晒文案
   ctx.fillStyle = '#4b5563'; ctx.font = '30px sans-serif';
   const shareLine = fmt(t('finishBragLine'), { n: reads });
   const sLines = wrapText(ctx, shareLine, 920);
-  let sy = pLines.length > 1 ? 1040 : 1010;
+  const sy = 1048; // 称号牌宣言最多画到 ~1002，固定从这里起避免重叠
   for (let i = 0; i < Math.min(2, sLines.length); i++) ctx.fillText(sLines[i], 540, sy + i * 44);
   // 底部分隔
   ctx.strokeStyle = '#e8eaee'; ctx.lineWidth = 2;
@@ -5376,7 +5498,34 @@ if (setReadMarkStrength) setReadMarkStrength.addEventListener('change', function
 });
 setReferral.addEventListener('input', function(e){ state.referralCode = e.target.value.trim(); saveState(); });
 setBotUser.addEventListener('input', function(e){ state.botUser = e.target.value.trim(); saveState(); });
-if (setDisplayName) setDisplayName.addEventListener('input', function(e){ state.displayName = e.target.value.trim(); saveState(); });
+if (setDisplayName) setDisplayName.addEventListener('input', function(e){
+  const v = cleanDisplayName(e.target.value);
+  if (v !== e.target.value) e.target.value = v; // 护栏即时生效
+  state.displayName = v; saveState();
+});
+// 本机 ID：复制 / 换一个
+const btnCopyId = document.getElementById('btnCopyId');
+const btnResetId = document.getElementById('btnResetId');
+const myLocalIdEl = document.getElementById('myLocalId');
+function renderLocalId(){ if (myLocalIdEl) myLocalIdEl.textContent = ensureLocalId(); }
+if (btnCopyId) btnCopyId.addEventListener('click', async function(){
+  renderLocalId();
+  const id = state.localId;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(id); }
+    else {
+      const ta = document.createElement('textarea'); ta.value = id; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch(e){}
+      document.body.removeChild(ta);
+    }
+    toast(t('idCopied'));
+  } catch(e){ toast(id); } // 复制失败也把 ID 显示出来，用户可手动抄
+});
+if (btnResetId) btnResetId.addEventListener('click', function(){
+  if (!window.confirm(t('resetIdConfirm'))) return;
+  state.localId = makeLocalId(); saveState(); renderLocalId();
+});
 if (setFinishCard) setFinishCard.addEventListener('change', function(e){ state.finishCard = e.target.checked; saveState(); });
 
 btnDownloadCard.addEventListener('click', function(){
@@ -5414,13 +5563,26 @@ const btnFinishSave = document.getElementById('btnFinishSave');
 const btnFinishShare = document.getElementById('btnFinishShare');
 const btnFinishClose = document.getElementById('btnFinishClose');
 const finishOverlay = document.getElementById('finishOverlay');
+// ★必填：保存/分享完成卡时校验名字；缺失则提示并跳到设置里的名字输入框。
+// 自动弹卡不拦（不打断提词主流程），只在"把卡发出去"这一步要求署名。
+function requireDisplayNameForCard(){
+  if (hasOwnDisplayName()) return true;
+  toast(t('nameRequired'));
+  try { closeFinishCard(); } catch(e){}
+  const ss = document.getElementById('settingsSheet');
+  if (ss) ss.classList.remove('hidden');
+  if (setDisplayName) setTimeout(function(){ try { setDisplayName.focus(); } catch(e){} }, 60);
+  return false;
+}
 if (btnFinishSave) btnFinishSave.addEventListener('click', function(){
+  if (!requireDisplayNameForCard()) return;
   if (!finishCardDataUrl) return;
   const a = document.createElement('a');
   a.href = finishCardDataUrl; a.download = 'scriptdeck-finish.png';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 });
 if (btnFinishShare) btnFinishShare.addEventListener('click', async function(){
+  if (!requireDisplayNameForCard()) return;
   const url = deepLink();
   const text = fmt(t('finishShareText'), { n: (state.reads || 0), name: finishDisplayName() });
   if (finishCardDataUrl && navigator.share && window.File) {
@@ -5649,6 +5811,7 @@ function init(){
   setReferral.value = state.referralCode || '';
   setBotUser.value = state.botUser || '';
   if (setDisplayName) setDisplayName.value = state.displayName || '';
+  if (typeof renderLocalId === 'function') renderLocalId();
   if (setFinishCard) setFinishCard.checked = state.finishCard !== false;
 
   applyPrompterStyle();
