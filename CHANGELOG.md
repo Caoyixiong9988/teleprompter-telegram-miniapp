@@ -8,6 +8,16 @@
 
 ---
 
+## 2026-11-18 · fix — 短稿点空白也能编辑 + 空稿播放提示（第三十轮）
+
+- **类型**：fix（两项）
+- **问题①（短稿点空白无工具条·真 BUG）**：提词区编辑面 `#scrollText` 只有 `min-height:60px`，短稿时文字下方一大片空白属于外层 `#viewport`，点在那里不落焦点 → 粘贴/讲稿库/导入/清空/完成 这条工具条不出现。修复：`#scrollText{ min-height:100% }` 让编辑面铺满提词区（播放态 `#app.playing #scrollText{min-height:0}` 复原，避免误点空白顶出工具条）；新增 `clickBelowText()` 几何判定，点文字下方空白只进编辑态、**不**设置播放起点（否则浏览器把光标贴到末尾文字，下次 ▶ 会从最后一个词开始）。
+- **问题②（空稿点 ▶ 却说"继续播放"·真 BUG）**：`togglePlay()` 播放分支没有任何内容校验，空稿同样 `setPlaying(true)` 并 toast「继续播放」。修复：进入播放前拦截空稿（`getActiveContent().trim()` 为空），提示新增 `playEmpty`（七语，键数 235→236）并保持编辑态不变；有稿播放不受影响。
+- **验证**：npm 147/147、iOS 编辑器 280/280（新增 10 项）、i18n 32/32、worker 18/18；另用真 Chrome（CDP + 真排版）复现确认：编辑面高度 565px = 视口 565px、点空白工具条出现、`caretSeekOffset` 不被污染、空稿点 ▶ 不播并提示、有稿正常播放。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`
+
+---
+
 ## 2026-11-18 · fix — 高亮残留重置 + 主界面显示当前讲稿标题 + 眼睛按钮对齐（第二十九轮）
 
 - **类型**：fix（三项）
