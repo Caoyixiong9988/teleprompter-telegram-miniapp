@@ -23,6 +23,7 @@
   - i18n 新增 `btnConfirmId`（七语），改 `idRegenerated` 文案为"新 ID 已生成，名字未变；确认后才同步"，键数 246→247。
 - **怎么验证**：npm 147/147、iOS 编辑器 345/345（旧两段式断言改为两步语义 + 新增结束态/整词口径断言）、i18n 32/32（七语各 247 键）、Worker 18/18；真 Chrome 复验：读完 `mark:none`、英文权重口径偏差 0 且锚定整词宽度 103.7=103.7、换一个只换ID名字不变→确认才同步。
 - **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`
+- **线上**：Cloudflare Pages 生产部署 `8755bfd3`（`--branch main`），`https://teleprompter-49y.pages.dev/` 369,620 字节、sha256 `bf07cba9…`，与本地逐字节一致；Gitee `1204ce7`。
 
 ---
 
