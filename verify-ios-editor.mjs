@@ -1171,6 +1171,43 @@ ev('setPlaying(false);');
   ev('setPlaying(false); caretSeekOffset=null; readTokens=null; readLines=null; readTokensDirty=true;');
 }
 
+// --- 第三十三轮：暂停态"起点指示"高亮必须跟随用户新设定的起点 ---
+{
+  check('updateReadMark 支持 allowPaused（暂停态也能画起点指示）',
+    /function updateReadMark\(force, allowPaused\)/.test(html) &&
+    /if \(\(!playing && !allowPaused\) \|\| !state\.readMark \|\| state\.mirror\)/.test(html));
+  check('暂停态点击定位后立刻重画高亮（不再黏在旧词上）',
+    /viewport\.scrollTop = offset;[\s\S]{0,260}updateReadMark\(true, true\)/.test(html));
+  check('暂停态手动滚动后重画高亮（跟随滚动位置）',
+    /readHeadContentY = offset \+ readHeadScreenY\(\)[\s\S]{0,220}updateReadMark\(false, true\)/.test(html));
+  check('改字后收起暂停态高亮（词元坐标已失效）',
+    /if \(!playing\) hideReadMark\(\);[\s\S]{0,80}debounceSave\(\); maybeSyncDebounced\(\)/.test(html));
+
+  // 运行时：暂停态画到阅读点，且"只播放时显示"的旧行为仍受状态开关控制
+  const VH = 400;
+  Object.defineProperty(vpEl, 'clientHeight', { value: VH, configurable: true });
+  Object.defineProperty(st, 'offsetHeight', { value: 2000, configurable: true });
+  Object.defineProperty(st, 'getBoundingClientRect', { value: () => ({ top: 0, left: 0, width: 600, height: 2000, bottom: 2000, right: 600 }), configurable: true });
+  Object.defineProperty(vpEl, 'getBoundingClientRect', { value: () => ({ top: 0, left: 0, width: 400, height: VH, bottom: VH, right: 400 }), configurable: true });
+  const toks33 = [], lines33 = [];
+  for (let L = 0; L < 10; L++) {
+    for (let k = 0; k < 8; k++) toks33.push({ top: L * 68, left: 22 + k * 40, w: 36, h: 44, charStart: L * 8 + k, charEnd: L * 8 + k + 1 });
+    lines33.push({ start: L * 8, end: L * 8 + 7, top: L * 68, height: 68, weight: 8 });
+  }
+  ev('readTokens=' + JSON.stringify(toks33) + '; readLines=' + JSON.stringify(lines33) + '; readTokensDirty=false; readTokensText=scrollText.textContent;');
+  ev('playing=false; state.readMark=true; state.mirror=false; readHeadContentY=100;');
+  ev('updateReadMark(true, true);');
+  const mk = doc.getElementById('readMark');
+  check('暂停态按阅读点画出高亮（第 2 行 top≈68）',
+    mk.style.display === 'block' && parseFloat(mk.style.top) >= 60 && parseFloat(mk.style.top) <= 76,
+    'display=' + mk.style.display + ' top=' + mk.style.top);
+  ev('hideReadMark(); updateReadMark(true);');
+  check('不传 allowPaused 时暂停态仍不显示（旧语义不被破坏）', mk.style.display === 'none');
+  ev('state.readMark=false; updateReadMark(true, true);');
+  check('高亮开关关闭时暂停态也不画', mk.style.display === 'none');
+  ev('state.readMark=true; readTokens=null; readLines=null; readTokensDirty=true; hideReadMark();');
+}
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);

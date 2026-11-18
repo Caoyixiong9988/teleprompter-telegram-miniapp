@@ -842,7 +842,7 @@ const I18N = {
   alignRight:"右对齐",
   mirrorLabel:"镜像模式（接物理提词支架时开启）",
   readMarkLabel:"逐词跟随高亮",
-  readMarkHint:"播放时用底色标出当前该读的词／字，随速度自动跳到下一个；只在播放时显示，不影响编辑。",
+  readMarkHint:"播放时用底色标出当前该读的词／字，随速度自动跳到下一个；暂停时同一个高亮标出下次播放的起点（点文字或滚动即可改），不影响编辑。",
 
   toggleReadMark:"逐词高亮：点一下在 强底色→淡下划线→关闭 间循环",
   readMarkOn:"逐词高亮已开",
@@ -1069,7 +1069,7 @@ const I18N = {
   alignRight:"Right",
   mirrorLabel:"Mirror mode (enable when using a physical teleprompter rig)",
   readMarkLabel:"Word-by-word highlight",
-  readMarkHint:"During playback the current word is highlighted and moves to the next one at your set speed. Shown only while playing; editing is unaffected.",
+  readMarkHint:"During playback the current word is highlighted and moves on at your set speed. While paused the same highlight marks where playback will resume — tap a word or scroll to move it. Editing is unaffected.",
 
   toggleReadMark:"Word highlight: tap to cycle strong → subtle → off",
   readMarkOn:"Word highlight on",
@@ -1309,7 +1309,7 @@ const I18N = {
   alignRight:'Rechtsbündig',
   mirrorLabel:'Spiegelmodus (bei physischem Teleprompter-Gestell einschalten)',
   readMarkLabel:'Wort-für-Wort-Hervorhebung',
-  readMarkHint:'Während der Wiedergabe wird das aktuelle Wort markiert und wandert im eingestellten Tempo weiter. Nur beim Abspielen sichtbar – die Bearbeitung bleibt unberührt.',
+  readMarkHint:'Während der Wiedergabe wird das aktuelle Wort markiert und wandert im eingestellten Tempo weiter. In der Pause zeigt dieselbe Markierung, wo es weitergeht – antippen oder scrollen verschiebt sie. Die Bearbeitung bleibt unberührt.',
 
   toggleReadMark:"Wort-Hervorhebung: Tippen wechselt Stark → dezent → aus",
   readMarkOn:"Wort-Hervorhebung an",
@@ -1549,7 +1549,7 @@ const I18N = {
   alignRight:'Droite',
   mirrorLabel:'Mode miroir (à activer avec un support de téléprompteur physique)',
   readMarkLabel:'Surlignage mot par mot',
-  readMarkHint:'Pendant la lecture, le mot en cours est surligné et passe au suivant à la vitesse choisie. Visible uniquement pendant la lecture, sans effet sur la saisie.',
+  readMarkHint:'Pendant la lecture, le mot en cours est surligné et avance à la vitesse choisie. En pause, ce surlignage indique où la lecture reprendra — touchez un mot ou faites défiler pour le déplacer. La saisie reste intacte.',
 
   toggleReadMark:"Surlignage : appuyez pour alterner fort → léger → désactivé",
   readMarkOn:"Surlignage activé",
@@ -1776,7 +1776,7 @@ const I18N = {
   alignRight:"右揃え",
   mirrorLabel:"ミラーモード（物理提词台を使う場合はオン）",
   readMarkLabel:"単語追従ハイライト",
-  readMarkHint:"再生中に現在読む語／字を背景色で示し、設定した速度で次の語へ移ります。編集中は表示されません。",
+  readMarkHint:"再生中に現在読む語／字を背景色で示し、設定した速度で次の語へ移ります。一時停止中は同じハイライトが再開位置を示し、文字をタップしたりスクロールすると移動します。編集には影響しません。",
 
   toggleReadMark:"単語ハイライト：タップで 強い背景→淡い下線→オフ を切替",
   readMarkOn:"単語ハイライト：オン",
@@ -2003,7 +2003,7 @@ const I18N = {
   alignRight:"오른쪽",
   mirrorLabel:"미러 모드（물리적提词 거치대 사용 시 켜기）",
   readMarkLabel:"단어 따라가기 강조",
-  readMarkHint:"재생 중 현재 읽을 단어를 배경색으로 표시하고 설정한 속도에 따라 다음 단어로 이동합니다. 편집에는 영향이 없습니다.",
+  readMarkHint:"재생 중 현재 읽을 단어를 배경색으로 표시하고 설정한 속도에 따라 다음 단어로 이동합니다. 일시정지 상태에서는 같은 하이라이트가 다시 시작할 위치를 보여 주며, 글자를 누르거나 스크롤하면 위치가 바뀝니다. 편집에는 영향이 없습니다.",
 
   toggleReadMark:"단어 강조: 탭하여 진한 배경→연한 밑줄→꺼짐 순환",
   readMarkOn:"단어 강조 켜짐",
@@ -2230,7 +2230,7 @@ const I18N = {
   alignRight:"По правому краю",
   mirrorLabel:"Зеркальный режим (включайте при работе с физическим суфлёром)",
   readMarkLabel:"Подсветка по словам",
-  readMarkHint:"Во время воспроизведения текущее слово подсвечивается и переходит к следующему с заданной скоростью. Показывает только при воспроизведении, не мешает редактированию.",
+  readMarkHint:"Во время воспроизведения текущее слово подсвечивается и переходит к следующему с заданной скоростью. На паузе эта же подсветка показывает, откуда продолжится чтение — коснитесь слова или прокрутите, чтобы её переместить. Редактирование не затрагивается.",
 
   toggleReadMark:"Подсветка слов: нажмите для цикла яркий фон → подчёркивание → выкл.",
   readMarkOn:"Подсветка слов включена",
@@ -4031,10 +4031,14 @@ function anchorReadHeadToToken(ti){
   readHeadContentY = ln.top + tokenFracAt(ti) * ln.height;
   return true;
 }
-function updateReadMark(force){
+/* 把高亮块画到「阅读点」当前所指的词上。
+   allowPaused=true 时，暂停/浏览态也画——用作"下次播放从这儿开始"的起点指示。
+   （#readMark 是 #viewport 的绝对定位子元素，会跟着内容一起滚动；所以只要用户
+   改了起点或滚动了文稿，就必须重画，否则那个黄块会像贴纸一样黏在旧的字上，
+   看起来"高亮停在上一篇文稿暂停的地方"——这是用户实测报的 BUG。） */
+function updateReadMark(force, allowPaused){
   if (!readMarkEl) return;
-  if (!playing || !state.readMark || state.mirror) { hideReadMark(); return; }
-  if (force) readTokensDirty = true;
+  if ((!playing && !allowPaused) || !state.readMark || state.mirror) { hideReadMark(); return; }
   const ts = Date.now();
   if (!force && ts - lastReadMarkTs < 45) return; // 约 22fps
   lastReadMarkTs = ts;
@@ -4092,6 +4096,7 @@ function setPlaying(on, keepMark){
   updatePlayBtn();
   // 播放时刷新高亮；暂停时：
   //   keepMark=true（手动暂停/读完/语音停顿）→ 保留高亮定格在当前词，不隐藏；
+  //     （transform -offset 换成 scrollTop=offset，视觉位置不变，故无需重画）
   //   否则（刷新归零/切换文稿/改稿/停止语音）→ 隐藏旧高亮，避免定格在过期位置。
   if (playing) updateReadMark(true);
   else if (!keepMark) hideReadMark();
@@ -4194,6 +4199,9 @@ function seekAtClientY(clientY, clientX){
   } else {
     viewport.scrollTop = offset;
     applyPrompterStyle();
+    // 暂停/浏览态也立刻把高亮搬到新起点：否则黄块还黏在上次暂停的那个词上，
+    // 用户"点开头却看到高亮在文中部"会以为定位没生效（实测报的 BUG）。
+    updateReadMark(true, true);
     toast(t('seekDone'));
   }
   return true;
@@ -5267,6 +5275,8 @@ viewport.addEventListener('scroll', function(){
     if (Math.abs(st - offset) > 0.5){
       offset = st;
       readHeadContentY = offset + readHeadScreenY();
+      // 冻结的黄块是视口绝对定位，会随内容一起滚；重画一次才与"起点"重新对齐
+      updateReadMark(false, true);
     }
     readCounted = false;
   }
@@ -5326,7 +5336,8 @@ function changeFontSize(px){
   if (setFontSizeLabel) setFontSizeLabel.textContent = v + 'px';
   readTokensDirty = true;              // 字号变了，逐词高亮的每个词屏幕坐标要重算
   applyPrompterStyle(); saveState();
-  if (playing) updateReadMark(true);
+  // 字号变了，暂停态那个"起点指示"的坐标也失效：重画（播放态同理）
+  if (playing) updateReadMark(true); else hideReadMark();
 }
 if (setFontSize) setFontSize.addEventListener('input', function(e){ changeFontSize(e.target.value); });
 const btnFontDown = document.getElementById('btnFontDown');
@@ -5334,7 +5345,8 @@ const btnFontUp = document.getElementById('btnFontUp');
 if (btnFontDown) btnFontDown.addEventListener('click', function(){ changeFontSize(state.fontSize - 4); });
 if (btnFontUp) btnFontUp.addEventListener('click', function(){ changeFontSize(state.fontSize + 4); });
 setColor.addEventListener('input', function(e){ state.color = e.target.value; applyPrompterStyle(); saveState(); });
-setAlign.addEventListener('change', function(e){ state.align = e.target.value; readTokensDirty = true; applyPrompterStyle(); saveState(); });
+setAlign.addEventListener('change', function(e){ state.align = e.target.value; readTokensDirty = true; applyPrompterStyle(); saveState();
+  if (playing) updateReadMark(true); else hideReadMark(); }); // 对齐变了 → 词元横坐标重算，暂停态先收起旧黄块
 setMirror.addEventListener('change', function(e){ state.mirror = e.target.checked; applyPrompterStyle(); saveState(); });
 setReadMark.addEventListener('change', function(e){
   state.readMark = e.target.checked;
@@ -5786,6 +5798,9 @@ function init(){
     offset = clampOffset(offset);
     if (!playing) viewport.scrollTop = offset;
     applyPrompterStyle();
+    // 改字后词元坐标全部失效：暂停态那个"起点指示"黄块会错位，先收起；
+    // 再次播放或重新点击定位时会画到正确位置。
+    if (!playing) hideReadMark();
     debounceSave(); maybeSyncDebounced();
   }
   function enterEditMode(){
