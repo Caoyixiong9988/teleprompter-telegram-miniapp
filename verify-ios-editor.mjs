@@ -1017,6 +1017,51 @@ check('面板点选后切到对应讲稿且面板自动关闭',
 check('七语均有 quickLibHint 文案',
   ['zh','en','de','fr','ja','ko','ru'].every(l => ev(`!!I18N.${l}.quickLibHint`)));
 
+// --- 修复①：清空/重新导入后逐词高亮残留旧位置 ---
+check('存在 resetReadHighlight 且隐藏高亮/归零阅读头/重建词元',
+  /function resetReadHighlight[\s\S]{0,300}hideReadMark\(\)/.test(html) &&
+  /function resetReadHighlight[\s\S]{0,300}readHeadContentY\s*=\s*0/.test(html) &&
+  /function resetReadHighlight[\s\S]{0,300}readTokensDirty\s*=\s*true/.test(html));
+check('导入路径 commitImportedEdit 调用 resetReadHighlight 且 offset 归零',
+  /function commitImportedEdit[\s\S]{0,220}resetReadHighlight\(\)/.test(html) &&
+  /function commitImportedEdit[\s\S]{0,220}offset\s*=\s*0/.test(html));
+check('清空路径 commitMainEdit 在内容变空时调用 resetReadHighlight',
+  /function commitMainEdit[\s\S]{0,360}resetReadHighlight\(\)/.test(html));
+check('切换讲稿 loadActiveIntoEditor 调用 resetReadHighlight',
+  /function loadActiveIntoEditor[\s\S]{0,300}resetReadHighlight\(\)/.test(html));
+// 运行时：制造"暂停定格高亮"→调用统一重置函数，验证高亮被隐藏、阅读头归零、词元缓存失效
+// （commitMainEdit/commitImportedEdit 是初始化闭包内的函数，调用点已由上面源码守卫覆盖；
+//   这里直接验证它们共同依赖的 resetReadHighlight 的真实副作用。）
+ev("state.scripts=[{id:'h1',title:'高亮稿',titleKind:'custom',content:'一二三四五六',updatedAt:0}]; state.activeScriptId='h1'; readHeadContentY=99; readTokens=[{w:1,h:1}]; readLines=[{start:0,end:1,top:0,height:10,weight:1}]; readMarkEl.style.display='block'; resetReadHighlight();");
+check('重置后高亮 DOM 被隐藏', doc.getElementById('readMark').style.display === 'none');
+check('重置后阅读头 readHeadContentY 归零', ev('readHeadContentY') === 0);
+check('重置后词元缓存失效（readTokens=null, dirty=true）', ev('readTokens') === null && ev('readTokensDirty') === true);
+// 重新导入路径：writeImportIntoActiveScript 是全局函数，写入新内容同样触发重置
+ev("readHeadContentY=88; readMarkEl.style.display='block'; writeImportIntoActiveScript('新的导入内容');");
+check('重新导入后高亮隐藏/阅读头归零/内容写入',
+  doc.getElementById('readMark').style.display === 'none' && ev('readHeadContentY') === 0 && ev('getActiveContent()') === '新的导入内容');
+
+// --- 修复②：主界面显示当前讲稿标题 ---
+check('主界面存在当前讲稿标题元素 currentScriptTitle',
+  !!doc.getElementById('currentScriptTitle') &&
+  /data-i18n-title="scriptTitleLabel"/.test(html));
+check('存在 refreshCurrentScriptTitle 并在载入/切语言时调用',
+  /function refreshCurrentScriptTitle/.test(html) &&
+  /function loadActiveIntoEditor[\s\S]{0,700}refreshCurrentScriptTitle\(\)/.test(html) &&
+  /function applyI18n[\s\S]{0,2600}refreshCurrentScriptTitle\(\)/.test(html));
+// 运行时：切到命名讲稿 → 主界面标题显示该标题
+ev("state.scripts=[{id:'t1',title:'会议纪要',titleKind:'custom',content:'AAA',updatedAt:0},{id:'t2',title:'演讲稿二',titleKind:'custom',content:'BBB',updatedAt:0}]; state.activeScriptId='t2'; selectScript('t1');");
+check('主界面标题显示当前讲稿标题（会议纪要）', doc.getElementById('currentScriptTitle').textContent === '会议纪要');
+ev("selectScript('t2');");
+check('再切另一篇标题同步更新（演讲稿二）', doc.getElementById('currentScriptTitle').textContent === '演讲稿二');
+
+// --- 修复③：眼睛按钮与 A−/A+ 对齐 ---
+check('眼睛档位标签改为绝对定位脱离文档流（不再顶高按钮）',
+  /#readMarkStatus\{[^}]*position:absolute/.test(html) &&
+  /#btnReadMarkWrap\{[^}]*display:inline-flex/.test(html));
+check('header 底部留白容纳绝对定位标签',
+  /header\{[\s\S]{0,200}padding:12px 16px 18px/.test(html));
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);

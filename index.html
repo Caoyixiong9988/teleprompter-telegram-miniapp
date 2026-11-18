@@ -25,11 +25,15 @@
   }
   header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel);
+    /* 底部多留 6px 容纳眼睛按钮下方绝对定位的档位标签，避免压到提词区 */
+    padding:12px 16px 18px; border-bottom:1px solid var(--line); background:var(--panel);
     flex-shrink:0;
   }
   header .title{font-size:17px; font-weight:700; letter-spacing:.5px;}
   header .sub{font-size:11px; color:var(--muted);}
+  /* 当前讲稿标题（主界面可见）：让用户一眼看到正在读哪一篇，空标题时不占位 */
+  #currentScriptTitle{font-size:12px; color:var(--primary); font-weight:600; margin-top:3px; line-height:1.2;}
+  #currentScriptTitle:empty{display:none;}
   #viewport{
     flex:1; min-height:0; position:relative; background:#ffffff;
     /* 默认（浏览 / 暂停 / 编辑）常显滚动条：长稿可自由滚动查看全部内容；
@@ -71,10 +75,13 @@
   }
   /* 眼睛按钮下方的常驻档位标签：状态说明就地显示在按钮下，不再靠底部 toast
      （底部 toast 落在播放/设置区，用户反馈不顺手）。颜色与眼睛图标的三档呼应。 */
-  #btnReadMarkWrap{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  /* 对齐修复：标签改为绝对定位脱离文档流，wrap 高度=按钮本身(30px)，
+     这样眼睛按钮与 A−/A+ 在同一行严格顶部对齐；标签浮在按钮正下方，不顶高按钮。 */
+  #btnReadMarkWrap{ position:relative; display:inline-flex; align-items:center; }
   #readMarkStatus{
+    position:absolute; top:calc(100% + 1px); left:50%; transform:translateX(-50%);
     font-size:10px; line-height:1.1; white-space:nowrap; color:var(--muted);
-    text-align:center; min-height:11px; user-select:none;
+    text-align:center; min-height:11px; user-select:none; pointer-events:none;
   }
   #readMarkStatus[data-mode="strong"]{ color:var(--primary); font-weight:600; }
   #readMarkStatus[data-mode="subtle"]{ color:#c8860a; font-weight:600; }
@@ -305,6 +312,8 @@
     <div>
       <div class="title" data-i18n="appTitle">ScriptDeck</div>
       <div class="sub" data-i18n="appSubtitle">提词器 · 流畅提词，解放双眼</div>
+      <!-- 当前讲稿标题：从讲稿库/快速选用面板载入讲稿后，主界面也能看到目前正在读哪一篇 -->
+      <div id="currentScriptTitle" class="current-script-title" data-i18n-title="scriptTitleLabel"></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="sub" id="verifyStatus" style="text-align:right;"></div>
@@ -2504,6 +2513,8 @@ function applyI18n() {
   if (typeof syncReadMarkUI === 'function' && typeof state !== 'undefined') syncReadMarkUI();
   // 按钮文案/状态文字是动态生成的（不挂 data-i18n），切语言后需按当前同步态重绘。
   if (typeof renderSyncStatus === 'function' && typeof canCloudSync === 'function') renderSyncStatus();
+  // 主界面当前讲稿标题随语言刷新（系统标题会翻译，用户标题保持）。
+  if (typeof refreshCurrentScriptTitle === 'function') refreshCurrentScriptTitle();
 }
 
 const defaultState = {
@@ -3253,7 +3264,9 @@ function mainEditorTextDOM(){
   return v.replace(/\r\n/g, '\n');
 }
 function commitImportedEdit(text){
-  if (playing) setPlaying(false);
+  if (playing) setPlaying(false, false);
+  resetReadHighlight(); // 重新导入：清掉旧稿定格的高亮与阅读头，从开头开始
+  offset = 0; if (viewport) viewport.scrollTop = 0;
   setActiveContent(text);
   if (setScript) setScript.value = text;
   if (scrollText) {
@@ -3321,6 +3334,13 @@ function selectScript(id){
   maybeSync();
 }
 
+// 主界面当前讲稿标题：与设置页标题框共用 scriptTitleOf（随语言刷新系统标题、保留用户标题）
+function refreshCurrentScriptTitle(){
+  const el = document.getElementById('currentScriptTitle');
+  if (!el) return;
+  const s = activeScript();
+  el.textContent = s ? scriptTitleOf(s) : '';
+}
 // 把当前讲稿载入编辑器（textarea + 标题 + 提词区 + 默认稿标记）
 function loadActiveIntoEditor(){
   const s = activeScript();
@@ -3328,8 +3348,10 @@ function loadActiveIntoEditor(){
   if (setScript) setScript.value = content;
   if (scrollText) scrollText.textContent = content;
   readTokensDirty = true; // 文本节点被整体替换，逐词高亮必须重建缓存
+  if (typeof resetReadHighlight === 'function') resetReadHighlight(); // 切换讲稿：清掉旧稿高亮定格
   const st = document.getElementById('setScriptTitle');
   if (st) st.value = s ? scriptTitleOf(s) : '';
+  if (typeof refreshCurrentScriptTitle === 'function') refreshCurrentScriptTitle();
   const isDefault = Object.values(I18N).some(function (d) { return d.defaultScript === content; });
   if (scrollText) scrollText.dataset.isDefault = isDefault ? '1' : '0';
   if (typeof refreshEmptyHint === 'function') refreshEmptyHint();
@@ -3670,6 +3692,18 @@ let readTokensText = '';
 const READ_HEAD_RATIO = 0.2;
 function hideReadMark(){
   if (readMarkEl) readMarkEl.style.display = 'none';
+}
+/* 内容被整体替换（清空 / 导入 / 切换讲稿）后，必须把逐词高亮彻底重置到初始态：
+   否则暂停定格的旧黄色块会残留在空稿上，且 readHeadContentY 仍是旧值，
+   下次播放会从旧位置续读。这里一次性清掉高亮 DOM、阅读头、词元缓存与节流时间戳。 */
+function resetReadHighlight(){
+  hideReadMark();
+  readHeadContentY = 0;
+  readTokensDirty = true;
+  readTokensText = '';
+  readTokens = null;
+  readLines = null;
+  lastReadMarkTs = 0;
 }
 /* 应用高亮强度档：strong=强底色 / subtle=淡下划线。只切 class，不动几何坐标。 */
 function applyReadMarkStrength(){
@@ -5600,7 +5634,10 @@ function init(){
   }
   function commitMainEdit(text){
     // 真正改动内容才暂停滚动；单纯点一下文字定位光标不该打断播放
-    if (playing) setPlaying(false);
+    if (playing) setPlaying(false, false);
+    // 清空（内容变空）时彻底重置高亮，避免空稿上残留旧黄色块；
+    // 普通编辑逐字输入不重置阅读头，保持"一改字不跳回开头"的既有体验。
+    if (!String(text || '').length){ resetReadHighlight(); offset = 0; if (viewport) viewport.scrollTop = 0; }
     setActiveContent(text);
     if (setScript) setScript.value = text;
     if (scrollText) scrollText.dataset.isDefault = '0';
