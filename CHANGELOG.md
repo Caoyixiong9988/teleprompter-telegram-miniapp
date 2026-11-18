@@ -24,7 +24,7 @@
   - i18n 新增 `validReadRule/readCharsHint/readCharsLow/readTooShort/readRuleTitle`（七语各 +5），键数 247→252。
 - **怎么验证**：npm 147/147、iOS 编辑器 354/354（新增门槛单一常量/徽标/规则块/{n}注入/短稿不静默/运行时短稿不计次+提示、达标稿计次+徽标等断言）、i18n 32/32（七语各 252 键）、支付 16/16、导入 36/36、额度 11/11、Worker 18/18。
 - **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`、`tools/add_validread_i18n.py`
-- **线上**：见本条下方部署记录（部署补记）。
+- **线上**：Gitee `080d8b2` 已 push；Cloudflare Pages 生产部署 `6e9456e5`（`--branch main`），`https://teleprompter-49y.pages.dev/` 369,698 字节、sha256 `d3e3a643…`，与本地逐字节一致（`--compressed` 第 2 次命中完整）；线上已确认含 readCharsBadge / validReadRuleHint / readTooShort / readRuleTitle 与新文案。
 
 ---
 
