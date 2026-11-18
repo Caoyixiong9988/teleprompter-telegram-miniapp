@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-11-18 · fix — 高亮残留重置 + 主界面显示当前讲稿标题 + 眼睛按钮对齐（第二十九轮）
+
+- **类型**：fix（三项）
+- **问题①（高亮残留·真 BUG）**：清空讲稿或从文件重新导入后，逐词高亮的旧黄色块仍停在原位置，下次播放从旧位置续读。根因：`commitMainEdit`/`commitImportedEdit` 仅在播放中才 `setPlaying(false)`，暂停定格态下既未隐藏高亮，也未重置 `readHeadContentY` 与词元缓存。修复：新增 `resetReadHighlight()`（隐藏高亮 DOM、阅读头归零、词元缓存失效、节流时间戳归零），在导入、清空（内容变空）、切换讲稿三条路径统一调用；导入/清空同时把 `offset`/`scrollTop` 归零。普通逐字编辑不重置阅读头，保留"改字不跳回开头"体验。
+- **问题②（标题未显示·功能缺口）**：主界面只显示 App 名，切换讲稿后看不到当前是哪一篇。修复：header 左侧新增 `#currentScriptTitle`，显示 `scriptTitleOf(activeScript())`；`loadActiveIntoEditor` 与 `applyI18n` 均调用 `refreshCurrentScriptTitle()`，系统标题随语言翻译、用户自定义标题保留。复用 `scriptTitleLabel` 作 title 提示，零新增 i18n 键。
+- **问题③（眼睛按钮未对齐）**：档位标签原用 flex-column 占布局高度，把眼睛按钮整体上顶约 6px。修复：`#readMarkStatus` 改绝对定位脱离文档流，`#btnReadMarkWrap` 用 inline-flex，按钮本体与 A−/A+ 严格同排对齐；header 底部 padding 12→18px 容纳标签。
+- **验证**：`npm test` 147/147、`verify-ios-editor.mjs` 270/270（新增 14 项）、`test_i18n_real.mjs` 32/32、`smoke:worker` 18/18。键数保持 235（本轮零新增键）。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`。
+
+---
+
 ## 2026-11-18 · fix — 讲稿库激活态同步 + 主界面直接选用讲稿库讲稿（第二十八轮）
 
 - **类型**：fix（激活态不同步）+ feat（主界面讲稿库入口）
