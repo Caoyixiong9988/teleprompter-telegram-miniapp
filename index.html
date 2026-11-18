@@ -3242,10 +3242,26 @@ function importTextAsNewScript(title, content){
 function writeImportIntoActiveScript(text){
   const s = activeScript();
   if (!s) return null; // 极端兜底：理论上至少保留一篇讲稿
+  resetCaretIntentForContentSwap(); // 整篇替换：旧的"从哪个字开始"意图作废
   if (scrollText) { scrollText.textContent = text; readTokensDirty = true; }
   commitImportedEdit(text); // 统一提交：数据模型 + 文本框 + 样式 + 保存 + 同步
+  caretToEditorStart();     // 光标归到开头，不在末尾"待命"（否则看起来像已经读完了）
   renderScriptList();       // 列表与选中态同步（篇数、选中 id、标题均不变）
   return s;
+}
+/* 把输入光标放到提词区开头。只在焦点本来就在提词区（或选区落在里面）时执行，
+   避免在设置页点导入时抢走用户在标题输入框里的光标。 */
+function caretToEditorStart(){
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || !scrollText) return;
+    const focused = document.activeElement === scrollText;
+    const inside = sel.rangeCount > 0 && (scrollText === sel.anchorNode || scrollText.contains(sel.anchorNode));
+    if (!focused && !inside) return;
+    const r = document.createRange();
+    r.selectNodeContents(scrollText); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+  } catch (e) {}
 }
 
 /* ---------- 导入位置：有光标就插到光标处，没光标写入当前选中讲稿 ----------
@@ -3298,6 +3314,7 @@ function commitImportedEdit(text){
 // 返回 true 表示已插入光标处；false 表示没有有效光标，调用方应新建讲稿。
 function insertImportedTextAtCaret(text){
   if (!importCaretValid()) return false;
+  resetCaretIntentForContentSwap(); // 内容要变，旧的字符偏移意图同样作废
   try {
     const r = importCaretRange.cloneRange();
     r.deleteContents();
@@ -3360,6 +3377,7 @@ function loadActiveIntoEditor(){
   const s = activeScript();
   const content = s ? s.content : '';
   if (setScript) setScript.value = content;
+  resetCaretIntentForContentSwap(); // 换稿：上一篇的光标位置不能当成新稿的播放起点
   if (scrollText) scrollText.textContent = content;
   readTokensDirty = true; // 文本节点被整体替换，逐词高亮必须重建缓存
   if (typeof resetReadHighlight === 'function') resetReadHighlight(); // 切换讲稿：清掉旧稿高亮定格
@@ -3625,6 +3643,16 @@ let reachedEnd = false;
    ▶ 开始时若该值有效，播放起点以它为准（"以当前光标位置为准"），消费后清空。
    每次进入暂停态都会清空，避免把暂停瞬间残留的旧 caret 误当成用户新意图。 */
 let caretSeekOffset = null;
+/* 内容被整体换掉（切讲稿 / 导入文件）时，浏览器会把光标甩到新内容末尾并触发
+   selectionchange —— 那是浏览器行为，不是"我要从这里开始播放"的意图。
+   旧版没挡住它，于是导入完点 ▶ 会被当成"从最后一个词开始"，一播放就判定读完
+   （表现为"导入后光标在末尾，点播放直接提示结束"）。
+   这里用很短的时间窗忽略紧随内容替换产生的 selectionchange，窗口过后照常记录。 */
+let caretSeekIgnoreUntil = 0;
+function resetCaretIntentForContentSwap(){
+  caretSeekOffset = null;
+  caretSeekIgnoreUntil = Date.now() + 400;
+}
 
 /* ---------- 语音跟随（Pro 权益；依赖 Web Speech API，iOS Telegram 内置浏览器不支持） ---------- */
 let voiceFollowing = false;     // 是否正在语音跟随
@@ -3718,6 +3746,9 @@ function resetReadHighlight(){
   readTokens = null;
   readLines = null;
   lastReadMarkTs = 0;
+  // 内容整体换过 → 旧的"已读完/已计数"状态不再成立（否则新内容一播放就被判读完）
+  reachedEnd = false;
+  readCounted = false;
 }
 /* 应用高亮强度档：strong=强底色 / subtle=淡下划线。只切 class，不动几何坐标。 */
 function applyReadMarkStrength(){
@@ -5768,6 +5799,8 @@ function init(){
      "暂停之后新放置"的光标，不会被暂停瞬间的旧位置污染。 */
   document.addEventListener('selectionchange', function(){
     if (playing || mainComposing) return;
+    // 刚切讲稿 / 刚导入：光标是被浏览器甩到末尾的，不是用户的播放意图，忽略
+    if (Date.now() < caretSeekIgnoreUntil) return;
     const ch = caretCharOffset();
     if (ch >= 0) caretSeekOffset = ch;
   });

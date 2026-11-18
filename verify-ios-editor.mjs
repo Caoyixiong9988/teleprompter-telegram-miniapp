@@ -1028,7 +1028,7 @@ check('导入路径 commitImportedEdit 调用 resetReadHighlight 且 offset 归�
 check('清空路径 commitMainEdit 在内容变空时调用 resetReadHighlight',
   /function commitMainEdit[\s\S]{0,360}resetReadHighlight\(\)/.test(html));
 check('切换讲稿 loadActiveIntoEditor 调用 resetReadHighlight',
-  /function loadActiveIntoEditor[\s\S]{0,300}resetReadHighlight\(\)/.test(html));
+  /function loadActiveIntoEditor[\s\S]{0,600}resetReadHighlight\(\)/.test(html));
 // 运行时：制造"暂停定格高亮"→调用统一重置函数，验证高亮被隐藏、阅读头归零、词元缓存失效
 // （commitMainEdit/commitImportedEdit 是初始化闭包内的函数，调用点已由上面源码守卫覆盖；
 //   这里直接验证它们共同依赖的 resetReadHighlight 的真实副作用。）
@@ -1092,6 +1092,33 @@ check('空稿点 ▶ 提示先输入内容（playEmpty）',
   doc.getElementById('toast').textContent === ev("t('playEmpty')"));
 ev("state.scripts=[{id:'np',title:'有稿',titleKind:'custom',content:'第一行\\n第二行',updatedAt:0}]; state.activeScriptId='np'; loadActiveIntoEditor(); togglePlay();");
 check('有稿点 ▶ 正常播放（空稿拦截不误伤）', ev('playing') === true);
+ev('setPlaying(false);');
+
+// --- 修复⑥：导入/切讲稿后不残留"从末尾播放"的光标意图 ---
+check('存在 resetCaretIntentForContentSwap，且在导入两条路径 + 切稿处调用',
+  /function resetCaretIntentForContentSwap/.test(html) &&
+  /function writeImportIntoActiveScript[\s\S]{0,400}resetCaretIntentForContentSwap\(\)/.test(html) &&
+  /function insertImportedTextAtCaret[\s\S]{0,300}resetCaretIntentForContentSwap\(\)/.test(html) &&
+  /function loadActiveIntoEditor[\s\S]{0,500}resetCaretIntentForContentSwap\(\)/.test(html));
+check('selectionchange 在内容替换后的短窗口内不记录播放起点',
+  /addEventListener\('selectionchange'[\s\S]{0,400}Date\.now\(\) < caretSeekIgnoreUntil/.test(html));
+check('整篇导入后把输入光标归到开头（caretToEditorStart）',
+  /function caretToEditorStart/.test(html) &&
+  /function writeImportIntoActiveScript[\s\S]{0,600}caretToEditorStart\(\)/.test(html));
+check('resetReadHighlight 同时复位 reachedEnd / readCounted',
+  /function resetReadHighlight[\s\S]{0,400}reachedEnd = false[\s\S]{0,80}readCounted = false/.test(html));
+// 运行时：模拟"导入后光标停在末尾"（caretSeekOffset = 全文长度）
+ev("state.scripts=[{id:'i1',title:'导入稿',titleKind:'custom',content:'旧内容',updatedAt:0}]; state.activeScriptId='i1'; loadActiveIntoEditor(); caretSeekOffset = 999; reachedEnd = true;");
+ev("writeImportIntoActiveScript('导入后的全新内容\\n第二行')");
+check('整篇导入后清空残留的光标播放意图', ev('caretSeekOffset') === null, 'caretSeekOffset=' + ev('caretSeekOffset'));
+check('整篇导入后内容写入且 reachedEnd 复位',
+  ev('getActiveContent()') === '导入后的全新内容\n第二行' && ev('reachedEnd') === false);
+ev("caretSeekOffset = 12; loadActiveIntoEditor();");
+check('切换讲稿后清空上一篇残留的光标意图', ev('caretSeekOffset') === null, 'caretSeekOffset=' + ev('caretSeekOffset'));
+// 点播放不会被"末尾意图"劫持：清空后应正常进入播放态、且不视为读完
+ev("caretSeekOffset = 999; togglePlay();");
+check('导入后点 ▶ 正常开播（不因末尾意图直接判定读完）',
+  ev('playing') === true && ev('reachedEnd') === false);
 ev('setPlaying(false);');
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));

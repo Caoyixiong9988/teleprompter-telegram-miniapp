@@ -8,6 +8,21 @@
 
 ---
 
+## 2026-11-18 · fix — 导入/切讲稿后光标意图残留，点播放直接判定读完（第三十一轮）
+
+- **类型**：fix
+- **现象**：设置里选一篇讲稿 → 从文件导入 → 回主界面，光标停在该讲稿末尾，点 ▶ 立刻提示结束（内容够长时会直接弹完成卡）。
+- **根因**：内容被整体替换（切讲稿 / 导入）时浏览器会把 caret 甩到新内容末尾并触发 `selectionchange`，监听器把它记成 `caretSeekOffset = 全文长度`；`togglePlay()` 又把"光标位置"当作最高优先级的播放起点，于是锚点直接落在最后一个词 → 循环第一次就判定 `reachedEnd`，表现为"一播就结束"。真 Chrome（CDP）复现：导入后 `caretSeekOffset=34`（=正文长度）、点 ▶ 后 `playing=false`、阅读头瞬移到末尾。
+- **修复**：
+  1. 新增 `resetCaretIntentForContentSwap()`：清 `caretSeekOffset` + 开 400ms 忽略窗口；在**切讲稿**（`loadActiveIntoEditor`）、**整篇导入**（`writeImportIntoActiveScript`）、**光标处插入导入**（`insertImportedTextAtCaret`）三处内容替换前调用。
+  2. `selectionchange` 监听器在窗口期内不记录播放起点（浏览器甩光标不再被误读成用户意图）。
+  3. 整篇导入后 `caretToEditorStart()` 把输入光标归到开头（仅在焦点/选区本来就在提词区时执行，不抢设置页输入框的光标）。
+  4. `resetReadHighlight()` 顺带复位 `reachedEnd` / `readCounted`，避免换内容后沿用"已读完"状态。
+- **验证**：npm 147/147、iOS 编辑器 288/288（新增 8 项）、i18n 32/32、worker 18/18；真 Chrome（CDP + 真排版）6/6：导入后 `caretSeekOffset=null`、点 ▶ `playing=true`、阅读头从开头推进、无完成卡。
+- **涉及文件**：`index.html`、`verify-ios-editor.mjs`
+
+---
+
 ## 2026-11-18 · fix — 短稿点空白也能编辑 + 空稿播放提示（第三十轮）
 
 - **类型**：fix（两项）
