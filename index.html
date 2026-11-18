@@ -34,6 +34,11 @@
   /* 当前讲稿标题（主界面可见）：让用户一眼看到正在读哪一篇，空标题时不占位 */
   #currentScriptTitle{font-size:12px; color:var(--primary); font-weight:600; margin-top:3px; line-height:1.2;}
   #currentScriptTitle:empty{display:none;}
+  /* 字数/计次徽标：主界面常驻，输入时即时反馈够不够"计一次"的门槛。
+     low=未达标用暖橙提示还差多少；ok=达标用主色，暗示读完会计次弹卡。 */
+  #readCharsBadge{font-size:11px; line-height:1.3; margin-top:3px; color:#b26a00;}
+  #readCharsBadge:empty{display:none;}
+  #readCharsBadge[data-state="ok"]{color:var(--primary); font-weight:600;}
   #viewport{
     flex:1; min-height:0; position:relative; background:#ffffff;
     /* 默认（浏览 / 暂停 / 编辑）常显滚动条：长稿可自由滚动查看全部内容；
@@ -334,6 +339,9 @@
       <div class="sub" data-i18n="appSubtitle">提词器 · 流畅提词，解放双眼</div>
       <!-- 当前讲稿标题：从讲稿库/快速选用面板载入讲稿后，主界面也能看到目前正在读哪一篇 -->
       <div id="currentScriptTitle" class="current-script-title" data-i18n-title="scriptTitleLabel"></div>
+      <!-- 字数/计次徽标：常驻主界面，输入时就告诉用户"本篇多少字、够不够计一次"，
+           避免短稿播完没弹完成卡却没有任何解释。文案与门槛均由 MIN_CHARS_FOR_READ 统一驱动。 -->
+      <div id="readCharsBadge" class="read-chars-badge" data-state="low" aria-live="polite"></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="sub" id="verifyStatus" style="text-align:right;"></div>
@@ -546,6 +554,11 @@
       <div class="field switch">
         <span data-i18n="finishCardLabel">读完自动弹完成卡</span>
         <input type="checkbox" id="setFinishCard" checked />
+      </div>
+
+      <div class="field">
+        <label data-i18n="readRuleTitle">怎样才算读完一次？</label>
+        <div class="hint" id="validReadRuleHint" data-i18n="validReadRule"></div>
       </div>
 
       <div class="field">
@@ -1003,6 +1016,11 @@ const I18N = {
   proEntryHint:"查看 Pro 权益与价格（Telegram Stars 结算）",
   rankTitle:'阅读等级',
   rankHint:'免费头衔，仅作纪念，不影响任何功能；完整读完一篇讲稿计 1 次。',
+  validReadRule:'计入规则：讲稿去空格后满 {n} 字、并完整播放到结尾，才计 1 次并弹出完成卡；太短的稿子仅作练习不计入。',
+  readCharsHint:'本篇 {n} 字 · 可计次',
+  readCharsLow:'本篇 {n} 字 · 再补 {m} 字可计次',
+  readTooShort:'这篇只有 {n} 字，满 {m} 字读完才会计 1 次并弹完成卡。',
+  readRuleTitle:'怎样才算读完一次？',
   rankDone:'已完成 {n} 次',
   rankNext:'再读 {m} 次升到 {next}',
   rankMax:'已达最高等级，继续保持',
@@ -1242,6 +1260,11 @@ const I18N = {
   proEntryHint:"See Pro benefits and pricing (billed in Telegram Stars)",
   rankTitle:'Reading rank',
   rankHint:'A free badge for fun only — it unlocks nothing. One full read counts as one.',
+  validReadRule:'What counts: a script must have at least {n} characters (spaces excluded) and be played to the very end to count once and show the finish card. Very short drafts are practice only.',
+  readCharsHint:'{n} chars · counts',
+  readCharsLow:'{n} chars · {m} more to count',
+  readTooShort:'Only {n} chars here. Reach {m} and read to the end to count once and get a card.',
+  readRuleTitle:'What counts as one read?',
   rankDone:'{n} completed',
   rankNext:'{m} more to reach {next}',
   rankMax:'Top rank reached — keep going',
@@ -1494,6 +1517,11 @@ const I18N = {
   proEntryHint:'Pro-Vorteile und Preise ansehen (Abrechnung über Telegram Stars)',
   rankTitle:'Lesestufe',
   rankHint:'Kostenloser Titel, nur zur Erinnerung, ohne Einfluss auf Funktionen; ein vollständig gelesenes Skript zählt als 1.',
+  validReadRule:'Zählregel: Ein Skript muss mindestens {n} Zeichen (ohne Leerzeichen) haben und bis zum Ende abgespielt werden, um als 1 zu zählen und die Karte zu zeigen. Sehr kurze Entwürfe zählen nicht.',
+  readCharsHint:'{n} Zeichen · zählt',
+  readCharsLow:'{n} Zeichen · noch {m} bis zum Zählen',
+  readTooShort:'Nur {n} Zeichen. Erst ab {m} und vollständig gelesen zählt es und zeigt die Karte.',
+  readRuleTitle:'Was zählt als eine Lesung?',
   rankDone:'{n} Mal abgeschlossen',
   rankNext:'Noch {m} Mal bis {next}',
   rankMax:'Höchste Stufe erreicht – weiter so',
@@ -1746,6 +1774,11 @@ const I18N = {
   proEntryHint:'Voir les avantages et tarifs Pro (paiement en Telegram Stars)',
   rankTitle:'Niveau de lecture',
   rankHint:'Titre gratuit, purement symbolique, sans effet sur les fonctionnalités ; un script lu en entier compte pour 1.',
+  validReadRule:'Règle : un script doit comporter au moins {n} caractères (espaces exclus) et être lu jusqu’au bout pour compter pour 1 et afficher la carte. Les textes très courts ne comptent pas.',
+  readCharsHint:'{n} caractères · compté',
+  readCharsLow:'{n} caractères · encore {m} pour compter',
+  readTooShort:'Seulement {n} caractères. Atteignez {m} et lisez jusqu’au bout pour compter et obtenir la carte.',
+  readRuleTitle:'Qu’est-ce qui compte comme une lecture ?',
   rankDone:'{n} fois terminé',
   rankNext:'Encore {m} fois pour atteindre {next}',
   rankMax:'Niveau maximum atteint, continuez ainsi',
@@ -1985,6 +2018,11 @@ const I18N = {
   proEntryHint:"Pro の特典と価格を確認（Telegram Stars 決済）",
   rankTitle:'リーディング等級',
   rankHint:'無料の称号で、機能の解放はありません。原稿を最後まで読むと 1 回と数えます。',
+  validReadRule:'計上ルール：原稿は空白を除いて {n} 文字以上あり、最後まで再生し終えると 1 回として数えられ完了カードが出ます。短すぎる原稿は練習扱いで計上されません。',
+  readCharsHint:'{n} 文字 · 計上可',
+  readCharsLow:'{n} 文字 · あと {m} 文字で計上',
+  readTooShort:'この原稿は {n} 文字です。{m} 文字以上にして最後まで読むと 1 回として数えられ、カードが出ます。',
+  readRuleTitle:'何をもって1回と数える？',
   rankDone:'{n} 回完了',
   rankNext:'あと {m} 回で {next}',
   rankMax:'最高等級に到達しました',
@@ -2224,6 +2262,11 @@ const I18N = {
   proEntryHint:"Pro 혜택과 가격 확인（Telegram Stars 결제）",
   rankTitle:'읽기 등급',
   rankHint:'무료 칭호로 기능 해제와는 무관합니다. 대본을 끝까지 읽으면 1회로 계산합니다.',
+  validReadRule:'집계 규칙: 대본은 공백을 제외하고 {n}자 이상이어야 하고 끝까지 재생해야 1회로 계산되어 완료 카드가 표시됩니다. 너무 짧은 대본은 연습용으로 계산되지 않습니다.',
+  readCharsHint:'{n}자 · 집계됨',
+  readCharsLow:'{n}자 · {m}자 더 필요',
+  readTooShort:'이 대본은 {n}자뿐입니다. {m}자 이상으로 끝까지 읽어야 1회로 계산되고 카드가 나옵니다.',
+  readRuleTitle:'무엇이 1회로 집계되나요?',
   rankDone:'{n}회 완료',
   rankNext:'{m}회 더 읽으면 {next}',
   rankMax:'최고 등급에 도달했습니다',
@@ -2463,6 +2506,11 @@ const I18N = {
   proEntryHint:"Возможности и цены Pro (оплата в Telegram Stars)",
   rankTitle:'Ранг чтения',
   rankHint:'Бесплатное звание, оно ничего не открывает. Одно полное прочтение считается за один раз.',
+  validReadRule:'Правило: скрипт должен содержать не менее {n} символов (без пробелов) и быть воспроизведён до конца — тогда он считается один раз и показывается карточка. Слишком короткие тексты не учитываются.',
+  readCharsHint:'{n} симв. · учитывается',
+  readCharsLow:'{n} симв. · ещё {m} до учёта',
+  readTooShort:'Всего {n} симв. Нужно {m} и прочтение до конца, чтобы засчитать и показать карточку.',
+  readRuleTitle:'Что считается одним прочтением?',
   rankDone:'Прочитано раз: {n}',
   rankNext:'Ещё {m} до звания {next}',
   rankMax:'Достигнут высший ранг',
@@ -2640,6 +2688,12 @@ function applyI18n() {
   if (typeof renderSyncStatus === 'function' && typeof canCloudSync === 'function') renderSyncStatus();
   // 主界面当前讲稿标题随语言刷新（系统标题会翻译，用户标题保持）。
   if (typeof refreshCurrentScriptTitle === 'function') refreshCurrentScriptTitle();
+  // 字数/计次徽标文案随语言刷新。
+  if (typeof renderReadCharsBadge === 'function') renderReadCharsBadge();
+  // 计入规则说明含 {n} 占位符（门槛字数），data-i18n 只做纯文本替换，这里补一次 fmt。
+  // MIN_CHARS_FOR_READ 在本函数定义之后声明，但 applyI18n 均在 init 之后调用，故无 TDZ 问题。
+  const vr = document.getElementById('validReadRuleHint');
+  if (vr) vr.textContent = fmt(t('validReadRule'), { n: MIN_CHARS_FOR_READ });
 }
 
 const defaultState = {
@@ -3496,6 +3550,7 @@ function loadActiveIntoEditor(){
   const st = document.getElementById('setScriptTitle');
   if (st) st.value = s ? scriptTitleOf(s) : '';
   if (typeof refreshCurrentScriptTitle === 'function') refreshCurrentScriptTitle();
+  if (typeof renderReadCharsBadge === 'function') renderReadCharsBadge();
   const isDefault = Object.values(I18N).some(function (d) { return d.defaultScript === content; });
   if (scrollText) scrollText.dataset.isDefault = isDefault ? '1' : '0';
   if (typeof refreshEmptyHint === 'function') refreshEmptyHint();
@@ -4726,7 +4781,12 @@ function renderRank(){
 /** 滚动到讲稿末尾时调用：累加已完成次数，晋级则提示 */
 function onReadComplete(){
   const len = String(getActiveContent() || '').replace(/\s+/g, '').length;
-  if (len < MIN_CHARS_FOR_READ) return;
+  // 短稿不计次、不弹完成卡——但必须给出反馈。此前这里是静默 return，
+  // 用户"随便输入两行、播完啥也没有、不知道为什么"，是最常见的困惑来源。
+  if (len < MIN_CHARS_FOR_READ){
+    toast(fmt(t('readTooShort'), { n: len, m: MIN_CHARS_FOR_READ }), 3200);
+    return;
+  }
   const before = rankIndexOf(state.reads || 0);
   state.reads = (state.reads || 0) + 1;
   saveState();
@@ -4735,6 +4795,22 @@ function onReadComplete(){
   if (after > before) toast(fmt(t('rankUp'), { name: rankNameOf(RANKS[after]) }));
   // 一篇读完 → 弹完成卡（成就展示 + 深链裂变传播）。可关；失败不影响主功能。
   setTimeout(showFinishCard, 250);
+}
+
+/** 主界面字数/计次徽标：输入时即时反馈"本篇多少字、够不够计一次"。
+    与 onReadComplete 共用同一口径（去空白字符数 + MIN_CHARS_FOR_READ），
+    保证徽标说"可计次"时，读完一定真的计次；说"再补 N 字"时确实不计。 */
+function renderReadCharsBadge(){
+  const el = document.getElementById('readCharsBadge');
+  if (!el) return;
+  const len = String(getActiveContent() || '').replace(/\s+/g, '').length;
+  if (len >= MIN_CHARS_FOR_READ){
+    el.setAttribute('data-state', 'ok');
+    el.textContent = fmt(t('readCharsHint'), { n: len });
+  } else {
+    el.setAttribute('data-state', 'low');
+    el.textContent = fmt(t('readCharsLow'), { n: len, m: MIN_CHARS_FOR_READ - len });
+  }
 }
 
 /* ---------- 速度 UI 同步 ---------- */
@@ -5474,6 +5550,7 @@ setScript.addEventListener('input', function(e){
   offset = clampOffset(offset);
   if (!playing) viewport.scrollTop = offset;
   applyPrompterStyle();
+  if (typeof renderReadCharsBadge === 'function') renderReadCharsBadge();
   debounceSave();
   maybeSyncDebounced();
 });
@@ -6029,6 +6106,7 @@ function init(){
     applyPrompterStyle();
     // 改字后词元坐标全部失效：暂停态那个"起点指示"黄块会错位，先收起；
     // 再次播放或重新点击定位时会画到正确位置。
+    if (typeof renderReadCharsBadge === 'function') renderReadCharsBadge();
     if (!playing) hideReadMark();
     debounceSave(); maybeSyncDebounced();
   }

@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 247 键且一致', sizes.every(n => n === 247), JSON.stringify(sizes));
+check('七语各 252 键且一致', sizes.every(n => n === 252), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -682,6 +682,31 @@ ev('setPlaying(false);');
   check('人格化称号五档取到且互不相同', personas.every(p => !!p) && new Set(personas).size === 5, JSON.stringify(personas));
   // 读完触发：onReadComplete 后 setTimeout(showFinishCard,250) 注册
   check('onReadComplete 注册了完成卡弹出', /setTimeout\(showFinishCard,\s*\d+\)/.test(html));
+
+  // —— 有效读完 / 完成卡门槛的可见提示（本次新增）——
+  check('门槛用单一常量 MIN_CHARS_FOR_READ 定义', /const MIN_CHARS_FOR_READ = 40/.test(html));
+  check('主界面有常驻字数/计次徽标 readCharsBadge', !!doc.getElementById('readCharsBadge'));
+  check('设置页有计入规则说明块 validReadRuleHint', !!doc.getElementById('validReadRuleHint'));
+  check('计入规则文案用 {n} 注入门槛字数', /fmt\(t\('validReadRule'\),\s*\{\s*n:\s*MIN_CHARS_FOR_READ\s*\}\)/.test(html));
+  check('存在 renderReadCharsBadge 且与 onReadComplete 共用门槛', /function renderReadCharsBadge/.test(html) && /len >= MIN_CHARS_FOR_READ/.test(html));
+  check('短稿播完给出 readTooShort 提示（不再静默 return）',
+    /if \(len < MIN_CHARS_FOR_READ\)\{\s*toast\(fmt\(t\('readTooShort'\)/.test(html));
+  // 运行时：短稿 → 不计次 + toast；达标稿 → 计次 + 弹卡
+  ev('state.reads=0; setActiveContent("甲乙丙丁");');
+  ev('renderReadCharsBadge()');
+  check('短稿徽标显示"还差 N 字"且未达标',
+    doc.getElementById('readCharsBadge').getAttribute('data-state') === 'low' &&
+    /再补|还差/.test(doc.getElementById('readCharsBadge').textContent));
+  check('短稿不计次且给出提示', (function(){
+    const before = ev('state.reads');
+    ev('onReadComplete()');
+    return ev('state.reads') === before && /字/.test(doc.getElementById('toast').textContent || '');
+  })());
+  ev('setActiveContent("这是一段足够长的讲稿内容用于测试完整读完计次与完成卡弹出机制验证".repeat(3));');
+  ev('renderReadCharsBadge()');
+  check('达标稿徽标显示"可计次"且达标',
+    doc.getElementById('readCharsBadge').getAttribute('data-state') === 'ok' &&
+    /可计次/.test(doc.getElementById('readCharsBadge').textContent));
   // showFinishCard 受开关控制
   ev('state.finishCard=false;');
   ev('showFinishCard();');
