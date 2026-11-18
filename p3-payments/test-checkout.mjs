@@ -105,13 +105,13 @@ test('1) 页面无运行时错误，收银台函数齐备，CTA 不再是「即�
   assert.equal(src.includes('state.isPro ='), false, '客户端回调不得直接写 Pro 状态');
 });
 
-test('2) 七语新增 9 个支付键齐全，键集一致（各 235 键）', () => {
+test('2) 七语新增 9 个支付键齐全，键集一致（各 236 键）', () => {
   const keys = ['payNoBackend', 'payNoTg', 'payUnsupported', 'payOpening', 'payCreateFail', 'payCancelled', 'payFailed', 'paySuccess', 'payPending'];
   for (const lang of ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru']) {
     for (const k of keys) assert.ok(ev(`I18N.${lang}.${k}`), `${lang} 缺 ${k}`);
   }
   const sizes = ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-  assert.deepEqual(sizes, [235, 235, 235, 235, 235, 235, 235]);
+  assert.deepEqual(sizes, [236, 236, 236, 236, 236, 236, 236]);
 });
 
 // ── 2. 纯函数边界 ────────────────────────────────────────────────────

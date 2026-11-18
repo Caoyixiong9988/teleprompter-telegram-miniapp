@@ -97,8 +97,15 @@
     transform-origin:center center; will-change:transform;
     /* 主屏就地编辑：允许 iOS 长按选字、弹出「粘贴」菜单 */
     -webkit-user-select:text; user-select:text; -webkit-touch-callout:default;
-    outline:none; cursor:text; min-height:60px;
+    outline:none; cursor:text;
+    /* 关键：编辑面必须铺满整个提词区，而不是只占文字那几行。
+       旧版 min-height:60px，短稿时文字下方一大片是 #viewport 本身，
+       点在那里不落焦点 → 编辑工具条（粘贴/讲稿库/导入/清空/完成）不出现。
+       铺满后「点提词区任意位置」都能进编辑态。 */
+    min-height:100%;
   }
+  /* 播放中不需要这块可点区域：避免误点空白把编辑条顶出来，同时不影响短稿高亮推进 */
+  #app.playing #scrollText{ min-height:0; }
   /* 空稿占位提示是伪元素，不是真实内容：点一下就能直接输入，删掉后不会自己冒回来 */
   #scrollText.is-empty:empty::before{
     content:attr(data-placeholder); color:var(--muted); opacity:.8;
@@ -864,6 +871,7 @@ const I18N = {
   resetDone:"已回到开头。点 ▶ 可重新播放",
   playPaused:"已暂停。可滚动或点击任意一行定位，再点 ▶ 从该处继续",
   playResumed:"继续播放",
+  playEmpty:"讲稿是空的，请先输入、粘贴或从文件导入内容，再点播放",
   seekDone:"已定位到这一行，点 ▶ 从这里开始播放",
   seekPlaying:"已从此行继续播放",
   voiceUnavailable:"此设备暂不可用",
@@ -1090,6 +1098,7 @@ const I18N = {
   resetDone:"Back to the start. Tap ▶ to play again.",
   playPaused:"Paused. Scroll or tap a line to set the start point, then tap ▶ to continue.",
   playResumed:"Playing",
+  playEmpty:"The script is empty. Type, paste, or import some text first, then press play.",
   seekDone:"Start point set. Tap ▶ to play from here.",
   seekPlaying:"Playing from this line",
   voiceUnavailable:"Not available on this device",
@@ -1329,6 +1338,7 @@ const I18N = {
   resetDone:'Zurück zum Anfang. Tippe auf ▶, um erneut abzuspielen',
   playPaused:'Pausiert. Du kannst scrollen oder eine Zeile antippen, dann mit ▶ dort fortsetzen',
   playResumed:'Wiedergabe fortgesetzt',
+  playEmpty:'Das Skript ist leer. Bitte zuerst Text eingeben, einfügen oder eine Datei importieren.',
   seekDone:'An diese Zeile gesprungen – tippe auf ▶, um hier zu starten',
   seekPlaying:'Wiedergabe ab dieser Zeile fortgesetzt',
   voiceUnavailable:'Auf diesem Gerät nicht verfügbar',
@@ -1568,6 +1578,7 @@ const I18N = {
   resetDone:'Retour au début. Touchez ▶ pour relancer la lecture',
   playPaused:'En pause. Faites défiler ou touchez une ligne, puis appuyez sur ▶ pour reprendre à cet endroit',
   playResumed:'Lecture reprise',
+  playEmpty:'Le script est vide. Saisissez, collez ou importez d’abord du texte.',
   seekDone:'Position sur cette ligne — touchez ▶ pour démarrer ici',
   seekPlaying:'Lecture reprise à partir de cette ligne',
   voiceUnavailable:'Non disponible sur cet appareil',
@@ -1794,6 +1805,7 @@ const I18N = {
   resetDone:"先頭に戻りました。▶ で再再生できます",
   playPaused:"一時停止しました。スクロールまたは行をタップして開始位置を決め、▶ で再開できます。",
   playResumed:"再生を再開",
+  playEmpty:"原稿が空です。先に入力・貼り付け・ファイル読み込みをしてから再生してください。",
   seekDone:"この行に移動しました。▶ でここから再生します。",
   seekPlaying:"この行から再生中",
   voiceUnavailable:"この端末では利用できません",
@@ -2020,6 +2032,7 @@ const I18N = {
   resetDone:"처음으로 돌아갔습니다. ▶ 를 눌러 다시 재생하세요",
   playPaused:"일시정지했습니다. 스크롤하거나 줄을 탭해 시작 위치를 정한 뒤 ▶ 로 이어서 재생하세요.",
   playResumed:"재생 재개",
+  playEmpty:"대본이 비어 있습니다. 먼저 입력하거나 붙여넣기, 파일 가져오기를 한 뒤 재생해 주세요.",
   seekDone:"이 줄로 이동했습니다. ▶ 를 누르면 여기서부터 재생됩니다.",
   seekPlaying:"이 줄부터 재생 중",
   voiceUnavailable:"이 기기에서는 사용할 수 없습니다",
@@ -2246,6 +2259,7 @@ const I18N = {
   resetDone:"Возврат к началу. Нажмите ▶, чтобы воспроизвести снова",
   playPaused:"Пауза. Прокрутите или нажмите на строку, чтобы задать начало, затем ▶ для продолжения.",
   playResumed:"Продолжить воспроизведение",
+  playEmpty:"Сценарий пуст. Сначала введите, вставьте или импортируйте текст.",
   seekDone:"Начало установлено. Нажмите ▶, чтобы играть отсюда.",
   seekPlaying:"Воспроизведение с этой строки",
   voiceUnavailable:"На этом устройстве недоступно",
@@ -4050,6 +4064,25 @@ function readTokenAtPoint(contentX, contentY){
   }
   return bi;
 }
+/* 点击处是否落在文字下方的大片空白（短稿时提词区大部分是空的）。
+   这类点击只为进入编辑态（弹工具条），不能被当成「从这里开始播放」——
+   否则浏览器把光标贴到末尾文字，下次 ▶ 会从最后一个词开始，像"点击错位"。 */
+function clickBelowText(clientY){
+  if (!scrollText || typeof clientY !== 'number') return false;
+  try {
+    const r = document.createRange();
+    r.selectNodeContents(scrollText);
+    const rects = r.getClientRects ? r.getClientRects() : null;
+    // 拿不到行盒（无布局环境 / 空内容）：按"不是空白"处理，保持原有的点击定位行为
+    if (!rects || !rects.length) return false;
+    let bottom = -Infinity;
+    for (let i = 0; i < rects.length; i++){
+      if (rects[i].height > 0) bottom = Math.max(bottom, rects[i].bottom);
+    }
+    if (!Number.isFinite(bottom)) return false;
+    return clientY > bottom + 4;
+  } catch (e) { return false; }
+}
 function seekAtClientY(clientY, clientX){
   const max = maxOffset();
   if (max <= 0) return false;
@@ -4184,6 +4217,12 @@ function exitMainEditModeDOM(){
 function togglePlay(){
   if (voiceFollowing){ stopVoiceFollow(); return; }
   if (!playing){
+    // 空稿拦截：没有内容时不可能"继续播放"，旧版仍会进播放态并提示"继续播放"，
+    // 属于误导。这里先提示去输入/粘贴/导入，并保持编辑能力不变。
+    if (!String(getActiveContent() || '').trim()){
+      toast(t('playEmpty'), 2800);
+      return;
+    }
     // 开始 / 继续播放：先退出编辑态，避免 iOS 焦点回弹把点击吞掉
     exitMainEditModeDOM();
     const max = maxOffset();
@@ -5133,10 +5172,12 @@ document.addEventListener('keydown', function (e) {
 viewport.addEventListener('scroll', function(){
   if (!playing){ offset = clampOffset(viewport.scrollTop); readCounted = false; }
 }, { passive: true });
-/* 点击提词内容任意一行 → 定位播放起点。拖选文字时不触发，避免误跳 */
+/* 点击提词内容任意一行 → 定位播放起点。拖选文字时不触发，避免误跳。
+   点文字下方的空白（短稿常见）只进编辑态，不设播放起点（见 clickBelowText）。 */
 scrollText.addEventListener('click', function(e){
   const sel = window.getSelection && window.getSelection();
   if (sel && !sel.isCollapsed) return;
+  if (clickBelowText(e.clientY)){ caretSeekOffset = null; return; }
   if (typeof e.clientY === 'number') seekAtClientY(e.clientY, e.clientX);
 });
 btnPlay.addEventListener('click', togglePlay);

@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 235 键且一致', sizes.every(n => n === 235), JSON.stringify(sizes));
+check('七语各 236 键且一致', sizes.every(n => n === 236), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -1061,6 +1061,38 @@ check('眼睛档位标签改为绝对定位脱离文档流（不再顶高按钮�
   /#btnReadMarkWrap\{[^}]*display:inline-flex/.test(html));
 check('header 底部留白容纳绝对定位标签',
   /header\{[\s\S]{0,200}padding:12px 16px 18px/.test(html));
+
+// --- 修复④：短稿点空白处也能弹出编辑工具条 ---
+check('提词区编辑面铺满容器（短稿点空白也能进编辑态）',
+  /#scrollText\{[\s\S]{0,1200}min-height:100%/.test(html) &&
+  /#app\.playing #scrollText\{ min-height:0; \}/.test(html));
+check('点文字下方空白不设播放起点（clear caretSeekOffset）',
+  /scrollText\.addEventListener\('click'[\s\S]{0,320}clickBelowText\(e\.clientY\)[\s\S]{0,80}caretSeekOffset = null/.test(html));
+check('存在 clickBelowText 几何判定函数', /function clickBelowText/.test(html));
+// 运行时：无布局环境（jsdom）下不得把正常点击判成"空白"，否则点击定位会失效
+check('无布局信息时 clickBelowText 返回 false（不误判空白）',
+  ev('clickBelowText(400)') === false);
+check('点空白后播放起点不被光标污染（caretSeekOffset 置空）',
+  (function(){
+    ev('window.__origCBT = clickBelowText; clickBelowText = function(){ return true; }; caretSeekOffset = 12;');
+    st.dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientY: 900 }));
+    const cleared = ev('caretSeekOffset') === null;
+    ev('clickBelowText = window.__origCBT; delete window.__origCBT;');
+    return cleared;
+  })());
+
+// --- 修复⑤：空稿点播放提示"请先输入"，而不是"继续播放" ---
+check('七语均有 playEmpty 空稿提示文案',
+  ['zh','en','de','fr','ja','ko','ru'].every(l => ev(`!!I18N.${l}.playEmpty`)));
+check('togglePlay 开头拦截空稿（不进入播放态）',
+  /function togglePlay[\s\S]{0,400}getActiveContent\(\)[\s\S]{0,120}playEmpty/.test(html));
+ev("state.scripts=[{id:'ep',title:'空稿',titleKind:'custom',content:'',updatedAt:0}]; state.activeScriptId='ep'; loadActiveIntoEditor(); setPlaying(false); togglePlay();");
+check('空稿点 ▶ 不进入播放态', ev('playing') === false);
+check('空稿点 ▶ 提示先输入内容（playEmpty）',
+  doc.getElementById('toast').textContent === ev("t('playEmpty')"));
+ev("state.scripts=[{id:'np',title:'有稿',titleKind:'custom',content:'第一行\\n第二行',updatedAt:0}]; state.activeScriptId='np'; loadActiveIntoEditor(); togglePlay();");
+check('有稿点 ▶ 正常播放（空稿拦截不误伤）', ev('playing') === true);
+ev('setPlaying(false);');
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
