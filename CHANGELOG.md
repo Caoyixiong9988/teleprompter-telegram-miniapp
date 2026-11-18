@@ -24,6 +24,7 @@
   5. `ensureReadTokens()` 收口三处重复的"按需构建词元缓存"。
 - **验证**：npm 147/147、iOS 编辑器 298/298（改 3 项口径 + 新增 10 项）、i18n 32/32（七语仍 236 键）；真 Chrome（CDP + 真排版 + 390×844）场景 4/4：导入后播放 `head` 直接从首词(113)推进、`markTop` 稳定在 68–132 不再变负/隐藏、进度条可见且随进度下移；暂停手动滚 400px 后续播从 436 继续（不闪回）、读完重播从头开始、点底部定位后阅读点不被覆盖、短稿（max=0）高亮照常推进。
 - **涉及文件**：`index.html`、`verify-ios-editor.mjs`
+- **线上**：Cloudflare Pages 生产部署 `03185255`（`--branch main`），`https://teleprompter-49y.pages.dev/` 352,366 字节、sha256 `47170de6…`，与本地逐字节一致；Gitee `f5b6ac7`。
 
 ---
 
