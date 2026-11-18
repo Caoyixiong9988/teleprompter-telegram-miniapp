@@ -26,6 +26,7 @@
 - **为什么**：Telegram Mini App 明确禁用 `window.alert/confirm/prompt`，必须用 SDK 原生确认框；让"专属 ID"从展示代号升级为可一键署名的身份入口。
 - **怎么验证**：npm 147/147、iOS 编辑器 338/338（+15）、i18n 32/32（七语各 246 键）、Worker 18/18；真 Chrome（390×844）复验四项全过：使用ID填入一致、两段式与 Telegram 原生确认两条路径换ID成功、预览卡显示且 reads 不变、用ID当名字换ID后名字同步；截图确认完成卡排版正常。
 - **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`
+- **线上**：Cloudflare Pages 生产部署 `47c0596c`（`--branch main`），`https://teleprompter-49y.pages.dev/` 368,082 字节、sha256 `fd8a8d9d…`，与本地逐字节一致；Gitee `9cd608e`。
 
 ---
 
