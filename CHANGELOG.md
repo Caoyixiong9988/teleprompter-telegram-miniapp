@@ -18,6 +18,7 @@
 - **为什么**：用户要求三项里选一项做必填、并由平台分配一个只留本机的 ID 用于完成卡署名；同时人格称号要"有十足成就感自豪感"。竞品调研（Duolingo/Spotify Wrapped/SimpleX/Session）支撑了"人格化标签 + 本机身份、不上传"的设计。
 - **怎么验证**：`npm test` 147/147、`verify-ios-editor.mjs` **321/321**（新增 16 项：七语新键、红色必填标记、ID 格式/本地性/补发、名字护栏、必填校验拦截与放行、称号拆分、勋章牌渲染）、`test_i18n_real.mjs` 32/32（七语各 **243 键**，+7）、`smoke:worker` 18/18；真 Chrome（CDP + 390×844）确认：ID `TP-D6FB2T`、红色 ★、缺名字被拦并跳设置、完成卡勋章牌 + ID 行 + 宣言排版无重叠（截图确认）。
 - **涉及文件**：`index.html`、`verify-ios-editor.mjs`、`p3-payments/test-checkout.mjs`、`p8-import/test-import.mjs`、`p9-quota/test-quota.mjs`
+- **线上**：Cloudflare Pages 生产部署 `30c44949`（`--branch main`），`https://teleprompter-49y.pages.dev/` 365,240 字节、sha256 `5e5c0ab3…`，与本地逐字节一致；Gitee `ead190e`。
 
 ---
 
