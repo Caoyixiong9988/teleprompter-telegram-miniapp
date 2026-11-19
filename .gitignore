@@ -10,6 +10,12 @@ dist/
 .wrangler/
 .dev.vars
 
+# Playwright E2E 产物
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # 临时/调试文件
 *_dbg*
 _dbg.*

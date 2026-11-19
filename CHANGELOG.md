@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-11-19 · chore/test — 安装 Playwright，补齐 A 层未测按钮的真浏览器 E2E 断言（第三十八轮）
+
+- **类型**：chore / test（新增回归门禁，**未改产品代码 `index.html`**）
+- **背景**：测试覆盖审计发现 bug 修复类覆盖极密，但 A 层 8 类功能只有"按钮在 DOM 里"的静态断言，没有真交互验证。用户要求安装 Playwright 并补齐断言。
+- **做了什么**：
+  - 安装 `@playwright/test@1.65.1` + Chromium 159 / WebKit 27.2 浏览器引擎（Apache-2.0，永久免费）。
+  - 新增 `playwright.config.mjs`（390×844 手机视口，chromium 为默认门禁、webkit 可选）与 `e2e/a-layer.spec.mjs`（16 项 E2E）。
+  - `package.json` 新增 `test:e2e` / `test:e2e:all`；`.gitignore` 忽略 Playwright 产物。
+  - 用 `page.addInitScript` 注入 Telegram WebApp / Web Share / canvas 绘制 / 下载 / SpeechRecognition 替身，`page.route` 模拟后端；`file://` 直开单文件，零真实后端依赖。
+- **覆盖的 A 层 8 类**：成片卡真绘制（免费 1080×1350 / Pro 2160×2700 去水印）、下载与 Web Share 三分支（成功 / 取消不降级 / 失败降级 Telegram）、完成卡署名护栏与 PNG 保存、镜像 / 对齐 / 速度单位往返与刷新持久化、举报表单 6 分支、验签状态双栏展示、5 个面板的关闭按钮 / 遮罩 / ESC、语音识别→滚动→静音暂停→停止复位与 iOS 不可用分支、遥控建会话→轮询应用指令→控制端发令→断开停止。
+- **验证**：Chromium **16/16 全绿** + WebKit **16/16 全绿**（各 6.6 分钟，共 32 项断言通过）。过程中修正 5 项测试写法问题（Pro 画布高度应为 2700、Telegram 环境降级走 `openTelegramLink`、抽屉内按钮需先开抽屉、多抽屉叠加需直接置状态、英文分享模板不含名字故按 `fmt` 结果比对）。
+- **涉及文件**：`package.json` / `package-lock.json` / `playwright.config.mjs` / `e2e/a-layer.spec.mjs` / `.gitignore`。
+- **仍未覆盖（诚实说明）**：真实 initData 验签、真机 WebView 原生 API、两台设备真实云同步/遥控、支付与 Pro 权益（用户已排除）、B 层端点 HTTP 测试、D 层上线配置门禁。
+
+---
+
 ## 2026-11-18 · feat — "有效读完"门槛可见化：字数徽标 + 规则说明 + 短稿提示（第三十七轮）
 
 - **类型**：feat / UX（可预期性 + 消除沉默失败）
