@@ -1,0 +1,5 @@
+# Shell 脚本与 CI 配置必须在所有平台保持 LF，否则 Linux(GitHub Actions) 上会报 \r 错误
+.githooks/pre-push text eol=lf
+scripts/*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

@@ -1,0 +1,53 @@
+name: Test gate
+
+# 每次 push 和 PR 到 master/main 自动跑全套测试门禁。
+# 这是"云端版"门禁：等你把仓库迁到 GitHub 后自动生效，无需本地配置。
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium + OS deps
+        run: npx playwright install --with-deps chromium
+
+      - name: Unit tests (node --test)
+        run: npm test
+
+      - name: i18n seven-language parity
+        run: node test_i18n_real.mjs
+
+      - name: iOS editor jsdom suite
+        run: node verify-ios-editor.mjs
+
+      - name: Worker smoke (18 checks)
+        run: npm run smoke:worker
+
+      - name: E2E A-layer (Chromium, real browser)
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

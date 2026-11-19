@@ -1,0 +1,47 @@
+#!/usr/bin/env sh
+# 本地测试门禁：每次 git push 前自动跑全套测试，任何一项失败即拦截本次 push。
+#
+# 绕过开关（仅在确有把握时使用）：
+#   SKIP_TESTS=1 git push      全部跳过（紧急发布）
+#   SKIP_E2E=1 git push        只跳过 E2E（约 6.6 分钟），仍跑单元 + i18n + jsdom
+#
+# 安装：仓库根目录执行 sh scripts/install-hooks.sh（只需一次，写入本地 git config，不入版本库）
+
+if [ "$SKIP_TESTS" = "1" ]; then
+  echo "[pre-push] SKIP_TESTS=1 —— 已跳过全部测试门禁（紧急发布）"
+  exit 0
+fi
+
+# 消费 git 通过 stdin 传入的 ref 列表（local_ref local_sha remote_ref remote_sha）
+while read -r _lr _ls _rr _rs; do :; done
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 1
+cd "$ROOT" || exit 1
+
+run() {
+  echo ""
+  echo "[pre-push] >>> $*"
+  "$@" || {
+    echo ""
+    echo "[pre-push] 门禁失败：上一步未通过，本次 push 已拦截。"
+    echo "[pre-push] 修复后重试；紧急放行可用 SKIP_TESTS=1 git push。"
+    exit 1
+  }
+}
+
+echo "[pre-push] 开始测试门禁（单元测试 → i18n → jsdom → E2E）..."
+
+run npm test
+run node verify-ios-editor.mjs
+run node test_i18n_real.mjs
+
+if [ "$SKIP_E2E" = "1" ]; then
+  echo ""
+  echo "[pre-push] SKIP_E2E=1 —— 已跳过 E2E（Chromium 真浏览器，约 6.6 分钟）"
+else
+  run npm run test:e2e
+fi
+
+echo ""
+echo "[pre-push] 门禁全绿，允许 push。"
+exit 0

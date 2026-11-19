@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-19 · chore — 每次 push 自动跑测试门禁（本地 pre-push 钩子 + GitHub Actions 备用）（第三十九轮）
+
+- **类型**：chore / CI（**未改产品代码 `index.html`**）
+- **背景**：用户希望"每次 push 自动跑测试"；并提到上次注册 GitHub 未成功、改用 Gitee，问能否代注册。
+- **关于注册 GitHub**：需本人邮箱验证 + 人机验证 + 同意条款，自动化代注册违反 ToS、账号可能被封，故未代做；已写 `docs/GitHub注册与CI门禁.md` 给出本人操作 5 分钟指引 + 仓库迁移步骤。
+- **做了什么**：
+  - 本地钩子 `.githooks/pre-push`：每次 push 自动跑「单元 → i18n → jsdom → E2E(Chromium)」，失败即拦截；支持 `SKIP_TESTS=1`（全跳）与 `SKIP_E2E=1`（只跳 E2E）紧急绕过。
+  - `scripts/install-hooks.sh`：一键设置 `core.hooksPath=.githooks`（本地 git config，不入版本库）；换机后跑一次即可。
+  - `.github/workflows/test.yml`：GitHub 云端门禁（push/PR 到 master/main 触发），含 npm ci、Node 22、Playwright Chromium、全套测试与失败产物上传。**注册 GitHub 并迁仓后自动生效，Gitee 不认此文件**。
+- **验证**：本地钩子实测全绿（单元 + i18n + jsdom 快速门禁），`SKIP_TESTS=1` / `SKIP_E2E=1` 两个绕过开关均生效；workflow 九步齐全；本次 push 走完整门禁（含 E2E）端到端确认。
+- **涉及文件**：`.githooks/pre-push` / `scripts/install-hooks.sh` / `.github/workflows/test.yml` / `docs/GitHub注册与CI门禁.md` / `CHANGELOG.md`。
+
+---
+
 ## 2026-11-19 · chore/test — 安装 Playwright，补齐 A 层未测按钮的真浏览器 E2E 断言（第三十八轮）
 
 - **类型**：chore / test（新增回归门禁，**未改产品代码 `index.html`**）
