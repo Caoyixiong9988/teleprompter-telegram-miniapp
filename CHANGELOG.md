@@ -18,7 +18,8 @@
 - **为什么**：bug 修复类测试已够密，剩余盲区集中在「配置漂移」「合规口径」「后端 HTTP 层」——都是本地可测、不依赖真机/网络的维度。
 - **验证**：npm test **161/161**、test:archive 6/6、i18n 32/32、iOS 354/354、smoke:worker 18/18；pre-push 门禁（SKIP_E2E 快速模式）全绿放行。未改产品代码 `index.html`，线上哈希不变。
 - **涉及文件**：`check-config.test.mjs`（新）、`p7-compliance/test-http-endpoints.mjs`（新）、`p7-compliance/i18n.js`、`p7-compliance/test-compliance.mjs`、`p7-compliance/compliance-worker.js`、`package.json`。
-- **未做**：P2（视觉回归/axe/Lighthouse，需一次性搭建）、P3（真机/真实网络，后端 502 未解）、支付与 Pro 权益（用户已排除）、GitHub 注册（用户决定自行注册，指引文档已备）。本轮未提交 Gitee / 未部署 Cloudflare（用户未要求）。
+- **未做**：优先级 2（视觉回归/axe/Lighthouse，需一次性搭建）、优先级 3（真机/真实网络，后端 502 未解）、支付与 Pro 权益（用户已排除）、GitHub 注册（用户决定自行注册，指引文档已备）。
+- **交付（用户随后要求推送）**：Gitee `db21acc`（07ad922..db21acc，8 files / +379/-15，含上轮待推的 GitHub 文档）；CF Pages `--branch main` 部署 `6f36a03d`。生产根 369,698 字节、sha256 `d3e3a643…`，与本地 `cmp` 逐字节一致（产品代码未动，哈希与上轮相同属预期）。本轮推送用 `SKIP_E2E=1` 快速门禁（未动 UI，E2E 覆盖不变）。
 
 ---
 
