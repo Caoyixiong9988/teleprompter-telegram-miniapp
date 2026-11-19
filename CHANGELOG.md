@@ -22,7 +22,8 @@
   - 两个"假象"已标注：robots.txt 无效与 console error 是本地极简测试服务器对所有路径返回 HTML 所致，非产品问题。
 - **验证**：axe 门禁 Chromium 3/3 + WebKit 3/3（双引擎违规数一致）；完整 Chromium E2E **19/19**（16 A层 + 3 a11y，7.6 分钟）；npm test 161/161 无回归。未改产品代码 `index.html`。
 - **注意**：`npm audit` 报 8 个漏洞（1 moderate / 7 high）全部来自原有 `wrangler` 的传递依赖（esbuild/miniflare/undici/sharp），非新装 axe/Lighthouse 引入；且都是 devDependency，不影响线上单文件产品。
-- **未做**：本轮未修无障碍欠账（用户仅要求装工具），修复清单见文档第五节；未提交 Gitee / 未部署（用户未要求）。
+- **未做**：本轮未修无障碍欠账（用户仅要求装工具），修复清单见文档第五节。
+- **交付回填**：改动已本地提交 `3af9781` 并推送 Gitee（pre-push 门禁全绿：161 单元 / 354 jsdom / 19 E2E，耗时 8m53s）；已部署 Cloudflare Pages main，线上 `index.html` 与本地逐字节一致（369,698 字节，sha256 `d3e3a643…c2933`），产品代码未变。
 
 ---
 
