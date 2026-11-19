@@ -14,6 +14,7 @@
 - **为什么**：首次 push 门禁中 29 项有 28 项通过，唯独 A3 在 45 秒超时被拦截。单独复跑耗时 **50.6 秒**且通过，确认是 `file://` 页面偶发等不到 `load` 事件，不是产品 BUG。改用 `domcontentloaded` + 就绪守卫比全局拉长 timeout 更稳。
 - **验证**：A3 单独 1/1 通过；测试矩阵文档同步记录该踩坑。
 - **涉及文件**：`e2e/a-layer.spec.mjs`、`docs/Playwright测试矩阵与执行手册.md`、`CHANGELOG.md`。
+- **交付回填（含第四十四轮）**：本地提交 `728577c`（文档+B 层）、`52c0ded`（A3 稳定性修复）；Gitee `41f2e79..52c0ded master -> master` 推送成功。第二次 pre-push 门禁全绿：161 单元 / 354 jsdom / i18n 七语 / 29 E2E，耗时 13m1s。Cloudflare Pages 已用 `--branch main` 部署；生产 `index.html` 372,142 字节、sha256 `e646c75f2cdc87803361431a2586da722182a055340bc2ad625b20859ba8663d`，与本地逐字节一致。本轮未改产品代码 `index.html`。
 
 ---
 
@@ -26,7 +27,7 @@
 - **为什么**：上次高亮 BUG 暴露的是「断言覆盖盲区」而非工具失灵。把盲区整理成矩阵并固化为可跑用例，避免再靠临时想起来补测试。
 - **验证**：B 层 8 项 Chromium 全过；完整 Chromium E2E **29/29 全绿**（A 层 18 + a11y 3 + B 层 8，耗时 11.9 分钟）。B3/B4/B8 首轮因断言假设不准调整过：用户标题需走输入框 input 事件标记 `custom`；重置按钮留下的是 `caretSeekOffset=0` 而非直接把 `readHeadContentY` 归零。
 - **涉及文件**：`docs/Playwright测试矩阵与执行手册.md`、`e2e/core-flows.spec.mjs`、`package.json`、`docs/无障碍与质量审计工具.md`、`docs/GitHub注册与CI门禁.md`、`CHANGELOG.md`。
-- **状态**：仅本地改动，未提交 Gitee / 未部署（用户本轮未要求推送上线）。
+- **状态**：已随 `728577c` + `52c0ded` 提交并推送 Gitee、部署 Cloudflare Pages；回填见第四十五轮。
 
 ---
 
