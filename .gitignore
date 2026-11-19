@@ -16,6 +16,9 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# Lighthouse 审计产物（可随时重跑生成，不进仓库）
+lighthouse-report/
+
 # 临时/调试文件
 *_dbg*
 _dbg.*

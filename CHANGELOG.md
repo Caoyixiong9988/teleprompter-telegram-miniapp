@@ -8,6 +8,24 @@
 
 ---
 
+## 2026-11-19 · chore/test — 安装 axe 无障碍 + Lighthouse 质量审计工具（第四十一轮）
+
+- **做了什么**：安装 `@axe-core/playwright` 4.14.0 + `lighthouse` 13.6.0（均开源免费）。
+  - 新增 `e2e/accessibility.spec.mjs`（3 项）：axe 扫主界面 / 设置面板 / 可见按钮可访问名称。采用**基线门禁**策略——当前违规记入 `e2e/a11y-baseline.json`，只在出现新类别或节点数增加时失败，修好了不报警。
+  - 新增 `tools/lighthouse-audit.mjs`：自包含临时服务器 + Playwright Chromium + Lighthouse，输出 JSON/HTML 报告到 `lighthouse-report/`（已 gitignore）。支持传 URL 审计线上。
+  - `package.json` 新增 `test:a11y` / `audit:lighthouse` 脚本。
+  - 新增 `docs/无障碍与质量审计工具.md`：工具说明 + 运行方式 + 首次审计发现清单 + 修复优先级。
+- **为什么**：对应原"优先级 2"测试盲区（无障碍 / 性能 / 最佳实践），本地可测、边际成本低。
+- **首次审计发现（真实问题）**：
+  - axe：主界面 4 类 / 设置面板 5 类 serious/critical 违规——灰色 `#79808c` 对比度 3.97 < 4.5（13 处）、6 个表单控件无标签、2 个 select 无标签、A−/A+ 按钮 aria-label 与可见文字不符、`#viewport` 键盘不可达。
+  - Lighthouse：性能 77 / 无障碍 88 / 最佳实践 96 / SEO 82；低分项 FCP/LCP 3.3s、未压缩 JS/CSS、缺 meta description。
+  - 两个"假象"已标注：robots.txt 无效与 console error 是本地极简测试服务器对所有路径返回 HTML 所致，非产品问题。
+- **验证**：axe 门禁 Chromium 3/3 + WebKit 3/3（双引擎违规数一致）；完整 Chromium E2E **19/19**（16 A层 + 3 a11y，7.6 分钟）；npm test 161/161 无回归。未改产品代码 `index.html`。
+- **注意**：`npm audit` 报 8 个漏洞（1 moderate / 7 high）全部来自原有 `wrangler` 的传递依赖（esbuild/miniflare/undici/sharp），非新装 axe/Lighthouse 引入；且都是 devDependency，不影响线上单文件产品。
+- **未做**：本轮未修无障碍欠账（用户仅要求装工具），修复清单见文档第五节；未提交 Gitee / 未部署（用户未要求）。
+
+---
+
 ## 2026-11-19 · test — 补 P0/P1 测试盲区：配置门禁 + 合规七语 + B 层 HTTP 端点（第四十轮）
 
 - **做了什么**：
