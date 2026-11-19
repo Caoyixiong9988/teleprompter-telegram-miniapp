@@ -39,7 +39,11 @@ if [ "$SKIP_E2E" = "1" ]; then
   echo ""
   echo "[pre-push] SKIP_E2E=1 —— 已跳过 E2E（Chromium 真浏览器，约 6.6 分钟）"
 else
-  run npm run test:e2e
+  # 用全新临时输出目录：避免 Playwright 清理累积的 test-results/ 时触发
+  # WorkBuddy 沙箱的批量删除保护（CI 上无此限制，workflow 仍用默认目录）。
+  E2E_OUT="/tmp/tp-e2e-$$-$(date +%s 2>/dev/null || echo 0)"
+  echo "[pre-push] E2E 输出目录：$E2E_OUT"
+  run npx playwright test --project=chromium --reporter=line --output="$E2E_OUT"
 fi
 
 echo ""
