@@ -21,6 +21,7 @@
 - **验证**：Chromium **16/16 全绿** + WebKit **16/16 全绿**（各 6.6 分钟，共 32 项断言通过）。过程中修正 5 项测试写法问题（Pro 画布高度应为 2700、Telegram 环境降级走 `openTelegramLink`、抽屉内按钮需先开抽屉、多抽屉叠加需直接置状态、英文分享模板不含名字故按 `fmt` 结果比对）。
 - **涉及文件**：`package.json` / `package-lock.json` / `playwright.config.mjs` / `e2e/a-layer.spec.mjs` / `.gitignore`。
 - **仍未覆盖（诚实说明）**：真实 initData 验签、真机 WebView 原生 API、两台设备真实云同步/遥控、支付与 Pro 权益（用户已排除）、B 层端点 HTTP 测试、D 层上线配置门禁。
+- **交付**：Gitee `96166ea`（5ae688a..96166ea）；CF Pages `--branch main` 生产部署 `6c563af4`；生产根 369,698 字节、sha256 `d3e3a643…`，与本地逐字节一致（本轮未改产品代码，哈希与上轮相同属预期）。测试门禁文件随部署一并上传为静态资源，不影响根路径行为。
 
 ---
 
