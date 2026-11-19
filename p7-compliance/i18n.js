@@ -7,12 +7,14 @@
  * ③ 自行备份——清除数据或换设备可能丢失；④ 按「现状」提供，不对结果作保证。
  */
 
-export const SUPPORTED_LANGS = ['zh', 'en', 'ja', 'ko', 'ru'];
+export const SUPPORTED_LANGS = ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru'];
 export const DEFAULT_LANG = 'zh';
 
 export const LANG_NAMES = {
   zh: '中文',
   en: 'English',
+  de: 'Deutsch',
+  fr: 'Français',
   ja: '日本語',
   ko: '한국어',
   ru: 'Русский',
@@ -63,6 +65,58 @@ export const UI_STRINGS = {
     reportThanks: 'Thanks! We received your feedback and will review it soon.',
     aboutTitle: 'About',
     langLabel: 'Language',
+  },
+  de: {
+    appTitle: 'ScriptDeck',
+    appSubtitle: 'Teleprompter · Flüssig vorlesen, Blick frei',
+    disclaimerTitle: 'Haftungsausschluss',
+    disclaimerBody:
+      'ScriptDeck ist ein Hilfsmittel zum Vorlesen von Texten: Die App zeigt ausschließlich den von dir ' +
+      'eingegebenen Text auf deinem Gerät an und lässt ihn scrollen – sie erstellt, veröffentlicht oder ' +
+      'bewertet keine Inhalte. Deine Skripte werden standardmäßig im Browser deines Geräts gespeichert. ' +
+      'Außer wenn du die Cloud-Synchronisierung selbst aktivierst, lesen, übertragen oder sichern wir ' +
+      'deine Skripte nicht. Nach dem Löschen der Browserdaten, dem Deinstallieren der App oder einem ' +
+      'Gerätewechsel kann eine Wiederherstellung unmöglich sein – bewahre wichtige Texte daher selbst auf. ' +
+      'Die App wird „wie besehen“ bereitgestellt; Scrollgeschwindigkeit und Zeichenzählung dienen nur als ' +
+      'Orientierung, für Aufnahmeergebnisse oder Folgen der Nutzung wird keine Gewähr übernommen.',
+    paidNotice:
+      'Du bist dabei, Pro-Rechte mit Telegram Stars zu kaufen. Pro ist eine Funktionsfreischaltung; ' +
+      'Monats- und Jahresabo verlängern sich nach Ablauf nicht automatisch. Innerhalb von 14 Tagen nach ' +
+      'dem Kauf kannst du über /paysupport eine vollständige Rückerstattung beantragen, ohne Begründung; ' +
+      'bei wiederholten Anträgen desselben Kontos kann eine Erstattung abgelehnt werden. Dies berührt ' +
+      'deine gesetzlichen Rechte nicht. Die Zahlung wird von Telegram abgewickelt; wir erhalten keine Zahlungsdaten.',
+    reportTitle: 'Melden / Feedback',
+    reportPlaceholder: 'Beschreibe bitte das Problem oder dein Feedback …',
+    reportSubmit: 'Senden',
+    reportThanks: 'Danke, dein Feedback ist eingegangen. Wir kümmern uns darum.',
+    aboutTitle: 'Über',
+    langLabel: 'Sprache',
+  },
+  fr: {
+    appTitle: 'ScriptDeck',
+    appSubtitle: 'Téléprompteur · Défilement fluide, les yeux libres',
+    disclaimerTitle: 'Clause de non-responsabilité',
+    disclaimerBody:
+      'ScriptDeck est un outil d’aide à la lecture : il affiche et fait défiler uniquement le texte que ' +
+      'vous saisissez, sur votre appareil, sans créer, publier ni évaluer de contenu. Vos scripts sont ' +
+      'enregistrés par défaut dans le navigateur de votre appareil ; sauf si vous activez vous-même la ' +
+      'synchronisation cloud, nous ne lisons, ne transférons ni ne sauvegardons vos scripts. Après effacement ' +
+      'des données du navigateur, désinstallation de l’application ou changement d’appareil, une récupération ' +
+      'peut être impossible : conservez vous-même vos textes importants. L’application est fournie « en l’état » ; ' +
+      'la vitesse de défilement et l’estimation du nombre de caractères ne sont qu’indicatives et n’offrent ' +
+      'aucune garantie sur le résultat d’un enregistrement ni sur les conséquences de l’usage.',
+    paidNotice:
+      'Vous allez acheter des droits Pro avec Telegram Stars. Pro est un déblocage de fonctionnalités ; ' +
+      'les formules mensuelle et annuelle ne se renouvellent pas automatiquement à l’échéance. Dans les ' +
+      '14 jours suivant l’achat, vous pouvez demander un remboursement intégral via /paysupport, sans ' +
+      'justification ; les demandes répétées d’un même compte peuvent être refusées. Cette clause n’affecte ' +
+      'pas vos droits légaux. Le paiement est traité par Telegram ; nous n’avons pas accès à vos informations de paiement.',
+    reportTitle: 'Signaler / Retour',
+    reportPlaceholder: 'Décrivez le problème à signaler ou votre retour …',
+    reportSubmit: 'Envoyer',
+    reportThanks: 'Merci, votre retour a bien été reçu. Nous nous en occupons.',
+    aboutTitle: 'À propos',
+    langLabel: 'Langue',
   },
   ja: {
     appTitle: 'テレプロンプター',

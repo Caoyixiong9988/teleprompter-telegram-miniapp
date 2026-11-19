@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-11-19 · test — 补 P0/P1 测试盲区：配置门禁 + 合规七语 + B 层 HTTP 端点（第四十轮）
+
+- **做了什么**：
+  - **配置一致性门禁**（`check-config.test.mjs`，7 项）：对账 `wrangler.toml` / `wrangler.dev.toml` / `schema.sql` / `worker.js` 路由 / `index.html` CONFIG 四处。专门防历史踩过的坑——`/admin` 漏挂、生产 D1 ID 误写进 dev、已下线 P4 仍被 import、前端硬编码 workers.dev URL。
+  - **合规七语补齐**：后端 `p7-compliance/i18n.js` 此前只有五语，de/fr 用户请求 `/compliance/disclaimer?lang=de|fr` 会**静默回落成中文免责声明**——这是真实合规缺口。已从前端七语原文补齐 de/fr，`SUPPORTED_LANGS` 扩到七语；`test-compliance.mjs` 五语断言改七语并新增回落校验。
+  - **B 层 HTTP 端点测试**（`p7-compliance/test-http-endpoints.mjs`，11 项）：首次真正走 `worker.fetch` 路由分发（此前只 import 纯函数），覆盖 CORS 预检 204、405、404（模块内+顶层）、七语声明 HTTP 响应、举报写 D1、空 detail 不写库、`/verify` 405、`/health` 模块清单。
+  - **清除假覆盖**：已下线的 `p4-bounty` 测试从主门禁 `npm test` 移出，改到独立 `test:archive`（仍保留存档保护，不再制造"已覆盖"错觉）。
+- **为什么**：bug 修复类测试已够密，剩余盲区集中在「配置漂移」「合规口径」「后端 HTTP 层」——都是本地可测、不依赖真机/网络的维度。
+- **验证**：npm test **161/161**、test:archive 6/6、i18n 32/32、iOS 354/354、smoke:worker 18/18；pre-push 门禁（SKIP_E2E 快速模式）全绿放行。未改产品代码 `index.html`，线上哈希不变。
+- **涉及文件**：`check-config.test.mjs`（新）、`p7-compliance/test-http-endpoints.mjs`（新）、`p7-compliance/i18n.js`、`p7-compliance/test-compliance.mjs`、`p7-compliance/compliance-worker.js`、`package.json`。
+- **未做**：P2（视觉回归/axe/Lighthouse，需一次性搭建）、P3（真机/真实网络，后端 502 未解）、支付与 Pro 权益（用户已排除）、GitHub 注册（用户决定自行注册，指引文档已备）。本轮未提交 Gitee / 未部署 Cloudflare（用户未要求）。
+
+---
+
 ## 2026-11-19 · chore — 每次 push 自动跑测试门禁（本地 pre-push 钩子 + GitHub Actions 备用）（第三十九轮）
 
 - **类型**：chore / CI（**未改产品代码 `index.html`**）
