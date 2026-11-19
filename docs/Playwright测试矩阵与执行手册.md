@@ -114,6 +114,7 @@ A9 是范例：不去等「播放 3 秒后应该到哪一行」，而是逐帧�
 - Telegram WebView 禁用原生 `confirm`，代码必须走 `showConfirm`；测试替身默认直接回调 `true`。
 - `page.route` 多个分支之间要 `unroute`，否则前一个 mock 会把后一个请求吃掉。
 - 不要用 `waitForTimeout` 等异步完成，优先 `expect.poll`。
+- `file://` 页面 `page.reload()` 在本机偶发等不到 `load` 事件（A3 实测 50.6s），导致 45s 默认超时。刷新类用例改用 `page.reload({ waitUntil: 'domcontentloaded' })` + `page.waitForFunction(() => 页面全局已就绪)`，并给该用例单独放宽 timeout。
 
 ---
 

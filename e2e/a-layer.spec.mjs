@@ -230,6 +230,9 @@ test('A2 完成卡分享：有名字时以 PNG 走 Web Share', async ({ page }) 
 /* ================= A3. 镜像 / 对齐 / 速度单位 ================= */
 
 test('A3 镜像与对齐：真改样式并在刷新后保持', async ({ page }) => {
+  // 刷新 + file:// 在本机偶发等不到 load 事件（45s 超时），
+  // 但 DOM/脚本已就绪。放宽到 90s，并只等 domcontentloaded。
+  test.setTimeout(90000);
   await boot(page);
   await page.click('#btnSettings');
   await page.check('#setMirror');
@@ -241,7 +244,8 @@ test('A3 镜像与对齐：真改样式并在刷新后保持', async ({ page }) 
   expect(await page.evaluate(() => state.align)).toBe('right');
   expect(await page.evaluate(() => document.getElementById('scrollText').style.textAlign)).toBe('right');
 
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof state !== 'undefined' && !!document.getElementById('btnSettings'));
   await page.click('#btnSettings');
   expect(await page.isChecked('#setMirror')).toBe(true);
   expect(await page.inputValue('#setAlign')).toBe('right');

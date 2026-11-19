@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-11-19 · test — 修复 A3 镜像/对齐用例偶发 45 秒超时（第四十五轮）
+
+- **做了什么**：`e2e/a-layer.spec.mjs` 的 A3 单独放宽到 90 秒；刷新从 `page.reload()` 改为 `page.reload({ waitUntil: 'domcontentloaded' })`，随后 `page.waitForFunction()` 确认页面全局就绪再继续点击。
+- **为什么**：首次 push 门禁中 29 项有 28 项通过，唯独 A3 在 45 秒超时被拦截。单独复跑耗时 **50.6 秒**且通过，确认是 `file://` 页面偶发等不到 `load` 事件，不是产品 BUG。改用 `domcontentloaded` + 就绪守卫比全局拉长 timeout 更稳。
+- **验证**：A3 单独 1/1 通过；测试矩阵文档同步记录该踩坑。
+- **涉及文件**：`e2e/a-layer.spec.mjs`、`docs/Playwright测试矩阵与执行手册.md`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-19 · docs/test — 扩充 Playwright 覆盖矩阵并新增 B 层核心流程测试（第四十四轮）
 
 - **做了什么**：
