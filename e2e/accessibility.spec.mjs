@@ -11,11 +11,11 @@ const BASELINE = JSON.parse(readFileSync(path.resolve('e2e/a11y-baseline.json'),
 // 若将来某引擎出现分歧，可在此按 browserName 分基线。
 
 /**
- * 无障碍（WCAG）基线门禁：用 axe-core 扫真实渲染的 DOM。
+ * 无障碍（WCAG）硬门禁：用 axe-core 扫真实渲染的 DOM。
  *
- * 策略：首次审计发现的 serious/critical 违规记为基线（a11y-baseline.json）。
- * 只有在「新违规类别出现」或「某类违规节点数增加」时才失败——修好了会下降不报警，
- * 退化才会挡住发布。这样既持续盯住无障碍，又不会因历史欠账永远红灯。
+ * 2026-11-19 首审的 serious/critical 违规已全部修复，a11y-baseline.json 已清零。
+ * 现在基数为 0，任何 serious/critical 违规都会被判为「新增」并让测试失败——
+ * 从「只防退化」升级为「零违规」硬门禁。
  */
 function checkAgainstBaseline(label, blocking, baselineKey) {
   const current = {};

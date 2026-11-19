@@ -8,6 +8,34 @@
 
 ---
 
+## 2026-11-19 · fix — 修复高亮与滚动脱节：末尾空白处仍移动、到结尾越过数行才停（第四十三轮）
+
+- **用户报告的两个 BUG**（真浏览器复现确认，同源）：
+  1. 播放到文稿末尾时，文稿已停止滚动，高亮光标仍在段落空白/正文上继续移动；
+  2. 明明到了结尾，高亮还越过若干行、直到最后一行末尾才停下。
+- **根因**：阅读头终点 `endY`（末行末尾内容坐标 ≈773）大于文稿可滚终点 `maxOffset + 阅读线`（≈178+129=307）。`offset = head − 阅读线` 在 head≈307 时就钳死在 `maxOffset`，文稿静止；但 `finished` 用 `head ≥ endY` 判定，于是阅读头在静止文稿里继续独自往下扫约 466px（4 行）才结束。用户看到的两个现象就是这段"静止扫字"。
+- **修复**：新增 `ensureTailRoom()`，在 `buildReadTokens()` 末尾为"需要滚动的长稿"补足 `padding-bottom`，使 `maxOffset ≥ endY − 阅读线`。这样 offset 全程不触钳，文稿随高亮同步滚动，阅读头走到末行末尾时文稿正好滚到底，两者同时结束。
+  - 短稿（不足一屏，maxOffset=0）跳过补白，保持"文稿不动、只逐词高亮"的既有行为；空稿/无词时清掉旧补白与行缓存，避免残留。
+  - 字号/文稿变化经 `readTokensDirty → buildReadTokens` 自动重算补白，先归零再算、不累积。
+- **验证**：真浏览器逐帧诊断确认触底与读完同时发生（`stopped` 只在最后一帧出现）；新增 A9 两项 E2E 断言固化该行为；`npm test` 161/161、jsdom 354/354 无回归。
+- **涉及文件**：`index.html`、`e2e/a-layer.spec.mjs`、`CHANGELOG.md`。
+
+---
+
+## 2026-11-19 · fix(a11y) — 清空无障碍欠账：axe 零违规硬门禁 + Lighthouse 无障碍 100（第四十二轮）
+
+- **做了什么**：修复第四十一轮审计出的全部 5 类 serious/critical 违规，外加 Lighthouse 的 `landmark-one-main`。
+  - `--muted` 由 `#79808c` 改为 `#5f6672`（白底 5.78:1 / 浅灰底 5.35:1），一次消掉 13 处 color-contrast；
+  - 8 个表单控件改用已有 `<label for>` 关联（完成卡开关的 `<span>` 改为 `<label>`），可访问名称随七语 i18n 自动切换，不新增翻译键；
+  - A−/A+ 按钮 aria-label 改为包含可见字符的「A− 缩小字号」「A+ 放大字号」；
+  - `#viewport` 由 `<div>` 改为 `<main tabindex="0" aria-label="讲稿内容">`，补地标并让滚动区键盘可达。
+- **为什么**：axe 报的 critical 问题直接影响读屏、弱视和纯键盘用户，Telegram WebView 里这类问题投诉常见。基线清零后门禁从「只防退化」升级为「零违规」，今后新增违规直接挡住 push。
+- **验证**：axe 硬门禁 Chromium 3/3 + WebKit 3/3 双引擎零违规；Lighthouse Accessibility **88 → 100**；`npm test` 161/161；`verify-ios-editor.mjs` 354/354；完整 Chromium E2E 19/19。未新增 i18n 键，七语仍各 252 键。
+- **涉及文件**：`index.html`、`e2e/a11y-baseline.json`、`e2e/accessibility.spec.mjs`、`docs/无障碍与质量审计工具.md`、`CHANGELOG.md`。
+- **未做**：性能 77 / SEO 82（FCP、未压缩资源、meta description）属另一类欠账，本轮未涉及；改动仅在本地，未提交 Gitee / 未部署（用户仅要求修改）。
+
+---
+
 ## 2026-11-19 · chore/test — 安装 axe 无障碍 + Lighthouse 质量审计工具（第四十一轮）
 
 - **做了什么**：安装 `@axe-core/playwright` 4.14.0 + `lighthouse` 13.6.0（均开源免费）。

@@ -564,3 +564,74 @@ test('A8 遥控：建会话 → 轮询应用指令 → 控制端发指令 → �
   expect(await page.evaluate(() => ({ token: remoteToken, timer: remotePollTimer })))
     .toEqual({ token: null, timer: null });
 });
+
+/* ============ A9. 逐词高亮与文稿滚动同步（两个真机 BUG 回归） ============
+   BUG1：文稿已到底、画面静止后，高亮仍在段落空白/正文上继续移动。
+   BUG2：到结尾处高亮还越过若干行、直到最后一行末尾才停下。
+   两者同源：阅读头终点(endY) > 文稿可滚终点(maxOffset+阅读线)，
+   修复用 ensureTailRoom 补尾白让二者对齐。
+   这里在真浏览器里跑完整播放循环，逐帧断言"触底"与"读完"同时发生。 */
+test('A9 高亮与滚动同步：全文播放中触底与读完同时发生，无静止扫字阶段', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(() => {
+    // 一篇带段落空行、明显超过一屏的讲稿（复现用户场景）
+    scrollText.textContent = '第一行文字内容abcdefg\n\n\n第二行文字内容hijklmn\n\n\n第三行结尾pqrstuv';
+    state.readMark = true; state.mirror = false; state.fontSize = 44;
+    readTokensDirty = true;
+    buildReadTokens();
+    const endY = readEndContentY();
+    const maxOff = maxOffset();
+    let head = 0, off = 0;
+    readHeadContentY = head;
+    const dt = 0.016;
+    let framesStoppedBeforeEnd = 0; // 文稿已触底但高亮还没读完的帧数
+    let frames = 0, lastOff = -1, offEverMoved = false;
+    for (let i = 0; i < 3000; i++) {
+      let step = pxPerSec() * dt * paceScaleForHead(head);
+      const bg = blankGapAhead(head);
+      if (bg) step = Math.max(step, bg.nextTop - head);
+      head += step;
+      off = offsetForHead(head);
+      readHeadContentY = head; offset = off;
+      if (Math.abs(off - lastOff) > 0.5) offEverMoved = true;
+      lastOff = off;
+      if (off >= maxOff - 0.5 && head < endY - 1) framesStoppedBeforeEnd++;
+      frames++;
+      if (head >= endY) break;
+    }
+    return { endY, maxOff, frames, framesStoppedBeforeEnd, offEverMoved,
+             reached: head >= endY, finalOff: off };
+  });
+  // 尾部留白把可滚距离抬到与 endY-阅读线对齐（而非卡在内容高度)
+  expect(r.maxOff, '长稿必须补足尾部可滚距离').toBeGreaterThan(300);
+  expect(r.reached, '阅读头应走完全文').toBe(true);
+  expect(r.offEverMoved, '文稿应全程滚动').toBe(true);
+  expect(r.finalOff, '读完时文稿应正好滚到底').toBeGreaterThanOrEqual(r.maxOff - 1);
+  // 核心：不允许出现"文稿已到底但高亮还在扫"的阶段（两个 BUG 的直接度量）
+  expect(r.framesStoppedBeforeEnd, '触底后不应还有高亮独走的帧').toBeLessThanOrEqual(2);
+});
+
+test('A9 短稿保持不滚动：只做逐词高亮，不被尾部补白误伤成可滚动', async ({ page }) => {
+  await boot(page);
+  const r = await page.evaluate(() => {
+    scrollText.textContent = '短稿第一行\n\n第二行结尾';
+    state.readMark = true; state.mirror = false;
+    readTokensDirty = true;
+    buildReadTokens();
+    const maxOff = maxOffset();
+    const pad = getComputedStyle(scrollText).paddingBottom;
+    // 短稿也应能把高亮走到最后一行
+    const endY = readEndContentY();
+    let head = 0;
+    for (let i = 0; i < 3000 && head < endY; i++) {
+      let step = pxPerSec() * 0.016 * paceScaleForHead(head);
+      const bg = blankGapAhead(head);
+      if (bg) step = Math.max(step, bg.nextTop - head);
+      head += step;
+    }
+    return { maxOff, pad: parseFloat(pad), reached: head >= endY };
+  });
+  expect(r.maxOff, '短稿不应因补白变成可滚动').toBe(0);
+  expect(r.pad, '短稿补白应回落到基础值').toBeLessThanOrEqual(48);
+  expect(r.reached, '短稿高亮仍应走完全文').toBe(true);
+});

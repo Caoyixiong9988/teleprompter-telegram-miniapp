@@ -11,7 +11,7 @@
 <style>
   :root{
     --bg:#f5f6f8; --panel:#ffffff; --primary:#2f6fed; --primary-press:#2257c4;
-    --text:#1f2430; --muted:#79808c; --line:#e3e6ec; --radius:14px;
+    --text:#1f2430; --muted:#5f6672; --line:#e3e6ec; --radius:14px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%;}
@@ -351,8 +351,8 @@
           <button type="button" id="btnReadMark" data-i18n-title="toggleReadMark" data-mode="strong" aria-pressed="true" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:16px;line-height:1;">👁</button>
           <span id="readMarkStatus" data-mode="strong" aria-live="polite">强底色</span>
         </span>
-        <button type="button" id="btnFontDown" aria-label="font size down" title="A-" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A−</button>
-        <button type="button" id="btnFontUp" aria-label="font size up" title="A+" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A+</button>
+        <button type="button" id="btnFontDown" aria-label="A− 缩小字号" title="A-" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A−</button>
+        <button type="button" id="btnFontUp" aria-label="A+ 放大字号" title="A+" style="width:30px;height:30px;padding:0;border:1px solid #d8dde6;background:#fff;color:#222;border-radius:8px;font-size:15px;font-weight:700;line-height:1;">A+</button>
       </div>
       <select id="langSelect" aria-label="language" style="font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid #d8dde6;background:#fff;color:#222;">
         <option value="en">EN</option>
@@ -366,14 +366,15 @@
     </div>
   </header>
 
-  <div id="viewport">
+  <!-- <main> 地标：页面主体就是提词区；tabindex=0 让纯键盘用户也能聚焦并用方向键滚动 -->
+  <main id="viewport" tabindex="0" aria-label="讲稿内容">
     <div id="scrollText" contenteditable="true" role="textbox" aria-multiline="true" aria-label="讲稿编辑区" spellcheck="false" autocapitalize="off" data-i18n-title="editHint"></div>
     <!-- 逐词跟随高亮：独立覆盖层，不拆 scrollText 的 DOM，编辑能力完全不受影响 -->
     <div id="readMark" aria-hidden="true"></div>
     <!-- 播放进度条：播放态原生滚动条被关闭（位移交给 transform），这条只读指示条
          补偿"这一块完全没有滚动指示"的缺失，让用户随时知道读到全篇的哪个位置。 -->
     <div id="playProgress" aria-hidden="true"><i></i></div>
-  </div>
+  </main>
 
   <!-- 工具条与兜底面板放在 #viewport 之外：长稿只在 viewport 内滚动，
        它们作为独立 flex 行固定显示，不会浮在文字中间，也不会被滚走。 -->
@@ -415,7 +416,7 @@
     <button class="btn icon" id="btnVoice" data-i18n-title="voiceTitle">🎤</button>
     <!-- 速度区放在最后：网格里独占第二整行，滑块与像素数值不会被按钮挤压 -->
     <div id="speedWrap">
-      <label data-i18n="speed">速度</label>
+      <label for="speedBar" data-i18n="speed">速度</label>
       <input type="range" id="speedBar" min="5" max="400" value="90" />
       <span id="speedBarLabel">90像素/秒</span>
     </div>
@@ -457,7 +458,7 @@
       </div>
 
       <div class="field">
-        <label data-i18n="fontSize">字号</label>
+        <label for="setFontSize" data-i18n="fontSize">字号</label>
         <div class="row">
           <input type="range" id="setFontSize" min="24" max="96" value="44" />
           <span class="val" id="setFontSizeLabel">44px</span>
@@ -485,7 +486,7 @@
       </div>
 
       <div class="field">
-        <label data-i18n="alignLabel">对齐方式</label>
+        <label for="setAlign" data-i18n="alignLabel">对齐方式</label>
         <select id="setAlign">
           <option value="left" data-i18n="alignLeft">左对齐</option>
           <option value="center" selected data-i18n="alignCenter">居中</option>
@@ -494,18 +495,18 @@
       </div>
 
       <div class="field switch">
-        <label style="margin:0;" data-i18n="mirrorLabel">镜像模式（接物理提词支架时开启）</label>
+        <label for="setMirror" style="margin:0;" data-i18n="mirrorLabel">镜像模式（接物理提词支架时开启）</label>
         <input type="checkbox" id="setMirror" />
       </div>
 
       <div class="field switch">
-        <label style="margin:0;" data-i18n="readMarkLabel">逐词跟随高亮</label>
+        <label for="setReadMark" style="margin:0;" data-i18n="readMarkLabel">逐词跟随高亮</label>
         <input type="checkbox" id="setReadMark" />
       </div>
       <div class="hint" data-i18n="readMarkHint">播放时用底色标出当前该读的词／字，随速度自动跳到下一个；只在播放时显示，不影响编辑。</div>
 
       <div class="field">
-        <label data-i18n="readMarkStrengthLabel">高亮强度</label>
+        <label for="setReadMarkStrength" data-i18n="readMarkStrengthLabel">高亮强度</label>
         <select id="setReadMarkStrength">
           <option value="strong" selected data-i18n="readMarkStrengthStrong">强底色（默认，醒目好跟读）</option>
           <option value="subtle" data-i18n="readMarkStrengthSubtle">淡下划线（干扰小，适合熟练用户）</option>
@@ -514,7 +515,7 @@
       </div>
 
       <div class="field">
-        <label data-i18n="scrollSpeed">滚动速度</label>
+        <label for="setSpeed" data-i18n="scrollSpeed">滚动速度</label>
         <div class="row">
           <input type="range" id="setSpeed" min="5" max="400" value="90" />
           <span class="val" id="setSpeedLabel">90像素/秒</span>
@@ -552,7 +553,7 @@
         <button class="btn" id="btnPreviewFinish" data-i18n="btnPreviewFinish" style="min-width:auto; padding:9px 14px; margin-top:8px; width:100%;">预览完成卡</button>
       </div>
       <div class="field switch">
-        <span data-i18n="finishCardLabel">读完自动弹完成卡</span>
+        <label for="setFinishCard" style="margin:0;" data-i18n="finishCardLabel">读完自动弹完成卡</label>
         <input type="checkbox" id="setFinishCard" checked />
       </div>
 
@@ -4103,9 +4104,14 @@ function ensureReadTokens(){
 }
 function buildReadTokens(){
   const list = tokenizeForRead();
-  if (!list.length || !scrollText){ readTokens = []; return; }
+  // 无词（空稿）时清掉旧的高亮结构与尾部补白，避免残留上一次文稿的布局
+  if (!list.length || !scrollText){
+    readTokens = []; readLines = null;
+    if (scrollText) scrollText.style.paddingBottom = '';
+    return;
+  }
   let stRect;
-  try { stRect = scrollText.getBoundingClientRect(); } catch (e){ readTokens = []; return; }
+  try { stRect = scrollText.getBoundingClientRect(); } catch (e){ readTokens = []; readLines = null; if (scrollText) scrollText.style.paddingBottom = ''; return; }
   for (let i = 0; i < list.length; i++){
     const tk = list[i];
     try {
@@ -4161,6 +4167,32 @@ function buildReadTokens(){
   for (const ln of readLines) totalReadWeight += (ln.weight || 1);
   readTokensText = scrollText.textContent || '';
   readTokensDirty = false;
+  ensureTailRoom();
+}
+/* 尾部可滚动空间（BUG 修复 2026-11-19）：让「文稿滚到底」与「高亮读完最后一行」
+   严格同步。阅读头固定在视口 READ_HEAD_RATIO(20%) 那条线上，offset=head-阅读线。
+   若文稿可滚距离 maxOffset 小于 (endY-阅读线)，文稿会在 head 远未到 endY 时就
+   触底静止；之后阅读头仍在静止的文稿内容坐标里继续往下扫——用户看到两个现象：
+     ① 段落间空白带、文稿尾部空白处高亮依然在移动；
+     ② 明明已经到结尾（文稿不再滚动），高亮还越过末行前的几行、直到末行末尾才停。
+   解法：在末尾补足可滚空间，使 maxOffset >= endY-阅读线。
+   这样 offset=head-阅读线 全程不触钳，文稿一直滚，高亮恒在 20% 线；
+   阅读头走到最后一行末尾时，文稿恰好滚到底，两者同时结束。
+   归零重算（先清 paddingBottom 再测高度）避免反复叠加；字号/文稿变化经
+   readTokensDirty→buildReadTokens 自动重算。空白属文稿读完后视口下方的自然留白。 */
+function ensureTailRoom(){
+  if (!scrollText || !viewport) return;
+  scrollText.style.paddingBottom = ''; // 先归零，基于纯内容高度重算，防止累积
+  // 短稿（不足一屏）本来就 maxOffset=0、文稿不动、只做逐词高亮，无需滚动同步——
+  // 给它补白反而会把短稿变成可滚动，破坏既有行为。只对需要滚动的长稿补。
+  if (scrollText.offsetHeight <= viewport.clientHeight) return;
+  const endY = readEndContentY();
+  if (!(endY > 0)) return;
+  const needH = endY - readHeadScreenY() + viewport.clientHeight;
+  const curH = scrollText.offsetHeight;
+  if (needH > curH + 0.5){
+    scrollText.style.paddingBottom = 'calc(1em + ' + Math.ceil(needH - curH) + 'px)';
+  }
 }
 /* ---------- 按「阅读权重」定位行内词（按字符匀速 + 标点快过）----------
  * 行内推进不再按「词数 n 均分」，而按每个词的阅读权重 w 累加：

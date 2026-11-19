@@ -1,16 +1,5 @@
 {
-  "_note": "axe 无障碍违规基线（2026-11-19 首次审计）。当前已知的 serious/critical 违规记为基线，测试只在新出现违规类别或某类节点数增加时报警。修好问题后节点数下降不会让测试失败。",
-  "main": {
-    "color-contrast": 2,
-    "label-content-name-mismatch": 2,
-    "label": 1,
-    "scrollable-region-focusable": 1
-  },
-  "settings": {
-    "color-contrast": 11,
-    "label-content-name-mismatch": 2,
-    "label": 6,
-    "scrollable-region-focusable": 1,
-    "select-name": 2
-  }
+  "_note": "axe 无障碍基线（2026-11-19）。首次审计发现的 serious/critical 违规已全部修复，基线清零后升级为零违规硬门禁：任何 serious/critical 违规都会让测试失败。",
+  "main": {},
+  "settings": {}
 }
