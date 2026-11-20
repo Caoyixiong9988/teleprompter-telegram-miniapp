@@ -8,6 +8,16 @@
 
 ---
 
+## 2026-11-20 · chore — GitHub 仓库建立并镜像推送，云端 CI 门禁自动触发（第四十六轮）
+
+- **做了什么**：用户用 QQ 邮箱完成 GitHub 注册（账号 `Caoyixiong9988`），新建空仓库 `teleprompter-telegram-miniapp`；本地新增 HTTPS 远端 `github`，并把 `master` 全量推送（115 提交 / 83 文件，HEAD `2da2ae3`）。Gitee `origin` 保持不动，两边并行。
+- **为什么**：给工作成果增加第 4 份备份（本地 + Gitee + Cloudflare + GitHub），并获得云端 CI 留痕。经核对确认：**没有任何测试是只能在 GitHub 跑的**——本地 pre-push 已覆盖单元/jsdom/i18n/E2E，唯一差异是 `smoke:worker`，而它本身纯本地（`127.0.0.1`、无外网依赖）。GitHub 的增量价值只是 PR 门禁、徽章、干净环境。
+- **怎么验证**：`git ls-remote github` 认证成功；`push github master` 返回 `* [new branch] master -> master`；远端 HEAD 与本地同为 `2da2ae3`；GitHub API 查到 Actions `Test gate` run #1 已由 push 自动触发、`status: in_progress`、`head_sha=2da2ae3`，无需手动授权。
+- **涉及文件**：仅本地 git 配置（`.git/config` 新增 remote），产品代码与线上 `index.html` 未改动。
+- **说明**：认证走 Windows 凭据管理器（GCM）浏览器授权，用户**未向助手提供任何 token/密码**；首次镜像推送用 `SKIP_TESTS=1` 跳过重复门禁（代码与刚通过全绿验证的提交完全一致）。
+
+---
+
 ## 2026-11-19 · test — 修复 A3 镜像/对齐用例偶发 45 秒超时（第四十五轮）
 
 - **做了什么**：`e2e/a-layer.spec.mjs` 的 A3 单独放宽到 90 秒；刷新从 `page.reload()` 改为 `page.reload({ waitUntil: 'domcontentloaded' })`，随后 `page.waitForFunction()` 确认页面全局就绪再继续点击。
