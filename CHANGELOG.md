@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-11-20 · fix — 修复 jsdom 测试在 CI 上的时序误报（第四十七轮）
+
+- **做了什么**：`verify-ios-editor.mjs` 两处 caret 断言前显式 `caretSeekIgnoreUntil = 0`，让测试与真实时钟解耦。
+- **为什么**：GitHub Actions 首次运行在 `iOS editor jsdom suite` 报 351 通过 / 3 失败（`caretSeekOffset=null`、`playWord=78/79`），本地却 354/354。根因是产品里 `resetCaretIntentForContentSwap()` 设了 400ms 的 `caretSeekIgnoreUntil` 忽略窗口，测试依赖它自然过期；本地因前置大量 `await` 累计 >400ms 而通过，CI 机器快、窗口未过期导致 selectionchange 被忽略。产品代码正确，是测试脚本的跨平台时序缺陷。
+- **怎么验证**：人在 `placeCaret(27)` 前人为激活窗口可 1:1 复现 3 条 FAIL；修复后本地常规、干净 `npm ci` 环境、正确时序模拟（激活在先/清零在后）三种情形均 354/354。
+- **涉及文件**：`verify-ios-editor.mjs`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-20 · chore — GitHub 仓库建立并镜像推送，云端 CI 门禁自动触发（第四十六轮）
 
 - **做了什么**：用户用 QQ 邮箱完成 GitHub 注册（账号 `Caoyixiong9988`），新建空仓库 `teleprompter-telegram-miniapp`；本地新增 HTTPS 远端 `github`，并把 `master` 全量推送（115 提交 / 83 文件，HEAD `2da2ae3`）。Gitee `origin` 保持不动，两边并行。

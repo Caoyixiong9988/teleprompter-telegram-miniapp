@@ -381,6 +381,9 @@ ev('setPlaying(false);');
   ev('offset=500; reachedEnd=false; playing=false;');
   doc.getElementById('app').classList.remove('playing');
   inject();
+  // 跨平台稳定：内容替换的 400ms 忽略窗口依赖真实时钟，CI 机器快时窗口未过期会误伤断言。
+  // 这里显式清零窗口，让测试与机器速度解耦（产品逻辑不变，只测"窗口过后 caret 能否被记录"）。
+  ev('caretSeekIgnoreUntil = 0;');
   placeCaret(27);
   check('暂停态放置 caret 记录字符偏移', ev('caretSeekOffset') === 27, 'caretSeekOffset=' + ev('caretSeekOffset'));
   check('caret 字符偏移精确映射到词元', ev('caretOffsetToWord()') === 27, 'word=' + ev('caretOffsetToWord()'));
@@ -395,6 +398,7 @@ ev('setPlaying(false);');
   vpEl.dispatchEvent(new window.Event('scroll'));
   check('刷新后 scroll 事件确实会恢复旧 offset（问题前提）', ev('offset') === 600, 'offset=' + ev('offset'));
   inject();
+  ev('caretSeekIgnoreUntil = 0;'); // 同上：消除 400ms 真实时钟窗口的跨平台时序依赖
   placeCaret(0);
   doc.getElementById('btnPlay').click();
   inject();
