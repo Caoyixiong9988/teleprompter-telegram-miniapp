@@ -259,8 +259,10 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
   - 平台 SDK 必须在 `addInitScript` 阶段注入替身，页面加载前就存在；
   - 分享 API 至少测三态：成功、`AbortError`（用户取消，不降级）、其他失败（降级）；
   - 原生弹窗统一走 SDK `showConfirm`，替身默认直接回调 `true`；
-  - `page.route` 每个分支后 `unroute`，避免旧 mock 吃掉新请求。
-- **Google Play 复用点**：把 `Telegram.WebApp` 替身换成 Android JS Bridge / WebView 注入对象；如果做 TWA，还要单独覆盖返回键、分享面板、文件下载权限、软键盘遮挡。
+  - `page.route` 每个分支后 `unroute`，避免旧 mock 吃掉新请求；
+  - **必须阻断外部 SDK 脚本**（本项目是 `https://telegram.org/js/telegram-web-app.js`）：在 `boot()` 里 `await page.route(..., r => r.abort())`。否则 CI 有外网、真实 SDK 会加载并**覆盖 `addInitScript` 的替身**，而本地无外网时替身得以保留——同一份代码就出现「本地 100% 过、CI 稳定挂」的假象。2026-11-20 那次 CI 4 项失败（验签/遥控/分享降级状态为空或误跳转）根因就是它。
+- **定位手法**：`--reporter=line` 看失败项 → 下载 Actions 的 `playwright-report` artifact → trace 的 `*.network` 里若出现真实 SDK 请求且成功，基本可锁定替身被覆盖。
+- **Google Play 复用点**：把 `Telegram.WebApp` 替身换成 Android JS Bridge / WebView 注入对象；任何「页面从 CDN 引 SDK」的场景（Play Billing、Google Identity、Firebase）都要在测试里 abort 掉该请求，只留替身。如果做 TWA，还要单独覆盖返回键、分享面板、文件下载权限、软键盘遮挡。
 
 ### 8.7 画布导出：验证真绘制，不验证按钮存在
 

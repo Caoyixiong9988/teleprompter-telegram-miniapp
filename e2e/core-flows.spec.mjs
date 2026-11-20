@@ -47,6 +47,9 @@ async function boot(page, opts = {}) {
       value: function () { return true; },
     });
   }, opts);
+  // 阻断外部 Telegram SDK（详见 a-layer.spec.mjs 的 boot 注释）：CI 有外网时
+  // 真实 SDK 会覆盖注入的替身，导致验签/遥控等依赖 initData 的用例误报。
+  await page.route('https://telegram.org/js/telegram-web-app.js', route => route.abort());
   await page.goto(PAGE_URL);
 }
 

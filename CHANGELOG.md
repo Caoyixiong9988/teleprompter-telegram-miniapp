@@ -8,6 +8,16 @@
 
 ---
 
+## 2026-11-20 · fix — 修复 E2E 在 CI 上因外部 Telegram SDK 覆盖替身而失败（第四十八轮）
+
+- **做了什么**：三个 spec（`a-layer`、`core-flows`、`accessibility`）在 `boot()` / `beforeEach` 里 `page.route('https://telegram.org/js/telegram-web-app.js', r => r.abort())`，测试一律用注入的 Telegram 替身，不加载外部 SDK。
+- **为什么**：GitHub Actions run #3 的 E2E 报 25 通过 / 4 失败（A2 分享降级误跳转、A5 验签、A8 遥控、B7 异常响应状态栏为空），本地却 29/29 全过。下载 CI 的 `playwright-report` artifact、解包 trace 的 `*.network` 发现页面真的加载了 `https://telegram.org/js/telegram-web-app.js`（645ms 成功）——真实 SDK **覆盖了 `addInitScript` 注入的替身**，使 `initData` 变空、`openTelegramLink` 触发真实跳转。本地 Windows 访问该域名返回 502、脚本加载失败，替身得以保留，于是只在 CI 挂。这是测试对外部网络的隐式依赖，不是产品 BUG。
+- **怎么验证**：本地用 CI 同命令单跑 4 项均过；修复后完整 Chromium E2E 复跑全绿。根因靠 CI trace 的 network 记录直接坐实，非推测。
+- **跨项目价值**：已写入测试文档 8.6 节——任何从 CDN 引 SDK 的场景（Play Billing / Google Identity / Firebase）测试时都应 abort 该请求只留替身，否则「本地过、CI 挂」。
+- **涉及文件**：`e2e/a-layer.spec.mjs`、`e2e/core-flows.spec.mjs`、`e2e/accessibility.spec.mjs`、`docs/Playwright测试矩阵与执行手册.md`、`CHANGELOG.md`。
+
+---
+
 ## 2026-11-20 · fix — 修复 jsdom 测试在 CI 上的时序误报（第四十七轮）
 
 - **做了什么**：`verify-ios-editor.mjs` 两处 caret 断言前显式 `caretSeekIgnoreUntil = 0`，让测试与真实时钟解耦。

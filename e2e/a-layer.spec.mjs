@@ -88,6 +88,11 @@ async function boot(page, opts = {}) {
       delete window.webkitSpeechRecognition;
     }
   }, opts);
+  // 阻断外部 Telegram SDK：CI 有外网，真实 telegram-web-app.js 会加载并覆盖上面
+  // 注入的 Telegram 替身，导致 initData 变空、openTelegramLink 触发真实跳转。
+  // 本地无外网时该脚本本就加载失败，替身得以保留——所以过去只在本地过、CI 挂。
+  // 统一 abort 掉，让测试永远用替身、不依赖外网，本地与 CI 行为一致。
+  await page.route('https://telegram.org/js/telegram-web-app.js', route => route.abort());
   await page.goto(PAGE_URL);
 }
 

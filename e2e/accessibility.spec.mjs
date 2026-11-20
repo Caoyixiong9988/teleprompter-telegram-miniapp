@@ -7,6 +7,11 @@ import { readFileSync } from 'node:fs';
 const PAGE_URL = pathToFileURL(path.resolve('index.html')).href;
 const BASELINE = JSON.parse(readFileSync(path.resolve('e2e/a11y-baseline.json'), 'utf8'));
 
+// 与其它 spec 一致：阻断外部 Telegram SDK，避免测试依赖外网、CI 与本地行为分歧。
+test.beforeEach(async ({ page }) => {
+  await page.route('https://telegram.org/js/telegram-web-app.js', route => route.abort());
+});
+
 // 基线经 Chromium + WebKit 双引擎验证：axe 读 CSS 计算值，两者违规数一致。
 // 若将来某引擎出现分歧，可在此按 browserName 分基线。
 
