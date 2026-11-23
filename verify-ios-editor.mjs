@@ -1274,10 +1274,10 @@ ev('setPlaying(false);');
   check('updateReadMark 支持 allowPaused（暂停态也能画起点指示）',
     /function updateReadMark\(force, allowPaused\)/.test(html) &&
     /if \(\(!playing && !allowPaused\) \|\| !state\.readMark \|\| state\.mirror\)/.test(html));
-  check('暂停态点击定位后立刻重画高亮（不再黏在旧词上）',
-    /viewport\.scrollTop = offset;[\s\S]{0,260}updateReadMark\(true, true\)/.test(html));
-  check('暂停态手动滚动后重画高亮（跟随滚动位置）',
-    /readHeadContentY = offset \+ readHeadScreenY\(\)[\s\S]{0,220}updateReadMark\(false, true\)/.test(html));
+  check('暂停态点击定位只记起点、不画黄块（浏览态常显干扰阅读）',
+    /viewport\.scrollTop = offset;[\s\S]{0,260}hideReadMark\(\)/.test(html));
+  check('暂停态手动滚动只更新起点、收起黄块（不再跟随手指跑）',
+    /readHeadContentY = offset \+ readHeadScreenY\(\)[\s\S]{0,220}hideReadMark\(\)/.test(html));
   check('改字后收起暂停态高亮（词元坐标已失效）',
     /if \(!playing\) hideReadMark\(\);[\s\S]{0,80}debounceSave\(\); maybeSyncDebounced\(\)/.test(html));
 

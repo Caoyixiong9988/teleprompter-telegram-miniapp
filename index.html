@@ -23,6 +23,18 @@
     display:flex; flex-direction:column; height:100dvh; max-width:520px; margin:0 auto;
     background:var(--panel); box-shadow:0 0 24px rgba(0,0,0,.04);
   }
+  /* 编辑态（软键盘弹起）：用 visualViewport 实测高度锁定整页，避免 iOS 上 100dvh
+     不随键盘收缩、底部控制条被键盘顶上来挤压提词区。--vvh 由 JS 在 resize/scroll 时
+     写入；无 JS/不支持时回落到 100dvh。提词区始终保留最小可编辑高度。 */
+  #app{height:var(--vvh, 100dvh);}
+  #app.editing #viewport{min-height:120px;}
+  /* 编辑态隐藏底部播放控制条：打字/粘贴时不需要播放控制，腾出的空间全部留给提词区，
+     点「完成」退出编辑态后自动恢复。这是键盘顶飞问题的关键——少一整行按钮。 */
+  #app.editing #controlBar{display:none;}
+  /* 编辑态的兜底粘贴面板/工具条本身保留，但工具条提示文字在窄屏可省 */
+  @media (max-height:520px){
+    #app.editing .edit-hint{display:none;}
+  }
   header{
     display:flex; align-items:center; justify-content:space-between;
     /* 底部多留 6px 容纳眼睛按钮下方绝对定位的档位标签，避免压到提词区 */
@@ -4413,9 +4425,10 @@ function seekAtClientY(clientY, clientX){
   } else {
     viewport.scrollTop = offset;
     applyPrompterStyle();
-    // 暂停/浏览态也立刻把高亮搬到新起点：否则黄块还黏在上次暂停的那个词上，
-    // 用户"点开头却看到高亮在文中部"会以为定位没生效（实测报的 BUG）。
-    updateReadMark(true, true);
+    // 暂停/浏览态点文字定位：只记住起点（offset/readHeadContentY），不画黄块。
+    // 黄块是"播放中跟读指示"，浏览态常显会干扰阅读、滑动时还跟着跑（用户实测反馈）。
+    // 起点已由下方 toast 明确反馈，无需黄块；下次点 ▶ 播放时黄块从该起点出现。
+    hideReadMark();
     toast(t('seekDone'));
   }
   return true;
@@ -5547,8 +5560,10 @@ viewport.addEventListener('scroll', function(){
     if (Math.abs(st - offset) > 0.5){
       offset = st;
       readHeadContentY = offset + readHeadScreenY();
-      // 冻结的黄块是视口绝对定位，会随内容一起滚；重画一次才与"起点"重新对齐
-      updateReadMark(false, true);
+      // 浏览/暂停态滚动只更新"下次播放起点"，不再重画黄块：
+      // 旧实现在这里 updateReadMark(false,true)，手指一滑黄块就跟着文字跑，干扰阅读。
+      // 黄块是播放态的跟读指示；起点位置由 offset/readHeadContentY 记住即可，无需常显。
+      hideReadMark();
     }
     readCounted = false;
   }
@@ -6146,6 +6161,9 @@ function init(){
     if (editBar) editBar.classList.remove('hidden');
     const ap = document.getElementById('app');
     if (ap) ap.classList.add('editing'); // 长稿改为提词区内部滚动，绝不撑破布局
+    // 编辑态收起逐词高亮：用户点文字是要改稿/定位光标，黄色块压在字上会挡编辑、
+    // 且手指滑动文稿时黄块跟着跑很干扰。点「完成」退出编辑态或按 ▶ 播放时再按规则显示。
+    if (typeof hideReadMark === 'function') hideReadMark();
   }
   function leaveEditMode(){ exitMainEditModeDOM(); }
   function insideEditor(node){
@@ -6338,6 +6356,38 @@ function init(){
   renderProState();
 }
 init();
+
+/* ---------- 软键盘弹起时的视口适配（iOS 提词区被顶飞问题） ----------
+   iOS/WKWebView（含 Telegram Mini App）里 100dvh 不随软键盘收缩，底部控制条会被
+   键盘顶上来盖住提词区。用 visualViewport.height 作为整页真实高度写进 --vvh，
+   配合 CSS 的 #app.editing #controlBar{display:none}，键盘弹起时提词区稳定可见。
+   - 仅编辑态（软键盘弹起几乎只在聚焦 contenteditable 时）收缩，避免正常浏览时抖动；
+   - visualViewport 不可用时回落到 100dvh（CSS var 缺省值），jsdom/旧浏览器无副作用。 */
+(function setupVisualViewport(){
+  const vv = window.visualViewport;
+  const app = document.getElementById('app');
+  if (!vv || !app) return;
+  let raf = 0;
+  function apply(){
+    if (raf) return;
+    raf = requestAnimationFrame(function(){
+      raf = 0;
+      const editing = app.classList.contains('editing');
+      // 编辑态：把整页高度钉到视觉视口（键盘上方可见区）；非编辑态撤销，恢复 100dvh。
+      if (editing && vv.height && vv.height < window.innerHeight - 40){
+        app.style.setProperty('--vvh', Math.round(vv.height) + 'px');
+      } else {
+        app.style.removeProperty('--vvh');
+      }
+    });
+  }
+  try {
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+  } catch (e) {
+    vv.onresize = apply; vv.onscroll = apply;
+  }
+})();
 </script>
 
 </body>
