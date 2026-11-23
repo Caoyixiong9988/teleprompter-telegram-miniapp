@@ -14,7 +14,7 @@ database_id = "4e4eb6f1-577b-4489-8600-9b1de0b86053"   # 生产库，2026-11-15 
 
 # 明文变量（非敏感）。BOT_USERNAME 用于分享深链，明文即可。
 [vars]
-BOT_USERNAME = "__BOT_USERNAME_PLACEHOLDER__"   # 与 BotFather 用户名一致（t.me/<bot>?start=CODE 深链）
+BOT_USERNAME = "Dfb9988bot"   # 与 BotFather 用户名一致（t.me/<bot>?start=CODE 深链）
 # APP_URL = "https://your-pages.pages.dev"      # 可选：分享卡片跳转用的 Mini App 地址
 #
 # 官方测试环境（测试 Stars 免费，见 README_deploy.md §9.6）：需要时才放开下面两行，
