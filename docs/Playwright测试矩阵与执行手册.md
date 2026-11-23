@@ -304,6 +304,34 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **修复方式**：把每个真实 BUG 转写成一条“删掉就会复发”的断言（A9 是样板），再纳入 push 门禁。
 - **Google Play 复用点**：新项目第一天就建这个规则：**修一个 BUG，必须同时产出一条回归测试**；否则工具跑得再多，也只是把已知问题跑一遍。
 
+### 8.11 平台账号与支付凭据：先跑通注册链，再谈上线（2026-11-23 真机联调）
+
+- **踩过的坑**：项目专用 Telegram 号用 +852 香港储值卡，仍触发 `SMS Fee`（$0.29 一次性，附赠 3 天 Premium）——这不是被判「在大陆」，页面原文写的是 `in your country (Hong Kong (China))`，按**号码归属地**的国际短信成本收费，与 IP / 实际所在地无关。iPhone 上登的是**美区 Apple ID**，内购不认支付宝/微信，最后是大陆手机买美区礼品卡、在那台 iPhone 的 App Store 兑换成余额才付成功；付款后短信不是秒到，界面提示 `Telegram will call you in 1:14`，**语音来电**才是稳定通道（顺手关掉「静音未知来电」，否则容易漏接）。BotFather 给 token 后，从截图抄 `1`/`l`、`0`/`O` 极易出错。
+- **通用判据**：账号注册 + 支付凭据是上线的**第一道工程任务**，不是行政杂事；所有验证码、两步验证密码、token、卡密只进本机文件，绝不进对话或外发截图；token 必须取纯文本（长按复制），不要从图里转录。
+- **验证手法**：注册后立刻设两步验证 + 恢复邮箱；拿到 token 先用 `getMe` 核对 id / username 再往下配；付 $0.29 后去订阅页确认 3 天 Premium **没开自动续费**。
+- **Google Play 复用点**：Play 组织开发者账号同理——D-U-N-S、营业执照、法人护照、$25 与 Google Payments 收款账户，是**唯一可能卡死的非技术项**，先验证收款主体能落地再写代码；开发者账号也建议专用，不与个人号混用。
+
+### 8.12 本机到不了目标 API：用一次性跳板，别改架构（2026-11-23 真机联调）
+
+- **踩过的坑**：本机到 `api.telegram.org` 与 `*.workers.dev` 都是 `http=000`（直连和代理都不通），但 `*.pages.dev` 与 `api.cloudflare.com` 通；于是 `getMe` / `setWebhook` 从电脑根本发不出去。
+- **通用判据**：先区分「本机网络受限」与「服务故障」——同一个 URL 换云端执行能通，就是前者。**不要为了迁就本机网络去改 webhook 目标或降级配置**。
+- **验证手法**：用已保存的 CF API Token 调 Cloudflare API 核验部署版本（比本机 curl 可靠）；临时部署一个 **Pages Function** 跳板（`pages.dev` 从本机可达，且在海外执行能调通目标 API），token 走 secret 注入、不落代码；依次跑 `getMe → setWebhook → getWebhookInfo` 核验 `url` / `secret_token` / `pending_update_count` / `last_error_message`。**跳板用完立刻删除**（Worker 脚本 + Pages 项目都删），不留带 secret 的公开端点。
+- **Google Play 复用点**：Play Developer API / RTDN 从国内直连同样不稳，照用一次性跳板或已授权的 CI runner；规则不变——secret 走环境变量、跳板短命、用完即删、云端核验优先于本机 curl。
+
+### 8.13 平台控制台会改版：按当前屏幕走，不按旧教程走（2026-11-23 真机联调）
+
+- **踩过的坑**：新版 BotFather 没有 `/newapp` 菜单项，实际路径是 Settings → **Mini Apps** → Menu Button；Menu Button 方式**没有上传图标那一步**（那是完整 Mini App 流程才有的），bot 头像要单独 `/setuserpic` 且必须是**正方形**（做成了 512×512）；`/setuserpic` 必须「先选 bot 再发图片」，直接发图会报 `Invalid bot selected`；BotFather 管理页截图里带 token，不能外发。
+- **通用判据**：平台后台 UI 会变，教程只用来认概念（Web App URL、图标、菜单入口），操作时**以当前屏幕为准**；分清「管理后台」和「用户对话」是两个入口——在管理页里永远找不到用户侧的底部按钮。
+- **验证手法**：保存后回到真正的对话窗口点 Launch，确认页面加载、身份栏、积分显示；头像（聊天列表 / Launch 弹窗）与 Mini App 内部 logo 是两个位置，分别核验。
+- **Google Play 复用点**：Play Console 的测试轨道、商品、Data safety 表单同样会改版；商店素材（512 图标、1024×500 feature graphic、真机截图）是**独立上传项**，不会从代码里自动生成，提前排期。
+
+### 8.14 真机专属 BUG：软键盘与浏览态高亮，本地测不到（2026-11-23 真机联调）
+
+- **踩过的坑**：① 点台词区软键盘弹起，底部按钮整行被顶上来把台词区冲没——`100dvh` 在 iOS / Telegram 内置浏览器里**不随软键盘收缩**；② 打开就有一个黄色高亮块停在第一字，手指下滑稿子时黄块跟着手指走——暂停/浏览态也在画逐词高亮，滚动时还重画。设置面板原文其实写着「只在播放时显示」，实现跑偏了。
+- **通用判据**：任何「可滚动内容 + 跟随指示器」系统，必须明确区分**播放态**与**浏览/编辑态**：逐词高亮只在播放态出现，浏览态收起但记住起点；编辑态用 `visualViewport.height` 实测视口高度锁定整页，并隐藏非必要控制条给输入区让位，提词区留最小高度兜底。
+- **验证手法**：这类只有真机软键盘 / 触摸才触发，jsdom 和 Playwright 默认视口测不出来；真机逐项手测后，把修法转成源码门禁断言（如「编辑态隐藏控制条规则存在」「暂停态滚动不再调 `updateReadMark`」），否则下次改代码会复发。本次加了两条断言并同步更新了旧断言。
+- **Google Play 复用点**：Android WebView 的 `adjustResize` / `adjustPan`、system bars、各家输入法键盘高度差异更大，8.6 提到的「软键盘遮挡」到这里要用同一套 `visualViewport` 判据更早处理；TWA 尤其注意。
+
 ---
 
 ## 9. 相关文档
