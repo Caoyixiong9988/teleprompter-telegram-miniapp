@@ -352,6 +352,25 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **验证手法**：源码断言——viewport meta 含 `user-scalable=no`、进度条 `pointer-events:auto`+`touch-action:none`、`seekByProgress` 与 `pointerdown/move` 绑定、跨行拆分函数存在且在几何循环里被调用、黄块高度 `Math.min(tk.h, lineHeight)`。行为上用 mock token 验证「英文整词」仍是一个词元（拆分只发生在几何层，不改切词口径），避免为了修跨行把 `tokenizeForRead` 改坏。
 - **Google Play 复用点**：Android WebView 的 `setSupportZoom(false)` / `builtInZoomControls=false` 对应这里的禁缩放；Canvas 自绘高亮同样会遇到「一个 textRun 跨多行」——文本测量要用 `getTextBounds`/逐行 `StaticLayout` 而非整段包围盒，判据完全一致。
 
+### 8.17 真机第二批 6 BUG：WebKit 测量、动态文案翻译、WebView 能力边界（2026-11-24 下午）
+
+- **踩过的坑（逐项根因）**：
+  1. **高亮少首字母**：iOS WebKit 的 `Range.getBoundingClientRect()` 对整词（尤其跨 text node / simple line layout）有已知偏移 bug（WebKit #182181 / #296765），实测「yabjianggao」黄块从 `a` 开始；输入法还会把一个英文词拆成两个 text node。
+  2. **身份已验证不翻译**：`verifyStatus` 缓存的是 `t('verifyOk')` 的**当期语言字符串**，切语言时 `applyI18n()` 只刷新带 `data-i18n` 的静态节点，动态节点永远停在首次语言。
+  3. **没有"打开文件"**：只有"从文件导入"（写入当前稿），没有"选择一个已存文件 → 另存为新讲稿并载入"的入口；且曾把两个功能共用一个 `<input type=file>`，change 事件互相串。
+  4. **完成卡 CTA / URL 点了没反应**：卡片是 `canvas.toDataURL()` 生成的 **PNG**，图片内文字天生不可点；页面里也没有 `<a>` 或 image map。
+  5. **分享给朋友弹的是系统面板**：`navigator.share` 被排在 `openTelegramLink` 之前；Telegram WebView 里它调起的是 Android / iOS **系统分享面板**，不是 Telegram 内置「选择聊天」。
+  6. **保存卡片毫无反应**：`<a download>.click()` 在 Telegram 内 WebView 被静默忽略（既不下载、也不报错），用户完全看不到反馈。
+- **通用判据 / 修法**：
+  - 跟随指示器不要用整段 Range 的包围盒做最终绘制：**逐字符**取 `Range.getBoundingClientRect()`（过滤 WebKit 折行返回的 width=0 假矩形），用首/末字符并集得出词块；再按 `charStart/charEnd` 连续 + 同 `top` 合并跨 text node 的同一单词。缓存几何只做兜底。
+  - 动态状态文案**只缓存 key/reason**（如 `{key:'verifyOk'}`），渲染时现取 `t(key)`；`applyI18n()` 必须显式调用一次所有动态渲染函数（验签状态、徽标、档位提示等）。凡是 `textContent = t(...)` 出现在初始化而非渲染函数里的，都是切语言漏翻的高危点。
+  -「导入」和「打开」是两个语义：导入=写当前稿，打开=另存新稿并载入。各自一个隐藏 file input，挂在 body 级（不要放进 `display:none` 的面板，iOS 会弹不出选择器）。免费额度满时降级覆盖当前稿并明确 toast，别让用户点了没反应。
+  - Canvas 图片内的"链接"必须外置：用 `<img usemap>` + `<area>` 把图上 CTA / 网址区域映射到深链（坐标按画布实际像素缩放，Pro 高清卡 ×2 也能对准），并在图片下方放同文案真实 `<a>` 兜底；两条路径统一调 `openTelegramLink` / `openLink`。
+  - WebView 能力判断顺序：**在 Telegram 内 → openTelegramLink(t.me/share/url)**；普通浏览器 → Web Share API（带 PNG）→ 失败降级 deep link。`navigator.share` 永远不能排在 Telegram 原生分享之前。
+  - Telegram 内**不能依赖 `a[download]`**：弹一个"保存面板"显示原图 + 长按指引（Android/iOS 通用）；桌面浏览器优先 `showSaveFilePicker()`（真正的选择目录框），最后才 `a.download`，每条路径都给 toast 反馈。
+- **验证手法**：iOS 门禁补 11 条断言，其中 4 条是**行为级**：mock `document.createRange` 复现"整词 Range 缺首字母 + 跨 text node"，验证修正后的黄块 left/w 覆盖完整单词；切法语后检查验签节点无中文；`handleOpenFile` 验证以文件名为标题新增并载入；`shareCompletion` 验证 Telegram 内 `navigator.share` 调用数为 0；`saveCardImage` 验证保存面板开/关。Playwright A2 层同步改成双环境断言（Telegram 内 + 普通浏览器各跑一遍），避免"只测了浏览器路径却宣称 Telegram 修好"。
+- **Google Play 复用点**：Android WebView 同样有 `a[download]` 被吞、`navigator.share` 弹系统面板的问题；原生端用 `ACTION_SEND` + `FileProvider` 才是真分享，TWA 则要 `openTelegramLink` 等价的 deep link 顺序。动态 i18n 状态在 Compose/Flutter 里对应"状态存 key 不存字符串"，否则切 locale 也会残留旧语言。
+
 ---
 
 ## 9. 相关文档

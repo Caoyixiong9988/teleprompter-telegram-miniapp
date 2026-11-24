@@ -152,8 +152,20 @@ test('A1 成片卡：Pro 档 2× 高清、去水印、导出说明切换', async
 
 /* ================= A2. 保存 / 分享全链路 ================= */
 
-test('A2 成片卡保存到相册：点击触发 scriptdeck-card.png 下载', async ({ page }) => {
+test('A2 成片卡保存：Telegram 内弹原图长按面板（a.download 会被 WebView 忽略）', async ({ page }) => {
   await boot(page);
+  await page.click('#btnCard');
+  await page.click('#btnDownloadCard');
+  await expect(page.locator('#saveSheet')).not.toHaveClass(/hidden/);
+  expect(await page.evaluate(() => document.getElementById('saveSheetPreview').src.startsWith('data:image/png'))).toBeTruthy();
+  expect(await page.evaluate(() => window.__downloads)).toEqual([]);
+  await page.click('#btnSaveSheetClose');
+  await expect(page.locator('#saveSheet')).toHaveClass(/hidden/);
+});
+
+test('A2 成片卡保存：普通浏览器仍触发 scriptdeck-card.png 下载', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { window.Telegram = undefined; window.showSaveFilePicker = undefined; });
   await page.click('#btnCard');
   await page.click('#btnDownloadCard');
   expect(await page.evaluate(() => window.__downloads)).toEqual([
@@ -161,8 +173,22 @@ test('A2 成片卡保存到相册：点击触发 scriptdeck-card.png 下载', as
   ]);
 });
 
-test('A2 成片卡分享：Web Share 带 PNG 文件，成功时不降级到 Telegram', async ({ page }) => {
+test('A2 成片卡分享：Telegram 内走内置 openTelegramLink（不弹系统分享面板）', async ({ page }) => {
   await boot(page);
+  await page.click('#btnCard');
+  await page.click('#btnShareCard');
+  await expect.poll(() => page.evaluate(() => window.__tgLinks.length)).toBe(1);
+  const r = await shareSummary(page);
+  expect(r.tgLinks).toBe(1);
+  // 真机验证：navigator.share 在 Telegram WebView 里弹的是系统面板，不能再优先调用
+  expect(r.calls.length).toBe(0);
+  expect(r.opened).toBe(0);
+  expect(decodeURIComponent(await page.evaluate(() => window.__tgLinks[0]))).toContain('t.me/share/url');
+});
+
+test('A2 成片卡分享：普通浏览器用 Web Share 带 PNG，成功时不降级到 Telegram', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { window.Telegram = undefined; });
   await page.click('#btnCard');
   await page.click('#btnShareCard');
   await expect.poll(() => page.evaluate(() => window.__shareCalls.length)).toBe(1);
@@ -175,8 +201,11 @@ test('A2 成片卡分享：Web Share 带 PNG 文件，成功时不降级到 Tele
 
 test('A2 成片卡分享：用户取消(AbortError)不降级、不弹提示', async ({ page }) => {
   await boot(page);
+  await page.evaluate(() => {
+    window.Telegram = undefined;
+    window.__shareReject = new DOMException('cancel', 'AbortError');
+  });
   await page.click('#btnCard');
-  await page.evaluate(() => { window.__shareReject = new DOMException('cancel', 'AbortError'); });
   await page.click('#btnShareCard');
   await page.waitForTimeout(150);
   const r = await shareSummary(page);
@@ -187,26 +216,28 @@ test('A2 成片卡分享：用户取消(AbortError)不降级、不弹提示', as
 
 test('A2 成片卡分享：其他失败降级到 Telegram 深链', async ({ page }) => {
   await boot(page);
+  await page.evaluate(() => {
+    window.Telegram = undefined;
+    window.__shareReject = new Error('permission denied');
+  });
   await page.click('#btnCard');
-  await page.evaluate(() => { window.__shareReject = new Error('permission denied'); });
   await page.click('#btnShareCard');
-  // Telegram WebApp 存在时降级走 openTelegramLink；浏览器裸环境才走 window.open
-  await expect.poll(() => page.evaluate(() => window.__tgLinks.length)).toBe(1);
+  // 浏览器裸环境降级走 window.open（Telegram 内则是 openTelegramLink）
+  await expect.poll(() => page.evaluate(() => window.__opened.length)).toBe(1);
   const r = await shareSummary(page);
-  expect(r.tgLinks).toBe(1);
+  expect(r.opened).toBe(1);
   expect(r.calls.length).toBe(1);
 });
 
-test('A2 完成卡：填名字可保存 PNG，未填名字被拦截并跳设置', async ({ page }) => {
+test('A2 完成卡：Telegram 内保存弹原图，未填名字被拦截并跳设置', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => { state.displayName = '测试用户'; state.reads = 3; });
   await page.click('#btnSettings'); // 预览按钮在设置面板内
   await page.click('#btnPreviewFinish');
   await expect(page.locator('#finishOverlay')).not.toHaveClass(/hidden/);
   await page.click('#btnFinishSave');
-  expect(await page.evaluate(() => window.__downloads)).toEqual([
-    expect.objectContaining({ download: 'scriptdeck-finish.png' }),
-  ]);
+  await expect(page.locator('#saveSheet')).not.toHaveClass(/hidden/);
+  await page.click('#btnSaveSheetClose');
 
   await page.click('#btnFinishClose');
   await page.evaluate(() => { state.displayName = ''; });
@@ -218,18 +249,41 @@ test('A2 完成卡：填名字可保存 PNG，未填名字被拦截并跳设置'
   expect((await shareSummary(page)).opened).toBe(0);
 });
 
-test('A2 完成卡分享：有名字时以 PNG 走 Web Share', async ({ page }) => {
+test('A2 完成卡：普通浏览器可下载 scriptdeck-finish.png', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    window.Telegram = undefined; window.showSaveFilePicker = undefined;
+    state.displayName = '测试用户'; state.reads = 3;
+  });
+  await page.click('#btnSettings');
+  await page.click('#btnPreviewFinish');
+  await page.click('#btnFinishSave');
+  expect(await page.evaluate(() => window.__downloads)).toEqual([
+    expect.objectContaining({ download: 'scriptdeck-finish.png' }),
+  ]);
+});
+
+test('A2 完成卡分享：Telegram 内走内置分享；普通浏览器带 PNG Web Share', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => { state.displayName = '测试用户'; state.reads = 6; });
   await page.click('#btnSettings');
   await page.click('#btnPreviewFinish');
   await page.click('#btnFinishShare');
+  await expect.poll(() => page.evaluate(() => window.__tgLinks.length)).toBe(1);
+  const tg = await shareSummary(page);
+  expect(tg.calls.length).toBe(0);
+  expect(decodeURIComponent(await page.evaluate(() => window.__tgLinks[0]))).toContain('t.me/share/url');
+  // 文案模板由 i18n 决定（英文模板不含名字），与页面 fmt 结果严格比对
+  const expected = await page.evaluate(() => fmt(t('finishShareText'), { n: 6, name: '测试用户' }));
+  expect(decodeURIComponent(await page.evaluate(() => window.__tgLinks[0]))).toContain(expected);
+
+  // 同一按钮在普通浏览器里仍走 Web Share 带图分享
+  await page.evaluate(() => { window.Telegram = undefined; });
+  await page.click('#btnFinishShare');
   await expect.poll(() => page.evaluate(() => window.__shareCalls.length)).toBe(1);
   const r = await shareSummary(page);
   expect(r.calls[0].names).toEqual(['scriptdeck-finish.png']);
-  // 文案模板由 i18n 决定（英文模板不含名字），与页面 fmt 结果严格比对
-  expect(r.calls[0].text).toBe(await page.evaluate(
-    () => fmt(t('finishShareText'), { n: 6, name: '测试用户' })));
+  expect(r.calls[0].text).toBe(expected);
 });
 
 /* ================= A3. 镜像 / 对齐 / 速度单位 ================= */

@@ -53,7 +53,8 @@
   #currentScriptTitle:empty{display:none;}
   /* 字数/计次徽标：主界面常驻，输入时即时反馈够不够"计一次"的门槛。
      low=未达标用暖橙提示还差多少；ok=达标用主色，暗示读完会计次弹卡。 */
-  #readCharsBadge{font-size:11px; line-height:1.3; margin-top:3px; color:#b26a00;}
+  /* 低状态橙字需满足 4.5:1 对比度：#b26a00 实测 4.23 不过 axe，加深到 #995a00（≈5.6:1） */
+  #readCharsBadge{font-size:11px; line-height:1.3; margin-top:3px; color:#995a00;}
   #readCharsBadge:empty{display:none;}
   #readCharsBadge[data-state="ok"]{color:var(--primary); font-weight:600;}
   #viewport{
@@ -286,6 +287,15 @@
   .finish-burst{font-size:40px; line-height:1; margin:2px 0 6px; animation:finishPop .5s cubic-bezier(.2,1.4,.5,1);}
   #finishOverlay h3{font-size:20px; color:#b4690e;}
   #finishPreview{width:100%; max-width:320px; border-radius:16px; box-shadow:0 10px 30px rgba(180,105,14,.22); margin:6px auto 4px; display:block;}
+  /* 完成卡是 canvas 图片，图片内部文字天生不可点。用 image map 把卡片底部的
+     「你也来试试 ScriptDeck」和深链 URL 两个区域映射成真正的链接热区；
+     同时在图片下方放同文案的可点链接，保证任何 WebView 都能点到。 */
+  #finishOverlay .finish-links{margin-top:6px; display:flex; flex-direction:column; gap:3px; word-break:break-all;}
+  #finishOverlay .finish-links a{color:var(--primary); font-size:13px; text-decoration:underline; cursor:pointer;}
+  #finishOverlay .finish-links a.finish-url{color:var(--muted); font-size:11px;}
+  /* 保存卡片：Telegram 内 WebView 会忽略 <a download>，改为弹出原图让用户长按保存 */
+  #saveSheet .sheet-inner{text-align:center;}
+  #saveSheet #saveSheetPreview{width:100%; max-width:340px; max-height:55vh; object-fit:contain; border-radius:12px; margin:6px auto; display:block;}
   .req-label::after{content:' ★'; color:#e02424;}
   .finish-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; letter-spacing:1px;}
   @keyframes finishPop{0%{transform:scale(.3) rotate(-20deg); opacity:0;} 100%{transform:scale(1) rotate(0); opacity:1;}}
@@ -357,8 +367,9 @@
 <body>
 <!-- 文件选择入口：必须放在主脚本之前（init() 里要绑定它），且挂在 body 级、不藏进
      display:none 的设置面板——否则部分浏览器（iOS WebView / Safari）点按钮弹不出选择器。
-     设置面板按钮与编辑条按钮共用这一个 input。 -->
+     导入（写入当前稿）与打开（另存为新稿并载入）各用一个 input，避免 change 事件互相串。 -->
 <input type="file" id="importFile" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.doc,.dot,.docx,.odt,.xlsx,.rtf" tabindex="-1" aria-hidden="true" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;overflow:hidden;" />
+<input type="file" id="openFileInput" accept=".txt,.text,.md,.markdown,.csv,.srt,.vtt,.log,.doc,.dot,.docx,.odt,.xlsx,.rtf" tabindex="-1" aria-hidden="true" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;overflow:hidden;" />
 <div id="app">
   <header>
     <div>
@@ -409,6 +420,7 @@
     <div class="edit-hint" data-i18n="editHint">点一下上面的文字就能直接删改、粘贴、输入；内容较长时可在提词区内上下滚动。也可以从文件导入讲稿。</div>
     <button class="btn" type="button" id="btnQuickPaste" data-i18n="editPaste">📋 粘贴</button>
     <button class="btn" type="button" id="btnQuickLib" data-i18n="scriptLibTitle">讲稿库</button>
+    <button class="btn" type="button" id="btnQuickOpen" data-i18n="openFile">📂 打开文件</button>
     <button class="btn" type="button" id="btnQuickImport" data-i18n="importBtn">📂 从文件导入讲稿</button>
     <button class="btn" type="button" id="btnQuickClear" data-i18n="editClear">🗑 清空</button>
     <button class="btn primary" type="button" id="btnQuickDone" data-i18n="editDone">完成</button>
@@ -458,6 +470,7 @@
         <label data-i18n="scriptLibTitle">讲稿库（多讲稿管理）</label>
         <div id="scriptList" class="script-list"></div>
         <button class="btn" id="btnNewScript" data-i18n="scriptNew" style="width:100%;margin-bottom:6px;">＋ 新建讲稿</button>
+        <button class="btn" id="btnOpenFile" data-i18n="openFile" style="width:100%;margin-bottom:6px;">📂 打开文件（新建并载入已存讲稿）</button>
         <div class="hint" id="scriptCount"></div>
         <div class="hint" data-i18n="freeAutoSaveHint" style="margin-top:4px;">免费版讲稿会自动保存在本设备中，无需手动保存，也不会上传服务器。</div>
       </div>
@@ -662,7 +675,16 @@
     <div class="sheet-inner finish-inner">
       <div class="finish-burst" aria-hidden="true">🎉</div>
       <h3 data-i18n="finishTitle">太棒了，读完一篇！</h3>
-      <img id="finishPreview" alt="完成卡预览" />
+      <!-- usemap：卡片底部的 CTA / 网址在 PNG 内也可点击（坐标由 generateFinishCard 按实际像素缩放写入） -->
+      <img id="finishPreview" alt="完成卡预览" usemap="#finishCardMap" />
+      <map name="finishCardMap" id="finishCardMap">
+        <area id="finishCtaArea" shape="rect" coords="240,1182,840,1242" href="https://t.me/Dfb9988bot" alt="ScriptDeck" />
+        <area id="finishUrlArea" shape="rect" coords="60,1284,1020,1336" href="https://t.me/Dfb9988bot" alt="deep link" />
+      </map>
+      <div class="finish-links">
+        <a id="finishCtaLink" href="https://t.me/Dfb9988bot" target="_blank" rel="noopener noreferrer">你也来试试 ScriptDeck</a>
+        <a id="finishUrlLink" class="finish-url" href="https://t.me/Dfb9988bot" target="_blank" rel="noopener noreferrer">https://t.me/Dfb9988bot</a>
+      </div>
       <div class="hint" data-i18n="finishHint">这张卡记录了你的阅读成就——保存或分享给朋友，邀请他们一起体验。</div>
       <div class="card-actions">
         <button class="btn" id="btnFinishSave" data-i18n="finishSave">保存到相册</button>
@@ -670,6 +692,18 @@
       </div>
       <div class="sheet-actions" style="margin-top:10px;">
         <button class="btn" id="btnFinishClose" data-i18n="finishContinue">继续提词</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 保存卡片：Telegram 内 WebView 不支持 a[download]，展示原图供长按保存 -->
+  <div class="sheet hidden" id="saveSheet">
+    <div class="sheet-inner">
+      <h3 id="saveSheetTitle">长按图片保存</h3>
+      <img id="saveSheetPreview" alt="待保存的卡片" />
+      <div class="hint" id="saveSheetHint">Telegram 内置浏览器不允许网页直接下载文件：请长按上方卡片，选择「存储到相册 / 保存图片」。</div>
+      <div class="sheet-actions" style="margin-top:10px;">
+        <button class="btn" id="btnSaveSheetClose" data-i18n="close">关闭</button>
       </div>
     </div>
   </div>
@@ -863,6 +897,9 @@ const LS_KEY = 'teleprompter_state_v1';
 const I18N = {
   zh: { appTitle:'ScriptDeck', appSubtitle:'提词器 · 流畅提词，解放双眼', settings:'设置', disclaimerTitle:'免责声明', disclaimerBody:'ScriptDeck 是一款提词阅读辅助工具：只在你的设备上显示并滚动你输入的文字，不替你创作、发布或评价内容。讲稿默认保存在本机浏览器中；除你主动开启「云同步」外，我们不会读取、上传或备份你的讲稿；清除浏览器数据、卸载应用或更换设备后可能无法恢复，重要稿件请自行留存。本应用按「现状」提供，滚动速度与字数估算仅作辅助参考，不对录制效果或使用后果作出保证。', paidNotice:'你即将用 Telegram Stars 购买 Pro 权益。Pro 为功能解锁，月付／年付到期后不自动续费。购买后 14 天内可通过 /paysupport 申请全额退款，无需说明理由；同一账号反复申请的可不予受理。本条不影响你依法享有的权利。支付由 Telegram 处理，我们不接触你的支付信息。', reportTitle:'举报 / 反馈', reportPlaceholder:'请描述您要举报的问题或反馈……', reportSubmit:'提交', reportThanks:'已收到您的反馈，我们会尽快处理。', aboutTitle:'关于', langLabel:'语言', close:'关闭',
   importBtn:"从文件导入讲稿",
+  openFile:"📂 打开文件（另存为新稿）",
+  saveImageTitle:"长按图片保存",
+  saveImageHint:"Telegram 内置浏览器不允许网页直接下载文件：请长按上方卡片，选择「存储到相册 / 保存图片」。",
   importHint:"讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。",
   importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入内容会写入当前选中的讲稿；想导入成新讲稿，请先新建讲稿并选中。",
   importOk:"已导入为新讲稿",
@@ -1107,6 +1144,9 @@ const I18N = {
  },
   en: { appTitle:'ScriptDeck', appSubtitle:'Teleprompter & Cue Cards', settings:'Settings', disclaimerTitle:'Disclaimer', disclaimerBody:'ScriptDeck is a teleprompter reading aid: it only displays and scrolls the text you type, on your own device. It does not write, publish, or judge your content. Scripts are stored in your device browser by default; unless you turn on Cloud Sync yourself, we do not read, upload, or back them up, and they may be lost if you clear browser data, uninstall, or change devices, so please keep your own copies of anything important. The app is provided as is; scroll speed and character estimates are aids only, and no guarantee is made about recording results or any outcome of use.', paidNotice:'You are about to buy Pro with Telegram Stars. Pro unlocks features and does not auto-renew at the end of the period. Within 14 days of purchase you can request a full refund via /paysupport, no reason required; repeated requests from the same account may be declined. This does not affect your statutory rights. Payment is handled by Telegram; we never receive your payment details.', reportTitle:'Report / Feedback', reportPlaceholder:'Describe the issue you want to report or your feedback…', reportSubmit:'Submit', reportThanks:'Thanks! We received your feedback and will review it soon.', aboutTitle:'About', langLabel:'Language', close:'Close',
   importBtn:"Import from file",
+  openFile:"📂 Open file (save as new script)",
+  saveImageTitle:"Long-press to save",
+  saveImageHint:"The in-app browser cannot download files directly: long-press the card above and choose Save Image.",
   importHint:"Already wrote your script in Word or Notepad? Import it here instead of copy-pasting.",
   importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF and WPS-only formats must be saved in another format first. Imported content goes into the currently selected script; to import as a new script, create and select one first.",
   importOk:"Imported as a new script",
@@ -1364,6 +1404,9 @@ const I18N = {
   langLabel:'Sprache',
   close:'Schließen',
   importBtn:'Skript aus Datei importieren',
+  openFile:'📂 Datei öffnen (als neues Skript)',
+  saveImageTitle:'Zum Speichern lange drücken',
+  saveImageHint:'Der Browser in Telegram darf Dateien nicht direkt herunterladen: halte die Karte oben gedrückt und wähle „Bild speichern“.',
   importHint:'Dein Skript liegt schon in Word oder im Editor? Hier direkt importieren – kein Kopieren und Einfügen nötig.',
   importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF; PDF und WPS-Formate bitte vorher anders speichern. Der Import schreibt in das aktuell ausgewählte Skript; für ein neues Skript bitte vorher eines erstellen und auswählen.',
   importOk:'Als neues Skript importiert',
@@ -1621,6 +1664,9 @@ const I18N = {
   langLabel:'Langue',
   close:'Fermer',
   importBtn:'Importer un script depuis un fichier',
+  openFile:'📂 Ouvrir un fichier (nouveau script)',
+  saveImageTitle:'Appuyez longuement pour enregistrer',
+  saveImageHint:'Le navigateur intégré de Telegram ne télécharge pas directement les fichiers : appuyez longuement sur la carte ci-dessus et choisissez « Enregistrer l’image ».',
   importHint:'Votre script est déjà dans Word ou dans un éditeur ? Importez-le directement ici, sans copier-coller.',
   importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF ; le PDF et les formats WPS doivent d’abord être enregistrés autrement. L’import écrit dans le script actuellement sélectionné ; pour un nouveau script, créez-en un et sélectionnez-le d’abord.',
   importOk:'Importé comme nouveau script',
@@ -1865,6 +1911,9 @@ const I18N = {
  },
   ja: { appTitle:'ScriptDeck', appSubtitle:'プロンプター＆キューヶード', settings:'設定', disclaimerTitle:'免責事項', disclaimerBody:'ScriptDeck は原稿読み上げを補助するテレプロンプターです。入力したテキストをご自身の端末上で表示・スクロールするだけで、内容の作成・公開・評価は行いません。原稿は初期設定で端末のブラウザ内に保存されます。ご自身で「クラウド同期」を有効にしない限り、当方が原稿を読み取り・送信・バックアップすることはありません。ブラウザデータの削除、アプリの削除、機種変更などで復元できない場合があるため、重要な原稿はご自身で保管してください。本アプリは現状のまま提供され、スクロール速度や文字数の推定は目安であり、収録結果や利用の結果について保証しません。', paidNotice:'まもなく Telegram Stars で Pro を購入します。Pro は機能の解放で、期間終了後の自動更新はありません。購入から 14 日以内であれば /paysupport から理由を問わず全額返金を申請できます（同一アカウントでの繰り返しの申請はお受けできない場合があります）。本条はお客様の法令上の権利に影響しません。決済は Telegram が処理し、当方が支払い情報を取得することはありません。', reportTitle:'報告 / フィードバック', reportPlaceholder:'報告したい問題やフィードバックを記述してください……', reportSubmit:'送信', reportThanks:'ありがとうございます。ご意見を確認いたします。', aboutTitle:'概要', langLabel:'言語', close:'閉じる',
   importBtn:"ファイルから読み込む",
+  openFile:"📂 ファイルを開く（新しい原稿として保存）",
+  saveImageTitle:"画像を長押しして保存",
+  saveImageHint:"Telegram 内蔵ブラウザでは直接ダウンロードできません。上のカードを長押しして「画像を保存」を選んでください。",
   importHint:"Word やメモ帳で原稿を書いてありますか？コピペせずにここから直接読み込めます。",
   importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF。PDF と WPS 専用形式は先に別形式で保存してください。読み込み内容は選択中の原稿に書き込まれます。新しい原稿に読み込む場合は先に新規作成して選択してください。",
   importOk:"新しい原稿として読み込みました",
@@ -2109,6 +2158,9 @@ const I18N = {
  },
   ko: { appTitle:'ScriptDeck', appSubtitle:'텔레프롬프터 & 큐 카드', settings:'설정', disclaimerTitle:'면책 조항', disclaimerBody:'ScriptDeck은 대본 낭독을 돕는 텔레프롬프터입니다. 입력한 텍스트를 사용자의 기기에서 표시하고 스크롤할 뿐, 내용을 작성·게시·평가하지 않습니다. 대본은 기본적으로 기기 브라우저에 저장되며, 사용자가 직접 ‘클라우드 동기화’를 켜지 않는 한 당사는 대본을 읽거나 전송하거나 백업하지 않습니다. 브라우저 데이터 삭제, 앱 삭제, 기기 변경 시 복구되지 않을 수 있으므로 중요한 대본은 직접 보관해 주세요. 본 앱은 있는 그대로 제공되며, 스크롤 속도와 글자 수 추정치는 참고용으로, 녹화 결과나 사용 결과에 대해 보증하지 않습니다.', paidNotice:'곧 Telegram Stars로 Pro를 구매합니다. Pro는 기능 잠금 해제이며 기간 만료 후 자동 갱신되지 않습니다. 구매 후 14일 이내에 /paysupport로 이유 없이 전액 환불을 요청할 수 있습니다(동일 계정의 반복 요청은 거절될 수 있습니다). 본 조항은 사용자의 법적 권리에 영향을 주지 않습니다. 결제는 Telegram이 처리하며 당사는 결제 정보를 받지 않습니다.', reportTitle:'신고 / 피드백', reportPlaceholder:'신고할 문제나 피드백을 설명해 주세요……', reportSubmit:'제출', reportThanks:'감사합니다. 피드백을 확인하겠습니다.', aboutTitle:'정보', langLabel:'언어', close:'닫기',
   importBtn:"파일에서 가져오기",
+  openFile:"📂 파일 열기 (새 대본으로 저장)",
+  saveImageTitle:"이미지를 길게 눌러 저장",
+  saveImageHint:"Telegram 내장 브라우저는 직접 다운로드를 허용하지 않습니다. 위 카드를 길게 눌러 '이미지 저장'을 선택하세요.",
   importHint:"Word나 메모장에 이미 대본을 써 두셨나요? 복사·붙여넣기 없이 여기서 바로 가져오세요.",
   importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF와 WPS 전용 형식은 먼저 다른 형식으로 저장해 주세요. 가져온 내용은 선택한 대본에 기록됩니다. 새 대본에 가져오려면 먼저 새로 만들고 선택하세요.",
   importOk:"새 대본으로 가져왔습니다",
@@ -2353,6 +2405,9 @@ const I18N = {
  },
   ru: { appTitle:'ScriptDeck', appSubtitle:'Телесуфлёр · без заучивания', settings:'Настройки', disclaimerTitle:'Отказ от ответственности', disclaimerBody:'ScriptDeck — это телесуфлёр: он только показывает и прокручивает набранный вами текст на вашем устройстве. Приложение не создаёт, не публикует и не оценивает ваш контент. Сценарии по умолчанию хранятся в браузере устройства. Если вы сами не включите облачную синхронизацию, мы не читаем, не загружаем и не создаём их резервные копии. При очистке данных браузера, удалении приложения или смене устройства они могут быть утрачены, поэтому важные тексты сохраняйте отдельно. Приложение предоставляется «как есть»: скорость прокрутки и оценка числа символов носят справочный характер, а результат записи и последствия использования не гарантируются.', paidNotice:'Вы собираетесь приобрести Pro за Telegram Stars. Pro открывает функции и не продлевается автоматически по окончании срока. В течение 14 дней после покупки можно запросить полный возврат через /paysupport без объяснения причин; при повторных запросах с одного аккаунта может быть отказано. Это не ограничивает ваши права по закону. Платёж обрабатывает Telegram, мы не получаем ваши платёжные данные.', reportTitle:'Жалоба / Обратная связь', reportPlaceholder:'Опишите проблему или ваши замечания…', reportSubmit:'Отправить', reportThanks:'Спасибо! Мы получили ваше сообщение и скоро его рассмотрим.', aboutTitle:'О приложении', langLabel:'Язык', close:'Закрыть',
   importBtn:"Импорт из файла",
+  openFile:"📂 Открыть файл (сохранить как новый сценарий)",
+  saveImageTitle:"Удерживайте, чтобы сохранить",
+  saveImageHint:"Встроенный браузер Telegram не разрешает прямую загрузку: длительное нажатие на карточку выше и выберите «Сохранить изображение».",
   importHint:"Текст уже написан в Word или Блокноте? Загрузите его здесь без копирования.",
   importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF и форматы WPS нужно сначала сохранить в другом формате. Импортируемый текст записывается в выбранный сценарий. Чтобы импортировать в новый, сначала создайте и выберите его.",
   importOk:"Импортировано как новый сценарий",
@@ -2722,6 +2777,19 @@ function applyI18n() {
   // MIN_CHARS_FOR_READ 在本函数定义之后声明，但 applyI18n 均在 init 之后调用，故无 TDZ 问题。
   const vr = document.getElementById('validReadRuleHint');
   if (vr) vr.textContent = fmt(t('validReadRule'), { n: MIN_CHARS_FOR_READ });
+  // 验签状态是动态文本（无 data-i18n），必须在这里重新按当前语言渲染。
+  if (typeof renderVerifyStatus === 'function') renderVerifyStatus();
+  // 完成卡上的可点链接文字是静态 DOM，但文案随语言；深链本身不变。
+  const fcl = document.getElementById('finishCtaLink');
+  if (fcl) fcl.textContent = t('finishCtaTitle');
+  const ssl = document.getElementById('saveSheetTitle');
+  if (ssl) ssl.textContent = t('saveImageTitle');
+  const ssh = document.getElementById('saveSheetHint');
+  if (ssh) ssh.textContent = t('saveImageHint');
+  const ofb = document.getElementById('btnOpenFile');
+  if (ofb) ofb.textContent = t('openFile');
+  const qob = document.getElementById('btnQuickOpen');
+  if (qob) qob.textContent = t('openFile');
 }
 
 const defaultState = {
@@ -3533,11 +3601,26 @@ async function handleImportFile(file){
     // 导入目标恒为「当前选中的讲稿」，绝不隐式新建、不受免费 3 篇限制：
     // - 编辑器里有有效光标 → 插到光标处并保留原内容（提示 importInserted）
     // - 没有光标（如从讲稿库/设置面板导入）→ 整篇写入当前选中讲稿（提示 importIntoActive）
-    // 想导入成新讲稿：先点「新建讲稿」并选中它，再导入。
+    // 想导入成新讲稿：点「打开文件」（另存为新稿并自动载入），不用先新建。
     if (insertImportedTextAtCaret(r.text)) toast(t('importInserted'));
     else if (writeImportIntoActiveScript(r.text)) toast(t('importIntoActive'));
   } catch (err) {
     // 失败原因要留够时间看清：文案本身长，2 秒容易被忽略成「点了没反应」
+    toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'), 4600);
+  }
+}
+/* 「打开文件」与「从文件导入」的区别（2026-11-24 真机反馈）：
+ * 导入 = 写进当前讲稿；打开文件 = 用文件名作标题另存为一篇新讲稿并立即载入。
+ * 免费额度已满时不硬拦：降级为整篇覆盖当前稿，并明确提示篇数不变。 */
+async function handleOpenFile(file){
+  if (!file) return;
+  try {
+    const r = await parseImportFile(file);
+    let s = null;
+    if (!scriptLimitReached()) s = importTextAsNewScript(r.title, r.text);
+    if (s) toast(t('importOk'));
+    else if (writeImportIntoActiveScript(r.text)) toast(t('importIntoActive'));
+  } catch (err) {
     toast(t(IMPORT_ERR_KEYS[err && err.code] || 'importFailParse'), 4600);
   }
 }
@@ -3854,6 +3937,72 @@ function deepLink(){
   const code = encodeURIComponent(state.referralCode || 'invite');
   return 'https://t.me/' + bot + '?startapp=' + code;
 }
+function isTelegramWebApp(){
+  return !!(window.Telegram && Telegram.WebApp && (Telegram.WebApp.initData || Telegram.WebApp.platform));
+}
+/* 完成卡上的 CTA / 网址点击后打开邀请深链。Telegram 内用 openTelegramLink，
+   浏览器用新标签页；两者都不是「无动作的死文字」。 */
+function openInviteLink(){
+  const url = deepLink();
+  if (isTelegramWebApp() && Telegram.WebApp.openTelegramLink){
+    try { Telegram.WebApp.openTelegramLink(url); return; } catch (e){}
+  }
+  if (isTelegramWebApp() && Telegram.WebApp.openLink){
+    try { Telegram.WebApp.openLink(url); return; } catch (e){}
+  }
+  try { window.open(url, '_blank', 'noopener'); } catch (e){}
+}
+/* 分享顺序（2026-11-24 真机验证修正）：Telegram WebView 里 navigator.share 调起的是
+   Android 系统分享面板 / iOS 系统面板，不是 Telegram 内置「选择聊天」；必须优先
+   openTelegramLink(t.me/share/url)。只有普通浏览器才用 Web Share API 带图分享。 */
+async function shareCompletion(text, url, dataUrl, filename){
+  if (isTelegramWebApp()){ telegramShare(text, url); return; }
+  if (dataUrl && navigator.share && window.File){
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], filename, { type: 'image/png' });
+      const canShareFiles = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
+      if (canShareFiles){ await navigator.share({ files: [file], text: text, url: url }); return; }
+    } catch (e){
+      if (e && e.name === 'AbortError') return; // 用户主动取消，不再二次弹窗
+    }
+  }
+  telegramShare(text, url);
+}
+function showSaveSheet(dataUrl){
+  const sheet = document.getElementById('saveSheet');
+  const img = document.getElementById('saveSheetPreview');
+  if (!sheet || !img) return false;
+  img.src = dataUrl;
+  sheet.classList.remove('hidden');
+  return true;
+}
+/* 保存卡片：Android/iOS 的 Telegram WebView 会静默忽略 <a download>，
+   用户看到的就是"点保存卡片没反应"。这里在 Telegram 内弹原图 + 长按指引；
+   桌面浏览器优先用 showSaveFilePicker（真正的选择目录对话框），最后才退回 a.download。 */
+async function saveCardImage(dataUrl, filename){
+  if (!dataUrl){ toast(t('importFailEmpty')); return; }
+  if (isTelegramWebApp()){ if (showSaveSheet(dataUrl)) return; }
+  if (window.showSaveFilePicker){
+    try {
+      const h = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }]
+      });
+      const w = await h.createWritable();
+      const blob = await (await fetch(dataUrl)).blob();
+      await w.write(blob); await w.close();
+      toast(t('saveAlbum'));
+      return;
+    } catch (e){ if (e && e.name === 'AbortError') return; }
+  }
+  try {
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast(t('saveAlbum'));
+  } catch (e){ showSaveSheet(dataUrl); }
+}
 
 /* ---------- 滚动引擎 ---------- */
 let rafId = null, lastTs = null, offset = 0, playing = false;
@@ -4145,6 +4294,69 @@ function ensureReadTokens(){
     if (txt) buildReadTokens();
   }
 }
+/* 逐字符精确测量（2026-11-24 BUG1 修复）：
+   WebKit（iOS Telegram WebView）的 Range.getBoundingClientRect() 对「跨文本节点 / 折行 /
+   simple line layout」有已知缺陷（WebKit bug 182181 / 296765），实测整词黄块会少盖首字母。
+   单字符 Range 没有这个偏移问题；这里只读首/末字符（必要时逐字符）的盒子，再合并成词块，
+   同时把 contenteditable 输入法把一个英文词拆成多个 text node 的情况合并回来。
+   词块坐标相对 scrollText，与 readTokens 的 tk.left/top 同口径。 */
+function charTextRect(node, offset){
+  try {
+    const r = document.createRange();
+    r.setStart(node, offset); r.setEnd(node, offset + 1);
+    let best = null;
+    if (r.getClientRects){
+      const rs = r.getClientRects();
+      for (let i = 0; i < rs.length; i++){
+        const x = rs[i];
+        // WebKit 折行时会额外返回一个 width=0 的矩形，必须过滤，否则左边界会被它带偏
+        if (x.width > 0.1 && x.height > 0.1 && (!best || x.width > best.width)) best = x;
+      }
+    }
+    if (!best){
+      const b = r.getBoundingClientRect();
+      if (b && b.width > 0.1 && b.height > 0.1) best = b;
+    }
+    return best ? { left:best.left, right:best.right, top:best.top, height:best.height } : null;
+  } catch (e){ return null; }
+}
+function preciseWordSpanRect(idx, stRect){
+  if (!readTokens || idx < 0 || idx >= readTokens.length || !scrollText || !stRect) return null;
+  const center = readTokens[idx];
+  const wordText = function (tk){
+    if (!tk || !tk.node || !tk.node.nodeValue) return '';
+    return String(tk.node.nodeValue).slice(tk.start, tk.end);
+  };
+  const isWord = function (tk){ return /^[A-Za-z0-9'_]+$/.test(wordText(tk)); };
+  let lo = idx, hi = idx;
+  // 输入法/粘贴可能把 "yabjianggao" 拆成 "y" + "abjianggao" 两个 text node；
+  // 相邻且中间无空白的词元合并成一个显示块，黄块覆盖完整单词。
+  if (isWord(center)){
+    while (lo > 0 && isWord(readTokens[lo - 1]) &&
+           readTokens[lo - 1].charEnd === readTokens[lo].charStart &&
+           Math.abs(readTokens[lo - 1].top - readTokens[lo].top) <= 3) lo--;
+    while (hi < readTokens.length - 1 && isWord(readTokens[hi + 1]) &&
+           readTokens[hi].charEnd === readTokens[hi + 1].charStart &&
+           Math.abs(readTokens[hi].top - readTokens[hi + 1].top) <= 3) hi++;
+  }
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  for (let k = lo; k <= hi; k++){
+    const tk = readTokens[k];
+    if (!tk || !tk.node) continue;
+    for (let c = tk.start; c < tk.end; c++){
+      const b = charTextRect(tk.node, c);
+      if (!b) continue;
+      const y = b.top - stRect.top;
+      if (Math.abs(y - center.top) > Math.max(4, b.height * 0.5)) continue; // 只取当前显示行
+      left = Math.min(left, b.left - stRect.left);
+      right = Math.max(right, b.right - stRect.left);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y + b.height);
+    }
+  }
+  if (!(right > left) || !(bottom > top)) return null;
+  return { left:left, top:top, w:right - left, h:bottom - top };
+}
 /* 跨行词拆分（2026-11-24）：连续无空格串（如随机拼音/长英文）在窄屏会被折成多行，
    此时 Range.getBoundingClientRect() 返回的是「跨所有行的外包围盒」——left 取首行、
    right 取末行、height 跨多行。旧实现直接用它画黄块，于是「一个词」的高亮一次盖住两行。
@@ -4373,14 +4585,20 @@ function updateReadMark(force, allowPaused){
     const tk = readTokens[Math.max(0, Math.min(readTokens.length - 1, idx))];
     const vp = viewport.getBoundingClientRect();
     const st = scrollText.getBoundingClientRect();
-    const left = st.left + tk.left - vp.left;
-    const top  = st.top  + tk.top  - vp.top;
-    if (top + tk.h < 0 || top > vp.height){ hideReadMark(); return; } // 滚出视口
+    // 逐字符测量优先：规避 iOS WebKit 整词 Range 少算首字母的缺陷；失败才回退到缓存几何
+    const precise = preciseWordSpanRect(idx, st);
+    const markLeft = precise ? precise.left : tk.left;
+    const markTop  = precise ? precise.top  : tk.top;
+    const markW    = precise ? precise.w    : tk.w;
+    const markRawH = precise ? precise.h    : (tk.h > 0 ? tk.h : curLine.height);
+    const left = st.left + markLeft - vp.left;
+    const top  = st.top  + markTop  - vp.top;
+    if (top + markRawH < 0 || top > vp.height){ hideReadMark(); return; } // 滚出视口
     readMarkEl.style.left = left + 'px';
     readMarkEl.style.top = top + 'px';
-    readMarkEl.style.width = Math.max(2, tk.w) + 'px';
+    readMarkEl.style.width = Math.max(2, markW) + 'px';
     // 高度钳制到本行高：即便个别环境测到跨行包围盒（无空格长串），黄块也不会盖到下一行
-    const markH = Math.min(tk.h > 0 ? tk.h : curLine.height, curLine.height);
+    const markH = Math.min(markRawH, curLine.height);
     readMarkEl.style.height = Math.max(2, markH) + 'px';
     applyReadMarkStrength();
     readMarkEl.style.display = 'block';
@@ -5291,6 +5509,17 @@ function generateFinishCard(){
   ctx.fillStyle = '#b9bec6'; ctx.font = '22px sans-serif';
   const dl = deepLink();
   ctx.fillText(dl.length > 52 ? dl.slice(0, 52) + '…' : dl, 540, 1312);
+  // 同步可点链接：image map 坐标按画布实际像素缩放（Pro 高清卡 scale=2 也能对准），
+  // href 用真实深链；图片下方的同源文字链接也一并刷新。
+  const px = function (v){ return Math.round(v * (c.width / BASE_W)); };
+  const ctaArea = document.getElementById('finishCtaArea');
+  if (ctaArea){ ctaArea.coords = [240,1182,840,1242].map(px).join(','); ctaArea.href = dl; }
+  const urlArea = document.getElementById('finishUrlArea');
+  if (urlArea){ urlArea.coords = [60,1284,1020,1336].map(px).join(','); urlArea.href = dl; }
+  const ctaLink = document.getElementById('finishCtaLink');
+  if (ctaLink) ctaLink.href = dl;
+  const urlLink = document.getElementById('finishUrlLink');
+  if (urlLink){ urlLink.href = dl; urlLink.textContent = dl; }
   finishCardDataUrl = c.toDataURL('image/png');
   const preview = document.getElementById('finishPreview');
   if (preview) preview.src = finishCardDataUrl;
@@ -5320,12 +5549,19 @@ function toast(msg, ms){
   toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, ms || 2200);
 }
 
-/* ---------- initData 服务端验签（可选） ---------- */
-let verifyStatus = '';
+/* ---------- initData 服务端验签（可选） ----------
+ * BUG 修复：以前把 t('verifyOk') 的「当期语言文本」缓存进 verifyStatus，
+ * 切语言时 applyI18n 只刷新带 data-i18n 的节点，这个动态节点永远留在首次语言。
+ * 现在只缓存状态（key + reason），每次渲染都重新 t()，切语言立即跟着变。 */
+let verifyStatus = null; // null | {key:'verifyOk'|'verifyFail'|'verifyErr', reason?:string}
 function renderVerifyStatus(){
   const el = document.getElementById('verifyStatus');
   const el2 = document.getElementById('verifyStatus2');
-  const txt = verifyStatus || '';
+  let txt = '';
+  if (verifyStatus && verifyStatus.key){
+    txt = t(verifyStatus.key);
+    if (verifyStatus.key === 'verifyFail' && verifyStatus.reason) txt += ': ' + verifyStatus.reason;
+  }
   if (el) el.textContent = txt;
   if (el2) el2.textContent = txt;
 }
@@ -5341,9 +5577,9 @@ async function verifyInitData(){
       body: JSON.stringify({ initData: initData })
     });
     const j = await r.json();
-    verifyStatus = j.valid ? t('verifyOk') : (t('verifyFail') + ': ' + (j.reason || ''));
+    verifyStatus = j.valid ? { key:'verifyOk' } : { key:'verifyFail', reason: j.reason || '' };
   } catch(e){
-    verifyStatus = t('verifyErr');
+    verifyStatus = { key:'verifyErr' };
   }
   renderVerifyStatus();
 }
@@ -5824,33 +6060,10 @@ if (btnPreviewFinish) btnPreviewFinish.addEventListener('click', function(){
 if (setFinishCard) setFinishCard.addEventListener('change', function(e){ state.finishCard = e.target.checked; saveState(); });
 
 btnDownloadCard.addEventListener('click', function(){
-  if (!cardDataUrl) return;
-  const a = document.createElement('a');
-  a.href = cardDataUrl; a.download = 'scriptdeck-card.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  saveCardImage(cardDataUrl, 'scriptdeck-card.png');
 });
-btnShareCard.addEventListener('click', async function () {
-  const url = deepLink();
-  const text = t('shareText');
-
-  // 优先：用 Web Share API 把「完成卡」PNG 图片本身分享出去（Android Chrome / iOS Safari 支持）
-  if (cardDataUrl && navigator.share && window.File) {
-    try {
-      const blob = await (await fetch(cardDataUrl)).blob();
-      const file = new File([blob], 'scriptdeck-card.png', { type: 'image/png' });
-      const canShareFiles = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
-      if (canShareFiles) {
-        await navigator.share({ files: [file], text: text, url: url });
-        return;
-      }
-    } catch (e) {
-      if (e && e.name === 'AbortError') return; // 用户主动取消，不降级
-      // 其他失败（API 不支持 / 权限）→ 走下方降级
-    }
-  }
-
-  // 降级：Telegram 内分享深链与文案（不带图片）；浏览器内会提示需在 Telegram 打开
-  telegramShare(text, url);
+btnShareCard.addEventListener('click', function () {
+  shareCompletion(t('shareText'), deepLink(), cardDataUrl, 'scriptdeck-card.png');
 });
 
 // 完成卡按钮：保存图片 / 分享给朋友 / 继续提词
@@ -5871,28 +6084,43 @@ function requireDisplayNameForCard(){
 }
 if (btnFinishSave) btnFinishSave.addEventListener('click', function(){
   if (!requireDisplayNameForCard()) return;
-  if (!finishCardDataUrl) return;
-  const a = document.createElement('a');
-  a.href = finishCardDataUrl; a.download = 'scriptdeck-finish.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  saveCardImage(finishCardDataUrl, 'scriptdeck-finish.png');
 });
-if (btnFinishShare) btnFinishShare.addEventListener('click', async function(){
+if (btnFinishShare) btnFinishShare.addEventListener('click', function(){
   if (!requireDisplayNameForCard()) return;
-  const url = deepLink();
   const text = fmt(t('finishShareText'), { n: (state.reads || 0), name: finishDisplayName() });
-  if (finishCardDataUrl && navigator.share && window.File) {
-    try {
-      const blob = await (await fetch(finishCardDataUrl)).blob();
-      const file = new File([blob], 'scriptdeck-finish.png', { type: 'image/png' });
-      const canShareFiles = navigator.canShare ? navigator.canShare({ files: [file] }) : true;
-      if (canShareFiles){ await navigator.share({ files: [file], text: text, url: url }); return; }
-    } catch (e){
-      if (e && e.name === 'AbortError') return;
-    }
-  }
-  telegramShare(text, url);
+  shareCompletion(text, deepLink(), finishCardDataUrl, 'scriptdeck-finish.png');
 });
 if (btnFinishClose) btnFinishClose.addEventListener('click', closeFinishCard);
+// 完成卡底部的 CTA 文案 / 深链：PNG 内部文字用 image map 映射，图片下方的同源文字用真实 <a>。
+// 两条路径都走 openInviteLink，Telegram 内以 openTelegramLink 打开邀请深链。
+['finishCtaArea','finishUrlArea','finishCtaLink','finishUrlLink'].forEach(function (id){
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', function (e){
+    e.preventDefault(); e.stopPropagation();
+    openInviteLink();
+  });
+});
+const finishImg = document.getElementById('finishPreview');
+if (finishImg) finishImg.addEventListener('click', function (e){
+  // image map 失效时的兜底：按图片内坐标判断落点是否落在 CTA / URL 区域
+  try {
+    const r = finishImg.getBoundingClientRect();
+    const nw = finishImg.naturalWidth || 1080, nh = finishImg.naturalHeight || 1350;
+    const x = (e.clientX - r.left) * nw / r.width;
+    const y = (e.clientY - r.top) * nh / r.height;
+    if ((y >= 1182 && y <= 1242 && x >= 240 && x <= 840) ||
+        (y >= 1284 && y <= 1336 && x >= 60 && x <= 1020)){
+      e.preventDefault(); openInviteLink();
+    }
+  } catch (err){}
+});
+const btnSaveSheetClose = document.getElementById('btnSaveSheetClose');
+const saveSheet = document.getElementById('saveSheet');
+if (btnSaveSheetClose && saveSheet){
+  btnSaveSheetClose.addEventListener('click', function(){ saveSheet.classList.add('hidden'); });
+  saveSheet.addEventListener('click', function (e){ if (e.target === saveSheet) saveSheet.classList.add('hidden'); });
+}
 // 点遮罩空白处也关闭完成卡
 if (finishOverlay) finishOverlay.addEventListener('click', function(e){ if (e.target === finishOverlay) closeFinishCard(); });
 
@@ -6192,6 +6420,25 @@ function init(){
       const f = e.target.files && e.target.files[0];
       e.target.value = '';         // 允许连续选择同一个文件
       handleImportFile(f);
+    });
+  }
+  // 「打开文件」：主界面编辑条 + 设置页新建讲稿旁两个入口，共用独立 input。
+  // 独立 input 很重要：与「导入」共用会让 change 事件走错分支（用户反馈"点了没反应"）。
+  const openInput = document.getElementById('openFileInput');
+  function pickOpenFile(){
+    if (!openInput) return;
+    openInput.value = '';
+    openInput.click();
+  }
+  ['btnOpenFile', 'btnQuickOpen'].forEach(function (id){
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', pickOpenFile);
+  });
+  if (openInput) {
+    openInput.addEventListener('change', function (e){
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      handleOpenFile(f);
     });
   }
 

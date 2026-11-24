@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 252 键且一致', sizes.every(n => n === 252), JSON.stringify(sizes));
+check('七语各 255 键且一致', sizes.every(n => n === 255), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -1358,8 +1358,121 @@ check('跨行词拆分函数存在并在 buildReadTokens 中使用（无空格�
   /function tokenRectsForDisplay\(tk, stRect\)/.test(html) &&
   /getClientRects\(\)/.test(html) &&
   /const parts = tokenRectsForDisplay\(tk, stRect\)/.test(html));
-check('黄块高度钳制到本行高（markH = min(tk.h, curLine.height)）',
-  /const markH = Math\.min\(tk\.h > 0 \? tk\.h : curLine\.height, curLine\.height\)/.test(html));
+check('黄块高度钳制到本行高（markH = min(markRawH, curLine.height)）',
+  /const markH = Math\.min\(markRawH, curLine\.height\)/.test(html));
+
+// --- 第38轮（2026-11-24 下午）：真机 6 个 BUG 的回归断言 ---
+// BUG1：iOS WebKit 整词 Range 少算首字母；逐字符测量 + 跨 text node 合并
+check('逐字符测量函数存在并接入 updateReadMark（规避 WebKit Range 缺字母）',
+  /function charTextRect\(node, offset\)/.test(html) &&
+  /function preciseWordSpanRect\(idx, stRect\)/.test(html) &&
+  /const precise = preciseWordSpanRect\(idx, st\)/.test(html));
+const spanProbe = ev(`(() => {
+  const saveRange = document.createRange;
+  const widths = {y:20,a:22,b:26,j:11,i:11,n:25,g:26,o:26};
+  const chars = [...'yabjianggao'];
+  document.createRange = function () {
+    return {
+      pos: 0,
+      setStart(n, o) { this.pos = o; }, setEnd(n, o) { this.end = o; },
+      getClientRects() {
+        if (this.end - this.pos > 1) return [{ left: 120, right: 320, width: 200, top: 100, height: 58 }];
+        let x = 100;
+        for (let i = 0; i < this.pos; i++) x += widths[chars[i]] || 20;
+        return [{ left: x, right: x + (widths[chars[this.pos]] || 20), width: widths[chars[this.pos]] || 20, top: 100, height: 58 }];
+      },
+      getBoundingClientRect() { return this.getClientRects()[0]; }
+    };
+  };
+  const node = { nodeValue: 'yabjianggao' };
+  const st = readTokens;
+  readTokens = [
+    { node, start: 0, end: 1, charStart: 0, charEnd: 1, top: 0, rw: 1 },
+    { node, start: 1, end: 11, charStart: 1, charEnd: 11, top: 0, rw: 10 }
+  ];
+  const r = preciseWordSpanRect(1, { left: 0, top: 100 });
+  readTokens = st; document.createRange = saveRange;
+  return r;
+})()`);
+check('跨 text node 的 "y" + "abjianggao" 合并成一个黄块（不再少首字母）',
+  !!spanProbe && Math.abs(spanProbe.left - 100) < 1 && spanProbe.w > 230,
+  JSON.stringify(spanProbe));
+// BUG2：验签状态只缓存 key，切语言后重新翻译
+ev(`verifyStatus={key:'verifyOk'}; renderVerifyStatus();`);
+check('验签状态按当期语言渲染', doc.getElementById('verifyStatus').textContent === ev('t("verifyOk")'));
+langSel.value = 'fr'; langSel.dispatchEvent(new window.Event('change'));
+check('切法语后"身份已验证"随之翻译（不是硬编码中文）',
+  doc.getElementById('verifyStatus').textContent === ev('t("verifyOk")') &&
+  !/[\u4e00-\u9fa5]/.test(doc.getElementById('verifyStatus').textContent),
+  doc.getElementById('verifyStatus').textContent);
+langSel.value = 'zh'; langSel.dispatchEvent(new window.Event('change'));
+ev(`verifyStatus=null; renderVerifyStatus();`);
+// BUG3：打开文件（另存为新稿并载入），主界面编辑条 + 设置页双入口
+check('主界面与设置页均有"打开文件"入口，且共用独立 file input',
+  !!doc.getElementById('btnQuickOpen') && !!doc.getElementById('btnOpenFile') &&
+  !!doc.getElementById('openFileInput') && /function handleOpenFile\(file\)/.test(html) &&
+  /\['btnOpenFile', 'btnQuickOpen'\]\.forEach/.test(html));
+const openClickProbe = ev(`(() => {
+  let n = 0; const input = document.getElementById('openFileInput');
+  const old = input.click; input.click = () => { n++; };
+  document.getElementById('btnQuickOpen').click();
+  document.getElementById('btnOpenFile').click();
+  input.click = old; return n;
+})()`);
+check('两个"打开文件"按钮都能唤起系统文件选择器', openClickProbe === 2, String(openClickProbe));
+const openProbe = await ev(`(async () => {
+  const oldParse = parseImportFile, oldCount = state.scripts.length;
+  parseImportFile = async () => ({ title: '已存讲稿', text: '从文件打开的内容' });
+  await handleOpenFile({ name: '已存讲稿.txt' });
+  parseImportFile = oldParse;
+  const s = activeScript();
+  const out = { added: state.scripts.length - oldCount, title: s.title, content: s.content };
+  state.scripts.pop(); state.activeScriptId = 'default'; renderScriptList(); loadActiveIntoEditor();
+  return out;
+})()`);
+check('打开文件后以文件名为标题新建并载入讲稿',
+  openProbe.added === 1 && openProbe.title === '已存讲稿' && openProbe.content === '从文件打开的内容',
+  JSON.stringify(openProbe));
+// BUG4：完成卡 CTA / 网址可点（image map + 真实链接）
+check('完成卡图片带 usemap，CTA 与网址都有可点链接热区',
+  /id="finishPreview"[^>]*usemap="#finishCardMap"/.test(html) &&
+  !!doc.getElementById('finishCtaArea') && !!doc.getElementById('finishUrlArea') &&
+  !!doc.getElementById('finishCtaLink') && !!doc.getElementById('finishUrlLink'));
+const linkProbe = ev(`(() => {
+  let opened = null;
+  window.Telegram = { WebApp: { initData: 'test', openTelegramLink: u => { opened = u; } } };
+  document.getElementById('finishCtaLink').dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  window.Telegram = undefined;
+  return opened;
+})()`);
+check('点击"你也来试试 ScriptDeck"打开 Telegram 邀请深链（不再是死文字）',
+  typeof linkProbe === 'string' && linkProbe.startsWith('https://t.me/'), String(linkProbe));
+// BUG5：Telegram 内分享必须走 openTelegramLink，不能弹系统分享面板
+const shareProbe = await ev(`(async () => {
+  let tg = null, sys = 0;
+  window.Telegram = { WebApp: { initData: 'test', openTelegramLink: u => { tg = u; } } };
+  Object.defineProperty(navigator, 'share', { value: () => { sys++; return Promise.resolve(); }, configurable: true });
+  await shareCompletion('文案', 'https://t.me/x?startapp=y', 'data:image/png;base64,AAAA', 'card.png');
+  window.Telegram = undefined;
+  return { tg: tg, sys: sys };
+})()`);
+check('Telegram 内分享走内置 t.me/share/url，不再调 navigator.share',
+  typeof shareProbe.tg === 'string' && shareProbe.tg.includes('t.me/share/url') && shareProbe.sys === 0,
+  JSON.stringify(shareProbe));
+// BUG6：保存卡片在 Telegram WebView 弹原图长按面板（a.download 会被静默忽略）
+const saveProbe = await ev(`(async () => {
+  window.Telegram = { WebApp: { initData: 'test' } };
+  await saveCardImage('data:image/png;base64,AAAA', 'card.png');
+  const sheet = document.getElementById('saveSheet');
+  const opened = !sheet.classList.contains('hidden');
+  const imgOk = document.getElementById('saveSheetPreview').src.indexOf('data:image/png') === 0;
+  document.getElementById('btnSaveSheetClose').click();
+  const closed = sheet.classList.contains('hidden');
+  window.Telegram = undefined;
+  return { opened: opened, imgOk: imgOk, closed: closed };
+})()`);
+check('点保存卡片弹出原图 + 长按指引（不再毫无反应）',
+  saveProbe.opened && saveProbe.imgOk && saveProbe.closed, JSON.stringify(saveProbe));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
