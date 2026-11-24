@@ -2,9 +2,11 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<!-- iOS Safari：去掉 maximum-scale / user-scalable=no。它们会与「输入框字号<16px 自动放大」冲突，
-     键盘弹起后文本框被顶歪、点不中、无法粘贴或输入；同时补 viewport-fit=cover 适配刘海屏。 -->
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- 视口缩放（2026-11-24 修正）：Mini App 内必须禁止整页双指/双击缩放——否则播放时手指
+     拖动定位会被 WebView 当成缩放手势，整个 mini app 页面被放大（真机实测反馈）。
+     iOS 输入框聚焦自动放大的真正根因是「输入框字号<16px」，已由下方 .field/#setScriptTitle 等
+     的 font-size:16px !important 规则解决，与 user-scalable=no 不再冲突。补 viewport-fit=cover 适配刘海屏。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#ffffff" />
 <title>ScriptDeck · Teleprompter</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -28,9 +30,12 @@
      写入；无 JS/不支持时回落到 100dvh。提词区始终保留最小可编辑高度。 */
   #app{height:var(--vvh, 100dvh);}
   #app.editing #viewport{min-height:120px;}
-  /* 编辑态隐藏底部播放控制条：打字/粘贴时不需要播放控制，腾出的空间全部留给提词区，
-     点「完成」退出编辑态后自动恢复。这是键盘顶飞问题的关键——少一整行按钮。 */
-  #app.editing #controlBar{display:none;}
+  /* 编辑态底部控制条（2026-11-24 修正）：不能再整条隐藏——否则用户输入后必须点「完成」
+     才看得到 ▶ 播放按钮，不符合「输入完即可播放」的预期。改为保留按钮行（含 ▶），
+     只隐藏速度条那一行（打字时不需要调速，且省一整行空间给键盘）。键盘顶飞由 --vvh
+     整页高度锁定 + 提词区 min-height 兜底解决，不依赖隐藏整条控制条。 */
+  #app.editing #speedWrap{display:none;}
+  #app.editing #controlBar{padding-bottom:calc(6px + env(safe-area-inset-bottom));}
   /* 编辑态的兜底粘贴面板/工具条本身保留，但工具条提示文字在窄屏可省 */
   @media (max-height:520px){
     #app.editing .edit-hint{display:none;}
@@ -64,16 +69,26 @@
     background:#c2cad8; border-radius:8px; border:2px solid #f3f5f9;
   }
   #app.playing #viewport{overflow:hidden;}
-  /* 播放进度条：播放态关掉原生滚动条后，右侧仍有"读到哪儿"的位置指示。
-     只读（pointer-events:none），不抢点按/编辑；轨道淡、滑块主色。 */
+  /* 播放进度条：播放态关掉原生滚动条后，右侧这条既指示位置、也可拖动定位。
+     2026-11-24：由只读改为可交互——播放中手指拖动它即时跳转（真机反馈"滚动条无效"）。
+     可视轨道仍只 5px，但透明热区加宽到 18px 便于触摸命中；touch-action:none 防拖动触发缩放/滚动。 */
   #playProgress{
-    position:absolute; top:0; right:0; width:5px; height:100%; display:none;
-    background:rgba(20,24,33,.06); z-index:6; pointer-events:none;
+    position:absolute; top:0; right:0; width:18px; height:100%; display:none;
+    z-index:6; pointer-events:auto; touch-action:none; cursor:pointer;
+  }
+  #playProgress::before{
+    content:""; position:absolute; top:0; right:0; width:5px; height:100%;
+    background:rgba(20,24,33,.06); border-radius:3px;
   }
   #app.playing #playProgress{display:block;}
   #playProgress > i{
-    position:absolute; left:0; top:0; width:100%; height:24px; border-radius:3px;
+    position:absolute; right:0; top:0; width:5px; height:24px; border-radius:3px;
     background:rgba(45,108,223,.55);
+  }
+  #playProgress > i::after{
+    /* 拖动热区提示：滑块中间一小段更亮的握柄 */
+    content:""; position:absolute; left:-4px; right:-4px; top:8px; bottom:8px;
+    background:rgba(45,108,223,.9); border-radius:3px;
   }
   /* 逐词跟随标记：固定在视口阅读点（上 1/5），由 JS 把词/字的屏幕坐标写进来。
      pointer-events:none 保证它永远不会挡住点按定位与文字编辑。 */
@@ -156,7 +171,7 @@
   }
   .edit-bar.hidden{display:none;}
   .edit-bar .btn{font-size:14px; min-height:42px; padding:8px 12px; cursor:pointer;}
-  .edit-hint{flex:1 1 100%; font-size:12px; color:var(--muted); line-height:1.5;}
+  .edit-hint{flex:1 1 100%; font-size:12px; color:var(--muted); line-height:1.5; user-select:none; -webkit-user-select:none;}
   /* 剪贴板兜底面板：navigator.clipboard.readText() 被 iframe / 权限策略拒绝时，
      改用系统原生 Ctrl+V（不依赖任何剪贴板 API）完成粘贴 */
   .paste-fallback{
@@ -908,7 +923,7 @@ const I18N = {
   saveAlbum:"保存到相册",
   shareChat:"分享到聊天",
   creditsNotice:"积分与购买须知",
-  defaultScript:"在这里粘贴你的讲稿……\n\n点击右下角 ⚙ 打开设置，编辑脚本、调整字号与速度。\n\n准备好后点左上角 ▶ 开始滚动提词。",
+  defaultScript:"在这里粘贴你的讲稿。",
   editHint:"点一下上面的文字就能直接删改、粘贴、输入；内容较长时可在提词区内上下滚动。也可以从文件导入讲稿。",
   editPlaceholder:"讲稿是空的。点这里直接输入，或粘贴已复制的文字，也可以从下方导入文件。",
   editPaste:"📋 粘贴",
@@ -1152,7 +1167,7 @@ const I18N = {
   saveAlbum:"Save to Album",
   shareChat:"Share to Chat",
   creditsNotice:"Credits & Purchase Notice",
-  defaultScript:"Paste your script here…\n\nTap ⚙ at the bottom right to open settings and edit the script, font size, and speed.\n\nWhen ready, tap ▶ at the top left to start scrolling.",
+  defaultScript:"Paste your script here.",
   editHint:"Tap the text above to edit, delete, paste or type directly. Long scripts scroll inside the prompter area; you can also import a file.",
   editPlaceholder:"Empty script. Tap here to type, paste copied text, or import a file below.",
   editPaste:"📋 Paste",
@@ -1409,7 +1424,7 @@ const I18N = {
   saveAlbum:'In Galerie speichern',
   shareChat:'Im Chat teilen',
   creditsNotice:'Hinweise zu Credits und Kauf',
-  defaultScript:'Skript hier einfügen …\n\nTippe unten rechts auf ⚙, um die Einstellungen zu öffnen und Skript, Schriftgröße und Tempo anzupassen.\n\nWenn alles bereit ist, tippe oben links auf ▶, um das Scrollen zu starten.',
+  defaultScript:"Skript hier einfügen.",
   editHint:'Tippe auf den Text oben, um direkt zu löschen, einzufügen oder zu schreiben; bei langem Text kannst du im Vorlesebereich scrollen. Du kannst auch eine Datei importieren.',
   editPlaceholder:'Das Skript ist leer. Tippe hier, um zu schreiben oder kopierten Text einzufügen; alternativ kannst du unten eine Datei importieren.',
   editPaste:'📋 Einfügen',
@@ -1666,7 +1681,7 @@ const I18N = {
   saveAlbum:'Enregistrer dans la galerie',
   shareChat:'Partager dans la discussion',
   creditsNotice:'Informations sur les crédits et l’achat',
-  defaultScript:'Collez votre script ici …\n\nTouchez ⚙ en bas à droite pour ouvrir les réglages et modifier le script, la taille du texte et la vitesse.\n\nQuand tout est prêt, touchez ▶ en haut à gauche pour lancer le défilement.',
+  defaultScript:"Collez votre script ici.",
   editHint:'Touchez le texte ci-dessus pour le modifier, le coller ou le saisir directement ; si le texte est long, faites défiler la zone de lecture. Vous pouvez aussi importer un fichier.',
   editPlaceholder:'Le script est vide. Touchez ici pour saisir du texte ou coller un texte copié, ou importez un fichier ci-dessous.',
   editPaste:'📋 Coller',
@@ -1910,7 +1925,7 @@ const I18N = {
   saveAlbum:"アルバムに保存",
   shareChat:"チャットで共有",
   creditsNotice:"クレジットと購入について",
-  defaultScript:"ここに原稿を貼り付け……\n\n右下の ⚙ で設定を開き、原稿・文字サイズ・速度を編集できます。\n\n準備ができたら左上の ▶ でスクロールを開始。",
+  defaultScript:"ここに原稿を貼り付け。",
   editHint:"上の文字をタップすると、削除・貼り付け・直接入力ができます。長い原稿は表示エリア内でスクロールできます。ファイルの読み込みも可能です。",
   editPlaceholder:"原稿が空です。ここをタップして入力、コピーした文字を貼り付け、または下からファイルを読み込めます。",
   editPaste:"📋 貼り付け",
@@ -2154,7 +2169,7 @@ const I18N = {
   saveAlbum:"앨범에 저장",
   shareChat:"채팅으로 공유",
   creditsNotice:"크레딧 및 구매 안내",
-  defaultScript:"여기에 대본을 붙여넣으세요……\n\n오른쪽 아래 ⚙를 눌러 설정에서 대본·글자 크기·속도를 편집하세요.\n\n준비되면 왼쪽 위 ▶를 눌러 스크롤을 시작하세요.",
+  defaultScript:"여기에 대본을 붙여넣으세요.",
   editHint:"위 글자를 탭하면 바로 삭제·붙여넣기·입력할 수 있습니다. 긴 대본은 표시 영역 안에서 스크롤됩니다. 파일 가져오기도 가능합니다.",
   editPlaceholder:"대본이 비어 있습니다. 여기를 탭해 입력하거나 복사한 글을 붙여넣고, 아래에서 파일을 가져올 수도 있습니다.",
   editPaste:"📋 붙여넣기",
@@ -2398,7 +2413,7 @@ const I18N = {
   saveAlbum:"В галерею",
   shareChat:"Поделиться",
   creditsNotice:"Кредиты и условия покупки",
-  defaultScript:"Вставьте сценарий здесь…\n\nНажмите ⚙ справа внизу, чтобы открыть настройки и изменить текст, размер шрифта и скорость.\n\nКогда всё готово, нажмите ▶ слева вверху, чтобы начать прокрутку.",
+  defaultScript:"Вставьте сценарий здесь.",
   editHint:"Нажмите на текст выше, чтобы удалять, вставлять и вводить текст напрямую. Длинный сценарий прокручивается внутри области; также можно импортировать файл.",
   editPlaceholder:"Сценарий пуст. Нажмите здесь, чтобы ввести текст, вставить скопированное или импортировать файл ниже.",
   editPaste:"📋 Вставить",
@@ -3488,6 +3503,9 @@ function commitImportedEdit(text){
   offset = clampOffset(offset);
   if (!playing && viewport) viewport.scrollTop = offset;
   applyPrompterStyle();
+  // 导入后字数徽标必须与新内容同步：旧实现依赖输入事件间接刷新，空默认稿（无焦点）
+  // 导入后不再触发那条路径，导致徽标停在旧态。这里显式重算，口径与 onReadComplete 一致。
+  if (typeof renderReadCharsBadge === 'function') renderReadCharsBadge();
   debounceSave(); maybeSyncDebounced();
 }
 // 返回 true 表示已插入光标处；false 表示没有有效光标，调用方应新建讲稿。
@@ -3961,6 +3979,19 @@ function updatePlayProgress(){
   thumb.style.height = Math.min(track, thumbH) + 'px';
   thumb.style.top = (max > 0 ? Math.round((track - thumbH) * Math.min(1, Math.max(0, offset / max))) : 0) + 'px';
 }
+/* 按进度条纵向比例定位（2026-11-24）：播放中手指拖动右侧进度条即时跳转。
+   ratio∈[0,1] 映射到 offset/rw；阅读头锚点同步，保证高亮立刻落在对应位置，
+   且播放态不写 viewport.scrollTop（位移交给 transform），不打断 raf 循环。 */
+function seekByProgress(ratio){
+  const max = maxOffset();
+  offset = clampOffset((Number.isFinite(ratio) ? ratio : 0) * max);
+  readHeadContentY = offset + readHeadScreenY();
+  lastTs = null;
+  readCounted = false;
+  reachedEnd = false;
+  updatePlayProgress();
+  updateReadMark(true);
+}
 function hideReadMark(){
   if (readMarkEl) readMarkEl.style.display = 'none';
 }
@@ -4114,6 +4145,55 @@ function ensureReadTokens(){
     if (txt) buildReadTokens();
   }
 }
+/* 跨行词拆分（2026-11-24）：连续无空格串（如随机拼音/长英文）在窄屏会被折成多行，
+   此时 Range.getBoundingClientRect() 返回的是「跨所有行的外包围盒」——left 取首行、
+   right 取末行、height 跨多行。旧实现直接用它画黄块，于是「一个词」的高亮一次盖住两行。
+   解法：用 getClientRects() 拿到该词占用的每个行片段，逐字符按 top 归行，把跨行词
+   拆成每行一个子 token（charStart/charEnd 与 rw 按比例分配，保证 caret 定位与权重守恒）。
+   单行词原样返回，几何口径不变；jsdom/无 getClientRects 环境返回空列表时回退到常规测量。 */
+function tokenRectsForDisplay(tk, stRect){
+  const single = function (rc){
+    return [{ node:tk.node, start:tk.start, end:tk.end, charStart:tk.charStart, charEnd:tk.charEnd, rw:tk.rw,
+      left:rc.left - stRect.left, top:rc.top - stRect.top, w:rc.width, h:rc.height }];
+  };
+  const r = document.createRange();
+  r.setStart(tk.node, tk.start); r.setEnd(tk.node, tk.end);
+  let rects = null;
+  try { rects = r.getClientRects ? r.getClientRects() : null; } catch (e){ rects = null; }
+  if (!rects || rects.length <= 1) return single(r.getBoundingClientRect());
+  // 逐字符测 top，相同行的字符归一组（容差半行高），每组生成一个子 token
+  const groups = [];
+  for (let c = tk.start; c < tk.end; c++){
+    const cr = document.createRange();
+    cr.setStart(tk.node, c); cr.setEnd(tk.node, c + 1);
+    const cRect = cr.getBoundingClientRect();
+    if (!cRect.height) continue;
+    const top = cRect.top - stRect.top;
+    const tol = Math.max(2, cRect.height * 0.4);
+    let g = groups.length ? groups[groups.length - 1] : null;
+    if (g && Math.abs(top - g.top) <= tol){
+      g.end = c + 1;
+      g.right = Math.max(g.right, cRect.right - stRect.left);
+      g.height = Math.max(g.height, cRect.height);
+    } else {
+      groups.push({ top:top, start:c, end:c + 1,
+        left:cRect.left - stRect.left, right:cRect.right - stRect.left, height:cRect.height });
+    }
+  }
+  if (!groups.length) return single(r.getBoundingClientRect());
+  const totalChars = Math.max(1, tk.end - tk.start);
+  const baseRw = (typeof tk.rw === 'number' ? tk.rw : 1);
+  return groups.map(function (g){
+    const segLen = g.end - g.start;
+    const charStart = tk.charStart + (g.start - tk.start);
+    return {
+      node:tk.node, start:g.start, end:g.end,
+      charStart:charStart, charEnd:charStart + segLen,
+      rw:baseRw * segLen / totalChars,
+      left:g.left, top:g.top, w:Math.max(1, g.right - g.left), h:g.height
+    };
+  });
+}
 function buildReadTokens(){
   const list = tokenizeForRead();
   // 无词（空稿）时清掉旧的高亮结构与尾部补白，避免残留上一次文稿的布局
@@ -4124,18 +4204,16 @@ function buildReadTokens(){
   }
   let stRect;
   try { stRect = scrollText.getBoundingClientRect(); } catch (e){ readTokens = []; readLines = null; if (scrollText) scrollText.style.paddingBottom = ''; return; }
+  const measured = [];
   for (let i = 0; i < list.length; i++){
     const tk = list[i];
     try {
-      const r = document.createRange();
-      r.setStart(tk.node, tk.start); r.setEnd(tk.node, tk.end);
-      const rc = r.getBoundingClientRect();
-      tk.left = rc.left - stRect.left;   // 相对内容盒，与当前 transform/offset 无关
-      tk.top  = rc.top  - stRect.top;
-      tk.w = rc.width; tk.h = rc.height;
-    } catch (e){ tk.w = 0; tk.h = 0; }
+      // 跨行词按显示行拆成多个子 token：避免无空格长串的包围盒跨多行导致黄块盖两行
+      const parts = tokenRectsForDisplay(tk, stRect);
+      for (let k = 0; k < parts.length; k++) measured.push(parts[k]);
+    } catch (e){ /* 该词几何测量失败，跳过 */ }
   }
-  readTokens = list.filter(function(tk){ return tk.w > 0 && tk.h > 0; });
+  readTokens = measured.filter(function(tk){ return tk.w > 0 && tk.h > 0; });
   // 按视觉行分组：top 相同（同一行）的词归入一组，行内按阅读顺序（DOM 顺序 = 从左到右）。
   // 高亮改为「按阅读头位置定位到某行 → 行内按横向进度推进」，不再用 offset/maxOffset
   // 乘总词数——后者会让高亮速度 = 文本速度 × 内容高/可滚动高（短稿可达 6 倍）。
@@ -4301,7 +4379,9 @@ function updateReadMark(force, allowPaused){
     readMarkEl.style.left = left + 'px';
     readMarkEl.style.top = top + 'px';
     readMarkEl.style.width = Math.max(2, tk.w) + 'px';
-    readMarkEl.style.height = Math.max(2, tk.h) + 'px';
+    // 高度钳制到本行高：即便个别环境测到跨行包围盒（无空格长串），黄块也不会盖到下一行
+    const markH = Math.min(tk.h > 0 ? tk.h : curLine.height, curLine.height);
+    readMarkEl.style.height = Math.max(2, markH) + 'px';
     applyReadMarkStrength();
     readMarkEl.style.display = 'block';
   } catch (e){ hideReadMark(); }
@@ -5583,6 +5663,31 @@ btnCloseSettings.addEventListener('click', function(){ settingsSheet.classList.a
 btnCard.addEventListener('click', function(){ generateCard(); cardOverlay.classList.remove('hidden'); });
 btnCloseCard.addEventListener('click', function(){ cardOverlay.classList.add('hidden'); });
 
+/* 播放进度条拖动定位（2026-11-24）：按下/移动即按比例跳转，松手结束。
+   touch-action:none 已在 CSS 关闭浏览器手势，这里无需 preventDefault 也会被当作 passive 之外处理。 */
+(function bindProgressSeek(){
+  const bar = document.getElementById('playProgress');
+  if (!bar || !viewport) return;
+  let dragging = false;
+  function ratioFromEvent(e){
+    const r = bar.getBoundingClientRect();
+    if (!r.height) return 0;
+    return Math.max(0, Math.min(1, ((e.clientY - r.top) / r.height)));
+  }
+  function onDown(e){
+    dragging = true;
+    seekByProgress(ratioFromEvent(e));
+    if (bar.setPointerCapture && e.pointerId != null){
+      try { bar.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  }
+  function onMove(e){ if (dragging) seekByProgress(ratioFromEvent(e)); }
+  function onUp(){ dragging = false; }
+  bar.addEventListener('pointerdown', onDown);
+  bar.addEventListener('pointermove', onMove);
+  bar.addEventListener('pointerup', onUp);
+  bar.addEventListener('pointercancel', onUp);
+})();
 speedBar.addEventListener('input', function(e){ setSpeedVal(+e.target.value); });
 setSpeed.addEventListener('input', function(e){ setSpeedVal(+e.target.value); });
 btnSpeedUnit.addEventListener('click', function(){
@@ -6360,7 +6465,7 @@ init();
 /* ---------- 软键盘弹起时的视口适配（iOS 提词区被顶飞问题） ----------
    iOS/WKWebView（含 Telegram Mini App）里 100dvh 不随软键盘收缩，底部控制条会被
    键盘顶上来盖住提词区。用 visualViewport.height 作为整页真实高度写进 --vvh，
-   配合 CSS 的 #app.editing #controlBar{display:none}，键盘弹起时提词区稳定可见。
+   配合 CSS 的编辑态控制条精简（只隐藏速度条、保留 ▶ 按钮），键盘弹起时提词区稳定可见。
    - 仅编辑态（软键盘弹起几乎只在聚焦 contenteditable 时）收缩，避免正常浏览时抖动；
    - visualViewport 不可用时回落到 100dvh（CSS var 缺省值），jsdom/旧浏览器无副作用。 */
 (function setupVisualViewport(){

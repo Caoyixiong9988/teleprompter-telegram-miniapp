@@ -332,6 +332,26 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **验证手法**：这类只有真机软键盘 / 触摸才触发，jsdom 和 Playwright 默认视口测不出来；真机逐项手测后，把修法转成源码门禁断言（如「编辑态隐藏控制条规则存在」「暂停态滚动不再调 `updateReadMark`」），否则下次改代码会复发。本次加了两条断言并同步更新了旧断言。
 - **Google Play 复用点**：Android WebView 的 `adjustResize` / `adjustPan`、system bars、各家输入法键盘高度差异更大，8.6 提到的「软键盘遮挡」到这里要用同一套 `visualViewport` 判据更早处理；TWA 尤其注意。
 
+### 8.15 提示文字与正文的边界：伪元素承载引导，别写进 contenteditable（2026-11-24 真机联调）
+
+- **踩过的坑**：默认讲稿 `defaultScript` 里把「点击右下角 ⚙ 打开设置……准备好后点 ▶」写成了**真实文本节点**。于是用户全选/复制时会把操作说明一起带走，播放时也会把它念出来——操作提示混进了内容。另一个坑：编辑态为防键盘顶飞把整个控制条 `display:none`，导致用户输入后看不到 ▶，必须先点「完成」才出现。
+- **通用判据**：
+  - UI 引导文字绝不进入可编辑内容模型；用 **CSS 伪元素 + `data-placeholder`**（`::before{content:attr(...)}`）承载，伪元素不进 DOM、不会被选中/复制/`innerText` 读取；配套提示条加 `user-select:none`。
+  - 默认稿只放**一句中性示例**（如「Paste your script here.」）即可，别塞「点击右下角/准备好后点▶」这类操作指令；切语言要能刷新这句示例（i18n 测试常断言它包含特征文案）。真正清空成空稿时要额外检查「空内容被误判为默认稿」的判定（`isDefault` 类逻辑别只比内容相等），本次就因清空导致导入后字数徽标停旧态的连锁 bug。
+  - 编辑态可压缩控制条（隐藏调速等次要行）腾空间，但**核心操作按钮（▶）必须常驻可见**——「输入完就能播」是基本预期，不该要求先退出编辑态。
+- **验证手法**：源码断言三件套——默认稿正文不含操作动词、`edit-hint` 带 `user-select:none`、引导走 `is-empty:empty::before`；再断言编辑态不再整条隐藏 `#controlBar`、且 `togglePlay` 会先退出编辑态。行为上用一条 E2E 覆盖「导入/输入后字数徽标即时同步」——本次就暴露出 `commitImportedEdit` 漏调 `renderReadCharsBadge`，空默认稿下没有输入事件兜底，徽标停在旧态（真 bug，顺带修）。
+- **Google Play 复用点**：Android 原生 `EditText` 的 `hint` 天然是这个模型（hint 不属于 `getText()`），移植时别反过来把提示塞进正文；TV/车载等遥控器场景更依赖「当前焦点可直接触发主操作」，编辑态藏主按钮会同样挨批。
+
+### 8.16 触摸手势与跨行高亮：禁整页缩放 + 按显示行拆词（2026-11-24 真机联调）
+
+- **踩过的坑**：① 播放态原生滚动条被关、进度条做成只读（`pointer-events:none`），用户手指拖动定位**完全无效**，拖动还被 WebView 当成缩放手势把整个 mini app 放大——为了修 iOS 输入框聚焦放大，之前把 `user-scalable=no` 从 viewport meta 去掉了，副作用是整页可缩放；② 高亮黄块一次盖住两行——连续无空格串（随机拼音、长英文）被切词器当成**一个词**，跨行显示时 `Range.getBoundingClientRect()` 返回的是跨所有行的**包围盒**（首行 left、末行 right、高度跨两行），黄块按它画就盖满两行。
+- **通用判据**：
+  - Mini App / WebView 内**禁止整页缩放**（`maximum-scale=1, user-scalable=no`）；输入框聚焦放大的真正根因是字号 <16px，用 `font-size:16px !important` 单独解决，不要用「放开缩放」这种以毒攻毒的写法。
+  - 播放态的进度指示别做成只读：给它 `pointer-events:auto` + `touch-action:none`，加宽透明热区（可视 5px/热区 18px），`pointerdown/move` 按比例定位；定位函数要同时更新 offset、阅读头锚点和进度条，但不写 `viewport.scrollTop`（位移交给 transform）。
+  - 「跟随指示器 + 可折行文本」系统：切词后必须再按**显示行**校正几何——用 `getClientRects()` 拿词占用的每个行片段，逐字符按 `top` 归行，把跨行词拆成每行一个子 token（`charStart/charEnd/rw` 按比例分配，保证 caret 定位与权重守恒）；绘制时再把高度钳制到本行高做双保险。jsdom 无 `getClientRects` 时回退常规测量。
+- **验证手法**：源码断言——viewport meta 含 `user-scalable=no`、进度条 `pointer-events:auto`+`touch-action:none`、`seekByProgress` 与 `pointerdown/move` 绑定、跨行拆分函数存在且在几何循环里被调用、黄块高度 `Math.min(tk.h, lineHeight)`。行为上用 mock token 验证「英文整词」仍是一个词元（拆分只发生在几何层，不改切词口径），避免为了修跨行把 `tokenizeForRead` 改坏。
+- **Google Play 复用点**：Android WebView 的 `setSupportZoom(false)` / `builtInZoomControls=false` 对应这里的禁缩放；Canvas 自绘高亮同样会遇到「一个 textRun 跨多行」——文本测量要用 `getTextBounds`/逐行 `StaticLayout` 而非整段包围盒，判据完全一致。
+
 ---
 
 ## 9. 相关文档

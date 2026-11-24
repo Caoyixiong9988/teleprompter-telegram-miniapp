@@ -1330,6 +1330,37 @@ const kou = ev(`(() => {
 })()`);
 check('英文混排：权重口径点击定位 100% 命中正确词（0 偏差）', kou.total === 10 && kou.mismatch === 0, JSON.stringify(kou));
 
+// --- 第37轮（2026-11-24）：真机反馈 5 个 BUG 的回归断言 ---
+// BUG1/3：默认讲稿正文不得含操作说明（否则被选中/复制/播放）
+check('默认讲稿正文不含"点击右下角/打开设置/准备好后点"等操作说明（全八语）',
+  (html.match(/defaultScript:/g) || []).length === 7 &&
+  !/defaultScript:[^\n]*(点击|右下角|打开设置|准备好后|Tap ⚙|bottom right|Tippe unten|en bas à droite|右下の|오른쪽 아래|справа внизу)/.test(html));
+check('编辑区提示文字不可被选中（edit-hint user-select:none）',
+  /\.edit-hint\{[^}]*user-select:none/.test(html));
+check('空稿引导走伪元素 data-placeholder（不是 DOM 文本，不会被选中/复制）',
+  /#scrollText\.is-empty:empty::before\{[\s\S]{0,120}content:attr\(data-placeholder\)/.test(html));
+// BUG2：编辑态保留播放按钮，导入后无需点「完成」即可点 ▶
+check('编辑态不再整条隐藏控制条（▶ 输入后即时可见）',
+  !/#app\.editing #controlBar\{display:none/.test(html) && /#app\.editing #speedWrap\{display:none;/.test(html));
+check('编辑态播放按钮点击后退出编辑态并开播（togglePlay 先 exitMainEditModeDOM）',
+  /function togglePlay\(\)[\s\S]{0,600}exitMainEditModeDOM\(\);/.test(html));
+// BUG4：播放时进度条可拖动定位 + 禁止整页缩放
+check('播放进度条可交互（pointer-events:auto + touch-action:none）',
+  /#playProgress\{[^}]*pointer-events:auto[^}]*touch-action:none/.test(html));
+check('存在按进度比例定位函数 seekByProgress 且拖动事件已绑定',
+  /function seekByProgress\(ratio\)/.test(html) &&
+  /bar\.addEventListener\('pointerdown', onDown\)/.test(html) &&
+  /bar\.addEventListener\('pointermove', onMove\)/.test(html));
+check('viewport meta 禁止整页缩放（拖动定位不再放大 mini app）',
+  /user-scalable=no/.test(html) && /maximum-scale=1/.test(html));
+// BUG5：跨行词按显示行拆分 + 黄块高度钳制到单行
+check('跨行词拆分函数存在并在 buildReadTokens 中使用（无空格长串不高亮整两行）',
+  /function tokenRectsForDisplay\(tk, stRect\)/.test(html) &&
+  /getClientRects\(\)/.test(html) &&
+  /const parts = tokenRectsForDisplay\(tk, stRect\)/.test(html));
+check('黄块高度钳制到本行高（markH = min(tk.h, curLine.height)）',
+  /const markH = Math\.min\(tk\.h > 0 \? tk\.h : curLine\.height, curLine\.height\)/.test(html));
+
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);
 process.exit(fail ? 1 : 0);
