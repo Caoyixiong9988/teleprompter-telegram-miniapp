@@ -87,6 +87,18 @@ test('C6) 前端 CONFIG 单一后端根地址，无散落硬编码 URL', () => {
   assert.ok(/BOT_USERNAME\s*:/.test(html), 'CONFIG 缺 BOT_USERNAME');
 });
 
+test('C8) 生产同源代理：pages.toml 绑 BACKEND，前端仅 https pages.dev 自动切 /api', () => {
+  const pages = read('pages.toml');
+  const proxy = read('functions/api/[[path]].js');
+  assert.ok(pages.includes('pages_build_output_dir'), 'pages.toml 缺 Pages 构建目录');
+  assert.match(pages, /binding\s*=\s*"BACKEND"/);
+  assert.match(pages, /service\s*=\s*"teleprompter-monolith"/);
+  assert.ok(proxy.includes("replace(/^\\/api\\/?/, '')"), '代理未剥离 /api 前缀');
+  assert.ok(proxy.includes('binding.fetch'), '代理未优先走 Service Binding');
+  assert.ok(html.includes("CONFIG.API_BASE = '/api'"), '前端没有 pages.dev 同源代理开关');
+  assert.ok(html.includes('[hidden]{display:none !important;}'), '缺 [hidden] 全局兜底，Pro 预览按钮会假隐藏');
+});
+
 test('C7) 合规后端语言数与前端七语一致（de/fr 不再回落中文）', () => {
   const complianceI18n = read('p7-compliance/i18n.js');
   const langs = complianceI18n.match(/SUPPORTED_LANGS\s*=\s*\[([^\]]+)\]/)[1];

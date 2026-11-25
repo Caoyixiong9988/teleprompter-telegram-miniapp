@@ -159,8 +159,29 @@ test('A2 成片卡保存：Telegram 内弹原图长按面板（a.download 会被
   await expect(page.locator('#saveSheet')).not.toHaveClass(/hidden/);
   expect(await page.evaluate(() => document.getElementById('saveSheetPreview').src.startsWith('data:image/png'))).toBeTruthy();
   expect(await page.evaluate(() => window.__downloads)).toEqual([]);
+  // 2026-11-25 BUG4：卡面不再画假链接，邀请入口是真实 <a>，点它走 Telegram 分享面板
+  expect(await page.evaluate(() => window.__drawTexts.some(s => String(s).includes('t.me/')))).toBeFalsy();
+  const link = page.locator('#saveSheetLink');
+  await expect(link).toHaveAttribute('href', 'https://t.me/Dfb9988bot?startapp=invite');
+  await link.click();
+  expect((await page.evaluate(() => window.__tgLinks))[0]).toContain('t.me/share/url');
+  // 2026-11-25 BUG1：长按无菜单时还有放大看图 / 复制 / 分享三条兜底
+  await expect(page.locator('#btnSaveSheetZoom')).toBeVisible();
+  await expect(page.locator('#btnSaveSheetCopy')).toBeVisible();
+  await expect(page.locator('#btnSaveSheetShare')).toBeVisible();
+  await page.click('#btnSaveSheetZoom');
+  await expect(page.locator('#imageViewer')).not.toHaveClass(/hidden/);
+  await page.click('#btnImageViewerClose');
+  await expect(page.locator('#imageViewer')).toHaveClass(/hidden/);
   await page.click('#btnSaveSheetClose');
   await expect(page.locator('#saveSheet')).toHaveClass(/hidden/);
+});
+
+test('A2 Pro 预览按钮：默认真实隐藏，?dev=1 浏览器可切换，Telegram 内一律禁止', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#btnProDevPreview')).toBeHidden();
+  expect(await page.evaluate(() => devPreviewAllowed('https://api.example.com', '?dev=1', true))).toBe(false);
+  expect(await page.evaluate(() => devPreviewAllowed('https://api.example.com', '?dev=1', false))).toBe(true);
 });
 
 test('A2 成片卡保存：普通浏览器仍触发 scriptdeck-card.png 下载', async ({ page }) => {

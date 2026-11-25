@@ -178,7 +178,7 @@ const devHidden = !!(devBtn && devBtn.hidden === true);
 const devLabel = devBtn && devBtn.textContent;
 const p11 = devHidden && devLabel === '本地预览 Pro 效果（测试用）';
 
-// ---- 隐藏不等于安全：事件本身也要校验；仅 ?dev=1 且无后端时允许 ----
+// ---- 隐藏不等于安全：事件本身也要校验；必须 ?dev=1，且 Telegram 内一律禁止 ----
 if (devBtn) devBtn.click();
 const afterClickPro = window.eval('isPro()');
 const devPure = window.eval(`JSON.stringify([
@@ -186,9 +186,10 @@ const devPure = window.eval(`JSON.stringify([
   devPreviewAllowed('', '?dev=1'),
   devPreviewAllowed('', '?x=1&dev=1'),
   devPreviewAllowed('', '?dev=10'),
-  devPreviewAllowed('https://api.example.com', '?dev=1')
+  devPreviewAllowed('https://api.example.com', '?dev=1', true),
+  devPreviewAllowed('https://api.example.com', '?dev=1', false)
 ])`);
-const p12 = afterClickPro === false && devPure === '[false,true,true,false,false]';
+const p12 = afterClickPro === false && devPure === '[false,true,true,false,false,true]';
 
 console.log('--- Pro 去水印高清导出策略 ---');
 console.log('免费:', JSON.stringify(optFree), '| Pro:', JSON.stringify(optPro), '| isPro(false/true):', isProFalse, isProTrue);

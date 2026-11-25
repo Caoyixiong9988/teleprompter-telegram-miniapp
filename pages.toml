@@ -1,0 +1,19 @@
+# Pages 前端专用配置（与根目录 wrangler.toml 的 Worker 配置分开）
+# wrangler 3.x 的 pages deploy 不支持 --config 自定义路径，部署时复制到暂存目录：
+#   output/pages-deploy/wrangler.toml  ← 本文件（把 pages_build_output_dir 改成 ./dist）
+#   output/pages-deploy/dist/index.html ← 项目根 index.html
+#   output/pages-deploy/functions/api/[[path]].js ← 项目根 functions/
+#   在 output/pages-deploy 执行：npx wrangler pages deploy dist --project-name teleprompter --branch main
+#
+# 同源代理 /api/* 通过 Service Binding 调 teleprompter-monolith，
+# 解决国内网络无法直连 *.workers.dev 导致「支付服务尚未配置 / 下单失败」的问题。
+# 该文件一旦参与部署，即成为 Pages 项目配置的事实来源；现有项目只有 name/compatibility_date，
+# 新增的只有 BACKEND 绑定，不会覆盖其他 dashboard 配置。
+
+name = "teleprompter"
+pages_build_output_dir = "./output/deploy"
+compatibility_date = "2026-11-15"
+
+[[services]]
+binding = "BACKEND"
+service = "teleprompter-monolith"

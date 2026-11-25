@@ -198,6 +198,9 @@
   }
   #controlBar > .btn{width:100%; min-width:0; padding:10px 4px;}
   #controlBar > .btn.icon{font-size:20px;}
+  /* 2026-11-25 BUG3：.btn 的 display:flex 会覆盖 UA 的 [hidden]{display:none}，
+     导致本应隐藏的「本地预览 Pro」按钮在真机可见却点了没反应。全局兜底必须放在这里。 */
+  [hidden]{display:none !important;}
   .btn{
     border:none; border-radius:12px; background:#eef1f7; color:var(--text);
     font-size:15px; font-weight:600; padding:10px 12px; cursor:pointer; user-select:none;
@@ -293,9 +296,23 @@
   #finishOverlay .finish-links{margin-top:6px; display:flex; flex-direction:column; gap:3px; word-break:break-all;}
   #finishOverlay .finish-links a{color:var(--primary); font-size:13px; text-decoration:underline; cursor:pointer;}
   #finishOverlay .finish-links a.finish-url{color:var(--muted); font-size:11px;}
-  /* 保存卡片：Telegram 内 WebView 会忽略 <a download>，改为弹出原图让用户长按保存 */
+  /* 保存卡片：Telegram 内 WebView 会忽略 <a download>，改为弹出原图让用户长按保存。
+     2026-11-25 BUG1：iOS WKWebView 默认可能禁用图片 callout，必须显式打开，
+     并给「点图放大 / 复制图片」两条兜底路径，避免长按无菜单时完全存不下来。 */
   #saveSheet .sheet-inner{text-align:center;}
-  #saveSheet #saveSheetPreview{width:100%; max-width:340px; max-height:55vh; object-fit:contain; border-radius:12px; margin:6px auto; display:block;}
+  #saveSheet #saveSheetPreview{
+    width:100%; max-width:340px; max-height:55vh; object-fit:contain; border-radius:12px;
+    margin:6px auto; display:block; cursor:zoom-in;
+    -webkit-touch-callout:default; -webkit-user-select:none; user-select:none; touch-action:manipulation;
+  }
+  #saveSheet .save-link{display:block; color:var(--primary); font-size:12px; text-decoration:underline; word-break:break-all; margin-top:8px;}
+  #saveSheet .save-actions{display:flex; gap:8px; margin-top:10px;}
+  #saveSheet .save-actions .btn{flex:1; font-size:13px;}
+  /* 点图放大后的全屏看图页：只保留图片与关闭按钮，长按这里更容易触发系统「存储图像」。 */
+  #imageViewer{position:fixed; inset:0; z-index:90; background:rgba(8,10,15,.94); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px;}
+  #imageViewer.hidden{display:none;}
+  #imageViewer img{max-width:94vw; max-height:78vh; object-fit:contain; -webkit-touch-callout:default; -webkit-user-select:none; user-select:none; touch-action:manipulation;}
+  #imageViewer .btn{background:rgba(255,255,255,.16); color:#fff;}
   .req-label::after{content:' ★'; color:#e02424;}
   .finish-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; letter-spacing:1px;}
   @keyframes finishPop{0%{transform:scale(.3) rotate(-20deg); opacity:0;} 100%{transform:scale(1) rotate(0); opacity:1;}}
@@ -699,10 +716,23 @@
       <h3 id="saveSheetTitle">长按图片保存</h3>
       <img id="saveSheetPreview" alt="待保存的卡片" />
       <div class="hint" id="saveSheetHint">Telegram 内置浏览器不允许网页直接下载文件：请长按上方卡片，选择「存储到相册 / 保存图片」。</div>
+      <!-- 2026-11-25 BUG4：画布里画的 URL 天生不可点，真正的链接必须落在 HTML 上。 -->
+      <a id="saveSheetLink" class="save-link" href="https://t.me/Dfb9988bot" target="_blank" rel="noopener noreferrer">https://t.me/Dfb9988bot</a>
+      <div class="save-actions">
+        <button class="btn" id="btnSaveSheetZoom" data-i18n="imageOpen">点图放大</button>
+        <button class="btn" id="btnSaveSheetCopy" data-i18n="imageCopy">复制图片</button>
+        <button class="btn" id="btnSaveSheetShare" data-i18n="imageShare">分享图片</button>
+      </div>
       <div class="sheet-actions" style="margin-top:10px;">
         <button class="btn" id="btnSaveSheetClose" data-i18n="close">关闭</button>
       </div>
     </div>
+  </div>
+
+  <!-- 放大看图：长按这里触发系统「存储图像」，点任意处关闭 -->
+  <div id="imageViewer" class="hidden" role="dialog" aria-label="图片预览">
+    <img id="imageViewerImg" alt="放大预览" />
+    <button class="btn" id="btnImageViewerClose" data-i18n="close">关闭</button>
   </div>
 
   <!-- About / 完整免责声明（P7） -->
@@ -886,6 +916,14 @@ function apiUrl(path) {
   return base + path;
 }
 
+/* 2026-11-25 BUG2：生产地址在 pages.dev 上时自动启用同源 /api 代理。
+ * Worker 本身已部署且 secrets 齐备，但国内网络到 *.workers.dev 不通；
+ * Pages Function 在 Cloudflare 边缘把 /api/* 转到 Worker，用户设备只访问 pages.dev。
+ * 源码仍保留 API_BASE:''（本地/测试不发任何后端请求），只在 https pages.dev 下注入。 */
+if (typeof location !== 'undefined' && location.protocol === 'https:' && /\.pages\.dev$/.test(location.hostname || '')) {
+  CONFIG.API_BASE = '/api';
+}
+
 // ⚠️ 此键为 localStorage 持久化标识，与品牌名无关，【禁止随品牌改名改动】，
 //    一旦修改，老用户已保存的讲稿与设置会全部丢失（读到空值）。
 const LS_KEY = 'teleprompter_state_v1';
@@ -896,7 +934,12 @@ const I18N = {
   importBtn:"从文件导入讲稿",
   openFile:"📂 打开文件（另存为新稿）",
   saveImageTitle:"长按图片保存",
-  saveImageHint:"Telegram 内置浏览器不允许网页直接下载文件：请长按上方卡片，选择「存储到相册 / 保存图片」。",
+  saveImageHint:"Telegram 内置浏览器不允许网页直接下载文件：请长按上方卡片，选择「存储到相册 / 保存图片」；图片内文字不可点，邀请链接请点下方。",
+  imageOpen:"点图放大",
+  imageCopy:"复制图片",
+  imageShare:"分享图片",
+  imageCopyOk:"图片已复制，可直接粘贴发送",
+  imageCopyFail:"复制失败，请点图放大后长按保存",
   importHint:"讲稿已经写在 Word 或记事本里？点这里直接导入，不用复制粘贴。",
   importFormats:"支持 TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF；PDF 与 WPS 专用格式请先另存。导入内容会写入当前选中的讲稿；想导入成新讲稿，请先新建讲稿并选中。",
   importOk:"已导入为新讲稿",
@@ -1143,7 +1186,12 @@ const I18N = {
   importBtn:"Import from file",
   openFile:"📂 Open file (save as new script)",
   saveImageTitle:"Long-press to save",
-  saveImageHint:"The in-app browser cannot download files directly: long-press the card above and choose Save Image.",
+  saveImageHint:"The in-app browser cannot download files directly: long-press the card above and choose Save Image. Text inside the image is not clickable - use the link below.",
+  imageOpen:"Tap to zoom",
+  imageCopy:"Copy image",
+  imageShare:"Share image",
+  imageCopyOk:"Image copied - paste it to send",
+  imageCopyFail:"Copy failed - tap to zoom, then long-press to save",
   importHint:"Already wrote your script in Word or Notepad? Import it here instead of copy-pasting.",
   importFormats:"Supports TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF and WPS-only formats must be saved in another format first. Imported content goes into the currently selected script; to import as a new script, create and select one first.",
   importOk:"Imported as a new script",
@@ -1403,7 +1451,12 @@ const I18N = {
   importBtn:'Skript aus Datei importieren',
   openFile:'📂 Datei öffnen (als neues Skript)',
   saveImageTitle:'Zum Speichern lange drücken',
-  saveImageHint:'Der Browser in Telegram darf Dateien nicht direkt herunterladen: halte die Karte oben gedrückt und wähle „Bild speichern“.',
+  saveImageHint:'Der Browser in Telegram darf Dateien nicht direkt herunterladen: halte die Karte oben gedrückt und wähle „Bild speichern“. Text im Bild ist nicht klickbar - nutze den Link darunter.',
+  imageOpen:'Bild vergrößern',
+  imageCopy:'Bild kopieren',
+  imageShare:'Bild teilen',
+  imageCopyOk:'Bild kopiert - zum Senden einfügen',
+  imageCopyFail:'Kopieren fehlgeschlagen - Bild vergrößern und lange drücken',
   importHint:'Dein Skript liegt schon in Word oder im Editor? Hier direkt importieren – kein Kopieren und Einfügen nötig.',
   importFormats:'Unterstützt TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF; PDF und WPS-Formate bitte vorher anders speichern. Der Import schreibt in das aktuell ausgewählte Skript; für ein neues Skript bitte vorher eines erstellen und auswählen.',
   importOk:'Als neues Skript importiert',
@@ -1663,7 +1716,12 @@ const I18N = {
   importBtn:'Importer un script depuis un fichier',
   openFile:'📂 Ouvrir un fichier (nouveau script)',
   saveImageTitle:'Appuyez longuement pour enregistrer',
-  saveImageHint:'Le navigateur intégré de Telegram ne télécharge pas directement les fichiers : appuyez longuement sur la carte ci-dessus et choisissez « Enregistrer l’image ».',
+  saveImageHint:'Le navigateur intégré de Telegram ne télécharge pas directement les fichiers : appuyez longuement sur la carte ci-dessus et choisissez « Enregistrer l’image ». Le texte dans l’image n’est pas cliquable : utilisez le lien ci-dessous.',
+  imageOpen:'Agrandir l’image',
+  imageCopy:'Copier l’image',
+  imageShare:'Partager l’image',
+  imageCopyOk:'Image copiée - collez-la pour l’envoyer',
+  imageCopyFail:'Copie impossible - agrandissez puis maintenez appuyé',
   importHint:'Votre script est déjà dans Word ou dans un éditeur ? Importez-le directement ici, sans copier-coller.',
   importFormats:'Formats pris en charge : TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF ; le PDF et les formats WPS doivent d’abord être enregistrés autrement. L’import écrit dans le script actuellement sélectionné ; pour un nouveau script, créez-en un et sélectionnez-le d’abord.',
   importOk:'Importé comme nouveau script',
@@ -1910,7 +1968,12 @@ const I18N = {
   importBtn:"ファイルから読み込む",
   openFile:"📂 ファイルを開く（新しい原稿として保存）",
   saveImageTitle:"画像を長押しして保存",
-  saveImageHint:"Telegram 内蔵ブラウザでは直接ダウンロードできません。上のカードを長押しして「画像を保存」を選んでください。",
+  saveImageHint:"Telegram 内蔵ブラウザでは直接ダウンロードできません。上のカードを長押しして「画像を保存」を選んでください。画像内の文字はタップできません。リンクは下を利用してください。",
+  imageOpen:"画像を拡大",
+  imageCopy:"画像をコピー",
+  imageShare:"画像を共有",
+  imageCopyOk:"画像をコピーしました。貼り付けて送信できます",
+  imageCopyFail:"コピーできません。画像を拡大して長押ししてください",
   importHint:"Word やメモ帳で原稿を書いてありますか？コピペせずにここから直接読み込めます。",
   importFormats:"対応：TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF。PDF と WPS 専用形式は先に別形式で保存してください。読み込み内容は選択中の原稿に書き込まれます。新しい原稿に読み込む場合は先に新規作成して選択してください。",
   importOk:"新しい原稿として読み込みました",
@@ -2157,7 +2220,12 @@ const I18N = {
   importBtn:"파일에서 가져오기",
   openFile:"📂 파일 열기 (새 대본으로 저장)",
   saveImageTitle:"이미지를 길게 눌러 저장",
-  saveImageHint:"Telegram 내장 브라우저는 직접 다운로드를 허용하지 않습니다. 위 카드를 길게 눌러 '이미지 저장'을 선택하세요.",
+  saveImageHint:"Telegram 내장 브라우저는 직접 다운로드를 허용하지 않습니다. 위 카드를 길게 눌러 '이미지 저장'을 선택하세요. 이미지 속 글자는 탭할 수 없으니 아래 링크를 이용하세요.",
+  imageOpen:"이미지 확대",
+  imageCopy:"이미지 복사",
+  imageShare:"이미지 공유",
+  imageCopyOk:"이미지가 복사되었습니다. 붙여 넣어 보낼 수 있습니다",
+  imageCopyFail:"복사 실패 - 이미지를 확대한 뒤 길게 눌러 저장하세요",
   importHint:"Word나 메모장에 이미 대본을 써 두셨나요? 복사·붙여넣기 없이 여기서 바로 가져오세요.",
   importFormats:"지원: TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF와 WPS 전용 형식은 먼저 다른 형식으로 저장해 주세요. 가져온 내용은 선택한 대본에 기록됩니다. 새 대본에 가져오려면 먼저 새로 만들고 선택하세요.",
   importOk:"새 대본으로 가져왔습니다",
@@ -2404,7 +2472,12 @@ const I18N = {
   importBtn:"Импорт из файла",
   openFile:"📂 Открыть файл (сохранить как новый сценарий)",
   saveImageTitle:"Удерживайте, чтобы сохранить",
-  saveImageHint:"Встроенный браузер Telegram не разрешает прямую загрузку: длительное нажатие на карточку выше и выберите «Сохранить изображение».",
+  saveImageHint:"Встроенный браузер Telegram не разрешает прямую загрузку: длительное нажатие на карточку выше и выберите «Сохранить изображение». Текст внутри картинки не активен - используйте ссылку ниже.",
+  imageOpen:"Увеличить изображение",
+  imageCopy:"Копировать изображение",
+  imageShare:"Поделиться изображением",
+  imageCopyOk:"Изображение скопировано - вставьте его для отправки",
+  imageCopyFail:"Не удалось скопировать - увеличьте и удерживайте для сохранения",
   importHint:"Текст уже написан в Word или Блокноте? Загрузите его здесь без копирования.",
   importFormats:"Поддерживаются TXT / MD / CSV / SRT / VTT / DOC / DOCX / ODT / XLSX / RTF. PDF и форматы WPS нужно сначала сохранить в другом формате. Импортируемый текст записывается в выбранный сценарий. Чтобы импортировать в новый, сначала создайте и выберите его.",
   importOk:"Импортировано как новый сценарий",
@@ -2786,6 +2859,9 @@ function applyI18n() {
   if (ssl) ssl.textContent = t('saveImageTitle');
   const ssh = document.getElementById('saveSheetHint');
   if (ssh) ssh.textContent = t('saveImageHint');
+  // BUG4：保存弹窗里的邀请链接必须是真正的 <a>，而不是画进图片的文字。
+  const sl = document.getElementById('saveSheetLink');
+  if (sl){ const dl = deepLink(); sl.href = dl; sl.textContent = dl; }
   const ofb = document.getElementById('btnOpenFile');
   if (ofb) ofb.textContent = t('openFile');
   const qob = document.getElementById('btnQuickOpen');
@@ -3975,6 +4051,57 @@ function showSaveSheet(dataUrl){
   img.src = dataUrl;
   sheet.classList.remove('hidden');
   return true;
+}
+
+/* 2026-11-25 BUG1 兜底链路：
+ * ① 点原图 → 全屏看图，iOS/Telegram WebView 在全屏 img 上更容易弹出「存储图像」；
+ * ② 复制图片 → ClipboardItem，可在聊天框直接粘贴；
+ * ③ 分享图片 → Web Share API 带 File（不支持时回到长按指引）。
+ * 三条路径都不依赖 a[download]（Telegram WebView 会静默忽略）。 */
+function openImageViewer(dataUrl){
+  const viewer = document.getElementById('imageViewer');
+  const img = document.getElementById('imageViewerImg');
+  if (!viewer || !img || !dataUrl) return false;
+  img.src = dataUrl;
+  viewer.classList.remove('hidden');
+  return true;
+}
+function closeImageViewer(){
+  const viewer = document.getElementById('imageViewer');
+  if (viewer) viewer.classList.add('hidden');
+}
+async function copyImageToClipboard(dataUrl){
+  try {
+    if (!dataUrl || !navigator.clipboard || !window.ClipboardItem || typeof fetch !== 'function') {
+      throw new Error('clipboard_unavailable');
+    }
+    const blob = await (await fetch(dataUrl)).blob();
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    toast(t('imageCopyOk'));
+    return true;
+  } catch (e){
+    toast(t('imageCopyFail'));
+    return false;
+  }
+}
+async function shareImageFile(dataUrl, filename){
+  if (!dataUrl) return false;
+  if (navigator.share && window.File && typeof fetch === 'function'){
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (!navigator.canShare || navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], text: t('shareText') });
+        return true;
+      }
+    } catch (e){
+      if (e && e.name === 'AbortError') return true; // 用户主动取消
+    }
+  }
+  // 不支持带图分享时回到可长按的原图页，不静默失败
+  showSaveSheet(dataUrl);
+  toast(t('saveImageHint'));
+  return false;
 }
 /* 保存卡片：Android/iOS 的 Telegram WebView 会静默忽略 <a download>，
    用户看到的就是"点保存卡片没反应"。这里在 Telegram 内弹原图 + 长按指引；
@@ -5433,14 +5560,10 @@ function generateCard(){
     ctx.fillText('Pro', 1000, 1300);
     ctx.textAlign = 'left';
   } else {
-    // 免费版：品牌信用 + 推荐码深链（即"水印"）
+    // 免费版：只保留品牌水印。2026-11-25 BUG4：原先还在画布里画深链 URL，
+    // 用户以为可点却永远没反应；现在卡面干净，真实链接由保存弹窗的 #saveSheetLink 承担。
     ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 34px sans-serif';
     ctx.fillText(t('cardGeneratedBy'), 80, 1230);
-    ctx.fillStyle = '#79808c'; ctx.font = '30px sans-serif';
-    const dl = deepLink();
-    const dlines = wrapText(ctx, dl, 920);
-    let ly = 1280;
-    for (const l of dlines.slice(0, 2)){ ctx.fillText(l, 80, ly); ly += 42; }
   }
   cardDataUrl = c.toDataURL('image/png');
   cardPreview.src = cardDataUrl;
@@ -5642,9 +5765,13 @@ async function verifyInitData(){
 }
 
 /* ---------- Pro 状态（前端缓存 + 后端校验 + 本地预览） ---------- */
-// 纯函数便于测试：默认一律不允许；只有「本地未配置后端」且 URL 显式带 ?dev=1 才开放预览。
-function devPreviewAllowed(apiBase, search){
-  return !apiBase && /(?:^|[?&])dev=1(?:&|$)/.test(String(search || ''));
+// 纯函数便于测试：必须 URL 显式带 ?dev=1；Telegram Mini App 内一律禁止（不能绕过 Stars 付费）。
+// 允许的场景：① 本地无后端；② 普通浏览器（非 Telegram WebView）带 ?dev=1 看效果。
+// 2026-11-25 BUG3：以前隐藏按钮被 .btn{display:flex} 覆盖后虽可见，但这里因缺 ?dev=1 直接 return，
+// 用户看到的是「点了没反应」；现在 CSS 真正隐藏，开发/测试在浏览器带 ?dev=1 可以正常切换。
+function devPreviewAllowed(apiBase, search, inTelegram){
+  if (!/(?:^|[?&])dev=1(?:&|$)/.test(String(search || ''))) return false;
+  return !apiBase || !inTelegram;
 }
 function renderProState(){
   const badge = document.getElementById('proStatusBadge');
@@ -5655,7 +5782,7 @@ function renderProState(){
   const devBtn = document.getElementById('btnProDevPreview');
   if (devBtn) {
     // 默认隐藏；仅「未配置后端 + 显式 ?dev=1」时开放，避免任何人一键解锁 Pro
-    devBtn.hidden = !devPreviewAllowed(CONFIG.API_BASE, location.search);
+    devBtn.hidden = !devPreviewAllowed(CONFIG.API_BASE, location.search, isTelegramWebApp());
     devBtn.textContent = isPro() ? t('proDevOff') : t('proDevOn');
   }
 }
@@ -6165,6 +6292,28 @@ if (btnSaveSheetClose && saveSheet){
   btnSaveSheetClose.addEventListener('click', function(){ saveSheet.classList.add('hidden'); });
   saveSheet.addEventListener('click', function (e){ if (e.target === saveSheet) saveSheet.classList.add('hidden'); });
 }
+// BUG4：保存弹窗里的 <a> 是真实入口，和完成卡一样走 Telegram「选择聊天」分享面板。
+const saveSheetLink = document.getElementById('saveSheetLink');
+if (saveSheetLink) saveSheetLink.addEventListener('click', function (e){
+  e.preventDefault(); e.stopPropagation();
+  openInviteLink();
+});
+// BUG1：长按无菜单时的三条兜底路径。
+const savePreview = document.getElementById('saveSheetPreview');
+if (savePreview) savePreview.addEventListener('click', function(){ openImageViewer(savePreview.src); });
+const btnSaveSheetZoom = document.getElementById('btnSaveSheetZoom');
+if (btnSaveSheetZoom && savePreview) btnSaveSheetZoom.addEventListener('click', function(){ openImageViewer(savePreview.src); });
+const btnSaveSheetCopy = document.getElementById('btnSaveSheetCopy');
+if (btnSaveSheetCopy && savePreview) btnSaveSheetCopy.addEventListener('click', function(){ copyImageToClipboard(savePreview.src); });
+const btnSaveSheetShare = document.getElementById('btnSaveSheetShare');
+if (btnSaveSheetShare && savePreview) btnSaveSheetShare.addEventListener('click', function(){ shareImageFile(savePreview.src, 'scriptdeck-card.png'); });
+const btnImageViewerClose = document.getElementById('btnImageViewerClose');
+const imageViewer = document.getElementById('imageViewer');
+if (btnImageViewerClose) btnImageViewerClose.addEventListener('click', closeImageViewer);
+if (imageViewer) imageViewer.addEventListener('click', function (e){
+  // 图片本身不关闭：iOS 长按结束后常会补发一次 click，提前关闭会让「存储图像」菜单消失。
+  if (e.target === imageViewer) closeImageViewer();
+});
 // 点遮罩空白处也关闭完成卡
 if (finishOverlay) finishOverlay.addEventListener('click', function(e){ if (e.target === finishOverlay) closeFinishCard(); });
 
@@ -6422,7 +6571,7 @@ function init(){
   // 本地预览 Pro 效果（仅本地无后端时显示；生产环境隐藏，Pro 状态以服务端为准）
   const devPreview = document.getElementById('btnProDevPreview');
   if (devPreview) devPreview.addEventListener('click', function () {
-    if (!devPreviewAllowed(CONFIG.API_BASE, location.search)) return; // 隐藏不等于安全，事件本身也要校验
+    if (!devPreviewAllowed(CONFIG.API_BASE, location.search, isTelegramWebApp())) return; // 隐藏不等于安全，事件本身也要校验
     state.isPro = !state.isPro; saveState(); renderProState(); renderSyncStatus();
     toast(isPro() ? t('proStatusOn') : t('proStatusOff'));
   });

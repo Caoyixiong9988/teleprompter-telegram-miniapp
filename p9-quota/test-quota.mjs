@@ -58,14 +58,14 @@ test('页面无运行时错误，配额与 Pro 开关函数齐备', () => {
   assert.ok(ev('importTextAsNewScript.toString().includes("guardScriptLimit")'), '新建落库助手未接额度');
 });
 
-test('七语新增 2 个额度键齐全，键集一致（各 255 键）', () => {
+test('七语新增 2 个额度键齐全，键集一致（各 260 键）', () => {
   for (const lang of ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru']) {
     assert.ok(ev(`I18N.${lang}.scriptQuota`), `${lang} 缺 scriptQuota`);
     assert.ok(ev(`I18N.${lang}.scriptLimitToast`), `${lang} 缺 scriptLimitToast`);
     assert.ok(ev(`I18N.${lang}.scriptLimitToast.includes("{max}")`), `${lang} 额度文案缺 {max} 占位`);
   }
   const sizes = ['zh', 'en', 'de', 'fr', 'ja', 'ko', 'ru'].map(l => ev(`Object.keys(I18N.${l}).length`));
-  assert.deepEqual(sizes, [255, 255, 255, 255, 255, 255, 255]);
+  assert.deepEqual(sizes, [260, 260, 260, 260, 260, 260, 260]);
 });
 
 // ── 2. 纯函数边界 ────────────────────────────────────────────────────
@@ -145,12 +145,13 @@ test('未超额时导入免费可用（无需 Pro）', () => {
 });
 
 // ── 6. Pro 状态修复 ──────────────────────────────────────────────────
-test('devPreviewAllowed：默认关闭，仅「无后端 + ?dev=1」开放', () => {
+test('devPreviewAllowed：默认关闭；Telegram 内一律禁止，浏览器 ?dev=1 或无后端可预览', () => {
   assert.equal(ev(`devPreviewAllowed('', '')`), false);
   assert.equal(ev(`devPreviewAllowed('', '?dev=1')`), true);
   assert.equal(ev(`devPreviewAllowed('', '?x=1&dev=1')`), true);
   assert.equal(ev(`devPreviewAllowed('', '?dev=10')`), false);
-  assert.equal(ev(`devPreviewAllowed('https://api.example.com', '?dev=1')`), false);
+  assert.equal(ev(`devPreviewAllowed('https://api.example.com', '?dev=1', true)`), false);
+  assert.equal(ev(`devPreviewAllowed('https://api.example.com', '?dev=1', false)`), true);
   assert.equal(doc.getElementById('btnProDevPreview').hidden, true, '默认必须隐藏');
   doc.getElementById('btnProDevPreview').click();
   assert.equal(ev('state.isPro'), false, '隐藏按钮被强行点击也不得解锁 Pro');

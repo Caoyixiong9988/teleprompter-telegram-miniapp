@@ -30,7 +30,7 @@ check('眼睛开关已移出底部控制条', ![...doc.getElementById('controlBa
 // --- 2. 七语新键（含新增 de / fr）---
 const LANGS = ['zh','en','de','fr','ja','ko','ru'];
 const sizes = LANGS.map(l => ev(`Object.keys(I18N.${l}).length`));
-check('七语各 255 键且一致', sizes.every(n => n === 255), JSON.stringify(sizes));
+check('七语各 260 键且一致', sizes.every(n => n === 260), JSON.stringify(sizes));
 check('编辑/播放/语音/兜底/定位新增键七语齐全', ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['editPasteOk','editNoScroll','resetDone','voiceUnavailable','pasteFallbackHint','pasteFallbackPh','pasteFallbackInsert','pasteFallbackCancel','playPaused','playResumed','seekDone','seekPlaying'].every(k=>!!I18N[l][k]))`));
 check('SUPPORTED_LANGS 为 zh,en,de,fr,ja,ko,ru', ev(`SUPPORTED_LANGS.join(',')==='zh,en,de,fr,ja,ko,ru'`));
 const langSel = doc.getElementById('langSelect');
@@ -1533,6 +1533,31 @@ const caretMarkProbe = ev(`(() => {
 check('点完成后 showCaretStartMark 安全执行并保持暂停态（不抛错、不误播放）',
   caretMarkProbe.threw === null && caretMarkProbe.playing === false && caretMarkProbe.readMarkOn === true,
   JSON.stringify(caretMarkProbe));
+
+// 2026-11-25 第三轮真机 4 项 BUG 的静态/状态门禁
+check('BUG2 生产同源代理已接通：pages.toml 绑 BACKEND + 前端仅在 https pages.dev 切 /api',
+  /binding\s*=\s*"BACKEND"/.test(readFileSync(new URL('./pages.toml', import.meta.url), 'utf8')) &&
+  /service\s*=\s*"teleprompter-monolith"/.test(readFileSync(new URL('./pages.toml', import.meta.url), 'utf8')) &&
+  /CONFIG\.API_BASE = '\/api'/.test(html) &&
+  html.includes('pages.dev') && html.includes('location.hostname'));
+check('BUG3 Pro 预览按钮真正隐藏（[hidden] 不被 .btn display:flex 覆盖）',
+  /\[hidden\]\{display:none !important;\}/.test(html) &&
+  doc.getElementById('btnProDevPreview').hidden === true &&
+  ev(`devPreviewAllowed('https://api.example.com', '?dev=1', true) === false`) &&
+  ev(`devPreviewAllowed('', '?dev=1', false) === true`));
+check('BUG1 长按无菜单时有放大/复制/分享三条兜底且图片开启 touch callout',
+  ['imageViewer', 'imageViewerImg', 'btnImageViewerClose', 'btnSaveSheetZoom', 'btnSaveSheetCopy', 'btnSaveSheetShare']
+    .every(id => !!doc.getElementById(id)) &&
+  /function openImageViewer\(/.test(html) && /function copyImageToClipboard\(/.test(html) &&
+  /function shareImageFile\(/.test(html) &&
+  /#saveSheetPreview\{[\s\S]{0,220}-webkit-touch-callout:default/.test(html));
+check('BUG4 保存弹窗链接是真实 <a> 且卡面不再画假 URL',
+  !!doc.getElementById('saveSheetLink') &&
+  /getElementById\('saveSheetLink'\)[\s\S]{0,220}openInviteLink\(\)/.test(html) &&
+  !/fillText\(dl, 80, ly\)/.test(html) &&
+  /#saveSheet \.save-link/.test(html));
+check('七语补齐保存/图片兜底新键（imageOpen/imageCopy/imageShare/imageCopyOk/imageCopyFail）',
+  ev(`['zh','en','de','fr','ja','ko','ru'].every(l=>['imageOpen','imageCopy','imageShare','imageCopyOk','imageCopyFail'].every(k=>!!I18N[l][k]))`));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);

@@ -404,6 +404,22 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **坑**：jsdom 无真实 Range 几何，`buildReadTokens()` 必返回空、viewport 尺寸为 0 会让黄块被视口检查隐藏——这类渲染断言只能放 Playwright，iOS 门禁只验源码结构与调用链安全，别硬断言 display。
 - **Google Play 复用点**：Android WebView 里"深链打开自己"同样可能被判定 no-op——邀请/分享入口一律用 `ACTION_SEND` + 文案深链，而不是 `ACTION_VIEW` 指向自身 App；`contenteditable` 的 caret 意图在失焦后会丢，原生端用 `SelectionInfo` 或 JS 注入保存字符偏移，退出编辑态时据此重画起点指示，逻辑同 `showCaretStartMark`。
 
+### 8.21 第三轮真机 4 项 BUG：长按保存、升级 Pro、预览按钮、假链接（2026-11-25 晚）
+- **现象**：①长按保存卡片图片没反应；②点「升级 Pro」弹「支付服务尚未配置，请稍后再试」；③点「本地预览 Pro 效果（测试用）」没反应；④保存弹窗里图片上画的 `t.me/Dfb9988bot?startapp=invite` 不是真链接，点它没反应。
+- **根因（四段式）**：
+  - ① Telegram iOS WebView 对 data:image/png 的 `<img>` 未稳定提供 callout 菜单，且代码只有"长按指引"一条路，没有可点的兜底操作；一旦系统菜单不弹，用户完全存不下来。
+  - ② `CONFIG.API_BASE` 一直是空占位（当初因为国内网络直连 `*.workers.dev` 超时而留空），`openProCheckout()` 第一行就 `toast(payNoBackend)` 退出。Cloudflare API 核验：Worker `teleprompter-monolith` 已部署，`BOT_TOKEN` / `ADMIN_SECRET` / `WEBHOOK_SECRET` 三个 secret 都在，缺的只是"前端可达的后端地址"。
+  - ③ `.btn{display:flex}` 覆盖了 UA 的 `[hidden]{display:none}`，`hidden=true` 的按钮在真机仍可见；而 `devPreviewAllowed()` 又因 URL 没有 `?dev=1` 在事件里直接 `return`，形成「看得见、点了没反应」。
+  - ④ 深链被 `ctx.fillText()` 画进 PNG 画布，画布文字天生不可点；完成卡上一轮已修，成片卡这处漏了。
+- **修法**：
+  - ① 图片 CSS 显式 `-webkit-touch-callout:default; touch-action:manipulation`，并新增三条兜底：点图进全屏看图页（长按更容易出「存储图像」）、`ClipboardItem` 复制图片、`navigator.share({files})` 分享图片；任一步失败都回到原图页并给出提示，不静默失败。
+  - ② 新增 `functions/api/[[path]].js` 同源代理 + `pages.toml` Service Binding `BACKEND → teleprompter-monolith`：前端只在 `https://*.pages.dev` 下把 `CONFIG.API_BASE` 注入为 `/api`，用户设备只访问 pages.dev，Worker 仍是验签/支付/Pro 权益唯一真相。代理剥离 `/api` 前缀、过滤 host/cf-* 逐跳头、保留查询串与 POST body；Binding 失败回退边缘 fetch，双失败返回 502。源码仍保留 `API_BASE:''`，本地/测试不发后端请求。
+  - ③ 全局 `[hidden]{display:none !important;}`；`devPreviewAllowed(apiBase, search, inTelegram)` 必须 `?dev=1`，且 **Telegram Mini App 内一律禁止**（不能绕过 Stars 付费），本地无后端或普通浏览器才允许；隐藏与事件双重校验。
+  - ④ 成片卡画布不再画 URL（只留品牌水印），保存弹窗新增真实 `<a id="saveSheetLink">`，`applyI18n()` 同步刷新 href/文案，点击统一走 `openInviteLink() → telegramShare()` 弹「选择聊天」；七语提示补"图片内文字不可点，请点下方链接"。
+- **部署坑**：wrangler 3.x 的 `pages deploy` **不支持 `--config` 自定义路径**（报 "Pages does not support custom paths for the Wrangler configuration file"）。做法是把 `pages.toml` 复制到 `output/pages-deploy/wrangler.toml`（`pages_build_output_dir="./dist"`），静态页放 `dist/`、代理函数放同目录的 `functions/`，在该目录执行 `npx wrangler pages deploy dist --project-name teleprompter --branch main`。日志出现 "Uploading Functions bundle" 才算成功。
+- **验证**：线上 `GET /api/health` 返回 Worker 的 `{"service":"teleprompter-monolith","status":"ok"}`；`POST /api/verify` 返回 `{"valid":false,"reason":"empty"}`；`GET /api/payments/pro-status?initData=x` 返回 401 `no_hash`（说明鉴权链路通）。注意 `pro-status` 不带任何查询串时 Cloudflare 边缘偶发挂起，前端调用本来就带 `?initData=`，不受影响。单测 168/168（新增 6 条代理单测 + C8 配置门禁）、iOS 386/386（新增 5 条）、i18n 32/32、E2E 37/37（新增 2 条，axe 0 违规）。
+- **Google Play 复用点**：① WebView 里 `<a download>` 与画布文字都不可靠，保存图片必须同时提供系统分享 `ACTION_SEND`、剪贴板 `ClipboardManager` 与可长按的原图；② 当出口域名被地区网络阻断时，用同源边缘函数反代而不是把不可达地址硬写进客户端；③ `hidden` 属性会被作者 CSS 的 `display` 覆盖，全局 `[hidden]{display:none!important}` 是低成本兜底；④ 任何"本地预览/调试开关"都要在真支付路径上硬关，避免变成免费解锁入口。
+
 ---
 
 ## 9. 相关文档
