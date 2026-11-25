@@ -675,12 +675,9 @@
     <div class="sheet-inner finish-inner">
       <div class="finish-burst" aria-hidden="true">🎉</div>
       <h3 data-i18n="finishTitle">太棒了，读完一篇！</h3>
-      <!-- usemap：卡片底部的 CTA / 网址在 PNG 内也可点击（坐标由 generateFinishCard 按实际像素缩放写入） -->
-      <img id="finishPreview" alt="完成卡预览" usemap="#finishCardMap" />
-      <map name="finishCardMap" id="finishCardMap">
-        <area id="finishCtaArea" shape="rect" coords="240,1182,840,1242" href="https://t.me/Dfb9988bot" alt="ScriptDeck" />
-        <area id="finishUrlArea" shape="rect" coords="60,1284,1020,1336" href="https://t.me/Dfb9988bot" alt="deep link" />
-      </map>
+      <!-- 2026-11-25 BUG3：画布不再绘制 CTA / URL（与下方链接重复），故 usemap 一并移除。
+           邀请入口只有下方「你也来试试 ScriptDeck」+ 一行 miniApp 链接这一处。 -->
+      <img id="finishPreview" alt="完成卡预览" />
       <div class="finish-links">
         <a id="finishCtaLink" href="https://t.me/Dfb9988bot" target="_blank" rel="noopener noreferrer">你也来试试 ScriptDeck</a>
         <a id="finishUrlLink" class="finish-url" href="https://t.me/Dfb9988bot" target="_blank" rel="noopener noreferrer">https://t.me/Dfb9988bot</a>
@@ -3944,17 +3941,15 @@ function deepLink(){
 function isTelegramWebApp(){
   return !!(window.Telegram && Telegram.WebApp && (Telegram.WebApp.initData || Telegram.WebApp.platform));
 }
-/* 完成卡上的 CTA / 网址点击后打开邀请深链。Telegram 内用 openTelegramLink，
-   浏览器用新标签页；两者都不是「无动作的死文字」。 */
+/* 完成卡上的 CTA / 网址点击后「邀请朋友」——语义是分享给好友，不是自己再打开一次。
+   2026-11-25 BUG2 根因：旧实现在 Telegram 内调 openTelegramLink(自己的 startapp 深链)，
+   用户已经在这个 Mini App 里，Telegram 视为 no-op → 表现为「点了没反应」。
+   正解：一律走 t.me/share/url 选择聊天面板（telegramShare），让用户发给朋友；
+   普通浏览器用 Web Share / 系统分享，兜底提示。绝不静默 no-op。 */
 function openInviteLink(){
   const url = deepLink();
-  if (isTelegramWebApp() && Telegram.WebApp.openTelegramLink){
-    try { Telegram.WebApp.openTelegramLink(url); return; } catch (e){}
-  }
-  if (isTelegramWebApp() && Telegram.WebApp.openLink){
-    try { Telegram.WebApp.openLink(url); return; } catch (e){}
-  }
-  try { window.open(url, '_blank', 'noopener'); } catch (e){}
+  const text = t('shareText');
+  telegramShare(text, url);
 }
 /* 分享顺序（2026-11-24 真机验证修正）：Telegram WebView 里 navigator.share 调起的是
    Android 系统分享面板 / iOS 系统面板，不是 Telegram 内置「选择聊天」；必须优先
@@ -4327,6 +4322,15 @@ function charTextRect(node, offset){
 function preciseWordSpanRect(idx, stRect){
   if (!readTokens || idx < 0 || idx >= readTokens.length || !scrollText || !stRect) return null;
   const center = readTokens[idx];
+  // 2026-11-25 BUG1（行首长词仍少首字母）：逐字符测量在 WebKit 上会把「拆到另一个
+  // text node 的首字母」的 top 误判成上一行而被下面的行过滤丢弃；同时 getClientRects()
+  // 有时返回整段矩形，选“最宽”反而取错。改为双向钳制：
+  //   ① 左边界永不低于 tk.left（tokenRectsForDisplay 已按行拆好，left 就是该行真实起点）；
+  //   ② 逐字符结果只作为“更靠左的修正”，且必须与 tk.top 同高、宽度合理（≤词宽+2em）。
+  // 这样任何环境下都不会少盖首字母，也不会把上一行的内容吞进来。
+  const fallbackLeft = center.left;
+  const fallbackRight = center.left + center.w;
+  const emPx = (function (){ try { return parseFloat(getComputedStyle(scrollText).fontSize) || 24; } catch (e){ return 24; } })();
   const wordText = function (tk){
     if (!tk || !tk.node || !tk.node.nodeValue) return '';
     return String(tk.node.nodeValue).slice(tk.start, tk.end);
@@ -4344,6 +4348,19 @@ function preciseWordSpanRect(idx, stRect){
            Math.abs(readTokens[hi].top - readTokens[hi + 1].top) <= 3) hi++;
   }
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  // 合并多 text node 时，各段的 tk.left/top 也要纳入兜底：输入法把 "yabjianggao"
+  // 拆成 "y"+"abjianggao" 后，center 可能是后段，前段的 left 才是最左首字母。
+  let anchorLeft = Infinity, anchorRight = -Infinity, anchorTop = Infinity, anchorBottom = -Infinity;
+  let hasAnchor = false;
+  for (let k = lo; k <= hi; k++){
+    const seg = readTokens[k];
+    if (!seg || !Number.isFinite(seg.left) || !Number.isFinite(seg.w) || !Number.isFinite(seg.h)) continue;
+    anchorLeft = Math.min(anchorLeft, seg.left);
+    anchorRight = Math.max(anchorRight, seg.left + seg.w);
+    anchorTop = Math.min(anchorTop, seg.top);
+    anchorBottom = Math.max(anchorBottom, seg.top + seg.h);
+    hasAnchor = true;
+  }
   for (let k = lo; k <= hi; k++){
     const tk = readTokens[k];
     if (!tk || !tk.node) continue;
@@ -4351,12 +4368,31 @@ function preciseWordSpanRect(idx, stRect){
       const b = charTextRect(tk.node, c);
       if (!b) continue;
       const y = b.top - stRect.top;
-      if (Math.abs(y - center.top) > Math.max(4, b.height * 0.5)) continue; // 只取当前显示行
-      left = Math.min(left, b.left - stRect.left);
-      right = Math.max(right, b.right - stRect.left);
+      // 行过滤：允许跨 text node 的微小 top 偏差（≤0.75 行高），但拒绝整行错位。
+      if (Math.abs(y - center.top) > Math.max(6, b.height * 0.75)) continue;
+      const x = b.left - stRect.left, xr = b.right - stRect.left;
+      // 抗 WebKit 假矩形：单字符宽度必须在合理范围（0 < w ≤ 2em），否则忽略，
+      // 防止 getClientRects() 返回整行矩形时把 left 拉到行首、吞掉前面的词。
+      if (!(b.right - b.left > 0) || (b.right - b.left) > emPx * 2) continue;
+      // 只接受“向外扩展”的逐字符结果：向左可以覆盖被漏的首字母，
+      // 向右不得超过兜底右边界太多（防止把下一个词吞进来）。
+      if (x < left) left = x;
+      if (xr > right) right = hasAnchor ? Math.min(xr, anchorRight + emPx) : xr;
       top = Math.min(top, y);
       bottom = Math.max(bottom, y + b.height);
     }
+  }
+  // 双向钳制：逐字符测量失败 / 被误过滤时，回落到 tokenRectsForDisplay 的几何，
+  // 并以它作为不可逾越的下界——保证黄块至少覆盖词元本身（含首字母）。
+  // 无有效 anchor（如极简 mock 环境）时跳过，纯用逐字符几何。
+  if (hasAnchor){
+    if (!Number.isFinite(left)   || left > anchorLeft)   left = anchorLeft;
+    // 向左最多扩展 1em，防止 WebKit 假矩形把上一个词吞进来
+    left = Math.max(left, anchorLeft - emPx);
+    if (!Number.isFinite(right)  || right < anchorRight) right = Math.max(right, anchorRight);
+    right = Math.min(right, anchorRight + emPx);
+    if (!Number.isFinite(top)    || top > anchorTop)     top = anchorTop;
+    if (!Number.isFinite(bottom) || bottom < anchorBottom) bottom = Math.max(bottom, anchorBottom);
   }
   if (!(right > left) || !(bottom > top)) return null;
   return { left:left, top:top, w:right - left, h:bottom - top };
@@ -4829,6 +4865,38 @@ function exitMainEditModeDOM(){
   const ap = document.getElementById('app');
   if (ap) ap.classList.remove('editing');
   if (document.activeElement === scrollText) scrollText.blur();
+}
+/* 2026-11-25 BUG4/5：编辑态点「完成」后，光标（起点黄块）不该凭空消失。
+   原来 enterEditMode 收起黄块后，leaveEditMode 只退出编辑态、不重画；用户删掉一行
+   再点完成，或刷新归零后点完成，黄块都没了，看起来像"光标消失"。
+   正解：退出编辑态时按当前 caret（删除后落在被删行的起始位置、刷新后落在开头）
+   重建词元、把阅读头锚到该词，并用 allowPaused=true 画一个定格的起点黄块。
+   这样"下次 ▶ 从这儿开始"有可见指示，且点 ▶ 时 caretSeekOffset 仍会消费同一起点。 */
+function showCaretStartMark(){
+  if (!state.readMark || state.mirror || !scrollText) return;
+  const txt = scrollText.textContent || '';
+  if (!txt.trim()) return;
+  // caret 可能因点按钮失焦，优先用 selectionchange 记下的意图偏移，兜底读实时 caret
+  let ch = (typeof caretSeekOffset === 'number' && caretSeekOffset >= 0) ? caretSeekOffset : -1;
+  if (ch < 0) ch = caretCharOffset();
+  // 内容变动（增删行）后词元坐标失效，必须重建
+  readTokensDirty = true;
+  buildReadTokens();
+  if (!readTokens || !readTokens.length || !readLines || !readLines.length) return;
+  let ti = -1;
+  if (ch >= 0){
+    for (let i = 0; i < readTokens.length; i++){
+      const tk = readTokens[i];
+      const cs = tk.charStart, ce = (typeof tk.charEnd === 'number' ? tk.charEnd : cs + 1);
+      if (ch >= cs && ch < ce){ ti = i; break; }
+      if (cs >= ch && ti < 0) ti = i;
+    }
+  }
+  if (ti < 0) ti = 0;
+  anchorReadHeadToToken(ti);
+  offset = offsetForHead(readHeadContentY);
+  if (viewport) viewport.scrollTop = offset;
+  updateReadMark(true, true); // allowPaused：暂停态也画，作为起点指示
 }
 function togglePlay(){
   if (voiceFollowing){ stopVoiceFollow(); return; }
@@ -5499,27 +5567,12 @@ function generateFinishCard(){
   const sLines = wrapText(ctx, shareLine, 920);
   const sy = 1048; // 称号牌宣言最多画到 ~1002，固定从这里起避免重叠
   for (let i = 0; i < Math.min(2, sLines.length); i++) ctx.fillText(sLines[i], 540, sy + i * 44);
-  // 底部分隔
-  ctx.strokeStyle = '#e8eaee'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(90, 1160); ctx.lineTo(990, 1160); ctx.stroke();
-  // 产品名 + 传播引导
-  ctx.fillStyle = '#2f6fed'; ctx.font = 'bold 36px sans-serif';
-  ctx.fillText(t('finishCtaTitle'), 540, 1220);
-  ctx.fillStyle = '#9aa0a8'; ctx.font = '26px sans-serif';
-  const invite = fmt(t('finishCtaSub'), { name: name });
-  const iLines = wrapText(ctx, invite, 920);
-  ctx.fillText(iLines[0] || invite, 540, 1264);
-  // 深链（带推荐码）——朋友扫码/点开即用，形成传播闭环
-  ctx.fillStyle = '#b9bec6'; ctx.font = '22px sans-serif';
+  // 2026-11-25 BUG3：画布内原本也画了一份「你也来试试 + URL」，与图片下方的
+  // 真实可点链接重复（用户截图里看到两处）。画布只保留成就信息，邀请入口统一
+  // 由下方 HTML 的一处链接承担；这样保存的图片是干净的成就卡，界面也只有一处 CTA。
+  // 注意 finishCtaTitle/finishCtaSub 的 i18n 键保留（其他语言包键数一致性测试依赖），
+  // 只是不再画进这张成就卡。
   const dl = deepLink();
-  ctx.fillText(dl.length > 52 ? dl.slice(0, 52) + '…' : dl, 540, 1312);
-  // 同步可点链接：image map 坐标按画布实际像素缩放（Pro 高清卡 scale=2 也能对准），
-  // href 用真实深链；图片下方的同源文字链接也一并刷新。
-  const px = function (v){ return Math.round(v * (c.width / BASE_W)); };
-  const ctaArea = document.getElementById('finishCtaArea');
-  if (ctaArea){ ctaArea.coords = [240,1182,840,1242].map(px).join(','); ctaArea.href = dl; }
-  const urlArea = document.getElementById('finishUrlArea');
-  if (urlArea){ urlArea.coords = [60,1284,1020,1336].map(px).join(','); urlArea.href = dl; }
   const ctaLink = document.getElementById('finishCtaLink');
   if (ctaLink) ctaLink.href = dl;
   const urlLink = document.getElementById('finishUrlLink');
@@ -6096,28 +6149,15 @@ if (btnFinishShare) btnFinishShare.addEventListener('click', function(){
   shareCompletion(text, deepLink(), finishCardDataUrl, 'scriptdeck-finish.png');
 });
 if (btnFinishClose) btnFinishClose.addEventListener('click', closeFinishCard);
-// 完成卡底部的 CTA 文案 / 深链：PNG 内部文字用 image map 映射，图片下方的同源文字用真实 <a>。
-// 两条路径都走 openInviteLink，Telegram 内以 openTelegramLink 打开邀请深链。
-['finishCtaArea','finishUrlArea','finishCtaLink','finishUrlLink'].forEach(function (id){
+// 完成卡唯一的邀请入口：图片下方「你也来试试 ScriptDeck」+ 一行 miniApp 链接。
+// 两条链接都走 openInviteLink → telegramShare，Telegram 内弹「选择聊天」分享面板，
+// 用户能明确看到动作；不再静默打开自己的 startapp 深链（那是 no-op）。
+['finishCtaLink','finishUrlLink'].forEach(function (id){
   const el = document.getElementById(id);
   if (el) el.addEventListener('click', function (e){
     e.preventDefault(); e.stopPropagation();
     openInviteLink();
   });
-});
-const finishImg = document.getElementById('finishPreview');
-if (finishImg) finishImg.addEventListener('click', function (e){
-  // image map 失效时的兜底：按图片内坐标判断落点是否落在 CTA / URL 区域
-  try {
-    const r = finishImg.getBoundingClientRect();
-    const nw = finishImg.naturalWidth || 1080, nh = finishImg.naturalHeight || 1350;
-    const x = (e.clientX - r.left) * nw / r.width;
-    const y = (e.clientY - r.top) * nh / r.height;
-    if ((y >= 1182 && y <= 1242 && x >= 240 && x <= 840) ||
-        (y >= 1284 && y <= 1336 && x >= 60 && x <= 1020)){
-      e.preventDefault(); openInviteLink();
-    }
-  } catch (err){}
 });
 const btnSaveSheetClose = document.getElementById('btnSaveSheetClose');
 const saveSheet = document.getElementById('saveSheet');
@@ -6521,7 +6561,11 @@ function init(){
     // 且手指滑动文稿时黄块跟着跑很干扰。点「完成」退出编辑态或按 ▶ 播放时再按规则显示。
     if (typeof hideReadMark === 'function') hideReadMark();
   }
-  function leaveEditMode(){ exitMainEditModeDOM(); }
+  function leaveEditMode(){
+    exitMainEditModeDOM();
+    // BUG4/5：删行/刷新后点完成，用 caret（或已记录的意图偏移）重画起点黄块
+    if (typeof showCaretStartMark === 'function') showCaretStartMark();
+  }
   function insideEditor(node){
     return !!(scrollText && node && (node === scrollText || scrollText.contains(node)));
   }

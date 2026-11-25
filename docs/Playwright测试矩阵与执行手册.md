@@ -379,6 +379,31 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **验证手法**：iOS 门禁加 1 条行为断言，在 `state.botUser=''` 下读 config / deepLink / buildRemoteDeepLink / 两个 `<a>.href` / 点击 CTA 后 `openTelegramLink` 的实参，一次性比对；Playwright A2 层加同名 E2E，真浏览器里点 CTA 断言 `window.__tgLinks[0]` 含 `Dfb9988bot?startapp=`，且 `window.open` 未被调用。
 - **Google Play 复用点**：任何"用户名可配置"的外部跳转都要有**已验证的真实默认值**，不能用文档示例占位符兜底——示例字符串往往真的被别人注册了。Android 端对应 deep link / App Link 的 host 与 pathPrefix 白名单，默认 host 写错会跳到别人的 App 或应用商店。
 
+### 8.19 一次性 Cloudflare Pages Function 跳板：函数目录必须在项目根（2026-11-25 下午）
+- **场景**：本机直连 `api.telegram.org` 不通，需要临时跳板调用 Bot API 批量写入七语介绍（About ≤120 / Description ≤512 字符，`setMyShortDescription` / `setMyDescription` 支持 `language_code`，Bot API 6.6+）。
+- **坑 1**：把 `functions/tgproxy.js` 放在 `wrangler pages deploy <静态目录>` 的静态目录里，部署日志只显示 "Uploading... (1/1)"、没有 "Uploading Functions bundle"，路由返回 **405 且空 body**——函数根本没部署。正确位置是**运行 wrangler 的 cwd 下的 `functions/`**（项目根），与 `--directory` 指向的静态输出目录无关。看到 "✨ Uploading Functions bundle" 才算成功。
+- **坑 2**：只导出 `onRequestPost` 时首次探测仍拿到 405；改为通用 `onRequest` 内部判 method 后稳定。
+- **坑 3**：本机对 `pages.dev` 的 curl / Node fetch 时通时不通（超时或 fetch failed）；脚本里必须带 3 次重试 + 60s 超时，且先用 `getMe` 验证跳板与 Bot 身份，再批量写。
+- **安全做法**：token **不写进函数代码**，由调用方经 `x-bot-token` 请求头传入；函数只做 method 白名单 + 转发。用完立即删除 `functions/` 并重新部署干净版本；验证 `/tgproxy` 回到 405、生产首页哈希与本地 `index.html` 一致、token 不在任何被跟踪文件里。
+- **验证结果**：七语 + 英文默认兜底共 8 组，写入后 `getMyShortDescription` / `getMyDescription` 逐字回读全部一致。
+- **Google Play 复用点**：出海项目里凡"本机到海外 API 不通但托管域名可达"，都可用一次性边缘函数跳板做管理操作；关键是把凭据放在请求头而不是代码/仓库，并在任务结束前下线函数，避免留下公开代理。
+
+### 8.20 真机第二轮 5 项 BUG：长词首字母、CTA no-op、重复邀请、光标消失（2026-11-25 晚）
+- **场景**：Telegram Mini App 真机又报 5 项——①行首长英文单词黄块仍少首字母；②完成卡「你也来试试」/网址点击无动作；③完成卡有两处邀请入口太多；④删行后点完成光标消失；⑤刷新归零后点完成光标消失。
+- **判据与根因**：
+  - ① WebKit 的 `Range.getClientRects()` 对折行/跨 text node 词会返回整行矩形或把首字符 top 归到上一行；逐字符测量"选最宽矩形 + 严格行过滤"反而漏掉首字母。Chromium 探针证明 `tokenRectsForDisplay` 的按行拆词几何是准的，问题在二次精测。
+  - ② `openInviteLink()` 在 Telegram 内调 `openTelegramLink(自己的 startapp 深链)`——用户已在该 Mini App 内，Telegram 视为 no-op。事件绑定本身没坏（探针里点击确实触发了 2 次），是**产品语义错**：CTA 是"邀请朋友"，不是"自己再进一次"。
+  - ③ 画布 `generateFinishCard` 画了一份 CTA+URL，图片下方 HTML 又有一份，视觉重复。
+  - ④⑤ `leaveEditMode()` 只 `exitMainEditModeDOM()`，而 `enterEditMode()` 会 `hideReadMark()`；删行/刷新后点完成从不重画，用户看到"光标消失"。
+- **修法**：
+  - ① `preciseWordSpanRect` 改为"双向钳制"：以 `tokenRectsForDisplay` 的几何为不可逾越的兜底（left 不右于 anchorLeft、right 不左于 anchorRight），逐字符只作向外修正且限幅 ±1em；合并相邻词元时各段 left 都纳入 anchor。
+  - ② `openInviteLink()` 统一走 `telegramShare()` → `t.me/share/url?url=…&text=…`，Telegram 内弹「选择聊天」，有明确动作；普通浏览器走 Web Share。
+  - ③ 画布不再 `fillText(finishCtaTitle/深链)`，移除 `usemap`/`<area>` 与坐标兜底点击；邀请入口只剩图片下方一对 `<a>`。i18n 键保留以维持七语键数一致。
+  - ④⑤ 新增顶层 `showCaretStartMark()`：以 `caretSeekOffset`（或实时 caret）定位词元，`buildReadTokens()` 重建后 `anchorReadHeadToToken` + `updateReadMark(true, true)`（allowPaused 在暂停态画定格黄块）；`leaveEditMode()` 调用它。刷新按钮本身仍隐藏黄块（符合既有"重置"语义），仅"再点完成"时恢复。
+- **验证**：单测 161/161、iOS 门禁 381/381（新增 5 条 + 更新 3 条过时断言）、i18n 32/32、Playwright E2E（新增 3 条：完成卡邀请唯一性/分享面板、删行与刷新后起点黄块）。
+- **坑**：jsdom 无真实 Range 几何，`buildReadTokens()` 必返回空、viewport 尺寸为 0 会让黄块被视口检查隐藏——这类渲染断言只能放 Playwright，iOS 门禁只验源码结构与调用链安全，别硬断言 display。
+- **Google Play 复用点**：Android WebView 里"深链打开自己"同样可能被判定 no-op——邀请/分享入口一律用 `ACTION_SEND` + 文案深链，而不是 `ACTION_VIEW` 指向自身 App；`contenteditable` 的 caret 意图在失焦后会丢，原生端用 `SelectionInfo` 或 JS 注入保存字符偏移，退出编辑态时据此重画起点指示，逻辑同 `showCaretStartMark`。
+
 ---
 
 ## 9. 相关文档

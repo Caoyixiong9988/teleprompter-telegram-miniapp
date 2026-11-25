@@ -356,3 +356,59 @@ test('B8 播放状态机：暂停保留高亮，重置回到开头意图并隐�
   expect(reset.mark, '重置后高亮应隐藏').toBe('none');
   expect(reset.toast).toBe(reset.want);
 });
+
+/* ================= B9. 编辑完成后的起点黄块（2026-11-25 BUG4/5） ================= */
+
+test('B9 删行后点完成：起点黄块在暂停态恢复可见，且播放仍从 caret 起', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    setActiveContent('alpha beta\ngamma delta epsilon\nzeta eta theta');
+    loadActiveIntoEditor();
+    state.readMark = true;
+    syncReadMarkUI();
+    // 模拟用户把 caret 放到第二行行首（删除操作后 caret 落点）
+    const el = document.getElementById('scrollText');
+    const node = el.firstChild;
+    const ch = String(node.nodeValue).indexOf('gamma');
+    caretSeekOffset = ch;
+  });
+  // 进入编辑态会收起黄块
+  await page.evaluate(() => document.getElementById('scrollText').focus());
+  await expect.poll(() => page.evaluate(() => readMarkEl.style.display)).toBe('none');
+
+  // 点「完成」→ 退出编辑态并重画起点黄块
+  await page.click('#btnQuickDone');
+  const after = await page.evaluate(() => ({
+    editing: document.getElementById('app').classList.contains('editing'),
+    mark: readMarkEl.style.display,
+    left: readMarkEl.style.left,
+    playing: playing,
+  }));
+  expect(after.editing, '应退出编辑态').toBe(false);
+  expect(after.playing, '仍应暂停').toBe(false);
+  expect(after.mark, '点完成后起点黄块应可见').not.toBe('none');
+  expect(after.left, '黄块应有定位').toBeTruthy();
+});
+
+test('B9 刷新归零后再点完成：黄块回到开头可见，播放仍从开头', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => {
+    setActiveContent('one two three four five six seven eight nine ten');
+    loadActiveIntoEditor();
+    state.readMark = true;
+    syncReadMarkUI();
+  });
+  await page.click('#btnReset');
+  expect(await page.evaluate(() => readMarkEl.style.display)).toBe('none');
+  // 刷新后再进编辑态（点文字），再点「完成」→ 起点黄块应恢复
+  await page.evaluate(() => document.getElementById('scrollText').focus());
+  await page.click('#btnQuickDone');
+  const after = await page.evaluate(() => ({
+    mark: readMarkEl.style.display,
+    offset: offset,
+    caret: caretSeekOffset,
+  }));
+  expect(after.mark, '完成动作后起点黄块应可见').not.toBe('none');
+  expect(after.offset).toBe(0);
+  expect(after.caret).toBe(0);
+});

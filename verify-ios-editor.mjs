@@ -1433,11 +1433,12 @@ const openProbe = await ev(`(async () => {
 check('打开文件后以文件名为标题新建并载入讲稿',
   openProbe.added === 1 && openProbe.title === '已存讲稿' && openProbe.content === '从文件打开的内容',
   JSON.stringify(openProbe));
-// BUG4：完成卡 CTA / 网址可点（image map + 真实链接）
-check('完成卡图片带 usemap，CTA 与网址都有可点链接热区',
-  /id="finishPreview"[^>]*usemap="#finishCardMap"/.test(html) &&
-  !!doc.getElementById('finishCtaArea') && !!doc.getElementById('finishUrlArea') &&
-  !!doc.getElementById('finishCtaLink') && !!doc.getElementById('finishUrlLink'));
+// BUG4：完成卡邀请入口唯一且可点（2026-11-25 BUG3 精简：移除画布内重复 CTA）
+check('完成卡只有一处邀请入口（无 usemap），CTA 与网址仍是可点链接',
+  !/id="finishPreview"[^>]*usemap=/.test(html) &&
+  !doc.getElementById('finishCtaArea') && !doc.getElementById('finishUrlArea') &&
+  !!doc.getElementById('finishCtaLink') && !!doc.getElementById('finishUrlLink') &&
+  !/\['finishCtaArea'/.test(html));
 const linkProbe = ev(`(() => {
   let opened = null;
   window.Telegram = { WebApp: { initData: 'test', openTelegramLink: u => { opened = u; } } };
@@ -1445,8 +1446,9 @@ const linkProbe = ev(`(() => {
   window.Telegram = undefined;
   return opened;
 })()`);
-check('点击"你也来试试 ScriptDeck"打开 Telegram 邀请深链（不再是死文字）',
-  typeof linkProbe === 'string' && linkProbe.startsWith('https://t.me/'), String(linkProbe));
+check('点击"你也来试试 ScriptDeck"弹 Telegram 分享面板（t.me/share/url，不再静默 no-op）',
+  typeof linkProbe === 'string' && linkProbe.startsWith('https://t.me/share/url?') &&
+  /Dfb9988bot%3Fstartapp%3D/.test(linkProbe), String(linkProbe));
 // BUG7：默认 Bot 必须是 @Dfb9988bot；your_bot 是 Telegram 上真实存在的测试机器人
 const botDefault = ev(`(() => {
   const old = state.botUser; state.botUser = '';
@@ -1468,7 +1470,7 @@ check('默认邀请深链内置 @Dfb9988bot，绝不落到 your_bot 测试机器
   botDefault.remote === 'https://t.me/Dfb9988bot?startapp=remote_tokX' &&
   /^https:\/\/t\.me\/Dfb9988bot\?startapp=/.test(botDefault.cta) &&
   /^https:\/\/t\.me\/Dfb9988bot\?startapp=/.test(botDefault.url) &&
-  /^https:\/\/t\.me\/Dfb9988bot\?startapp=/.test(botDefault.tg) &&
+  /^https:\/\/t\.me\/share\/url\?url=https%3A%2F%2Ft\.me%2FDfb9988bot%3Fstartapp%3D/.test(botDefault.tg) &&
   !/your_bot/.test(JSON.stringify(botDefault)), JSON.stringify(botDefault));
 // BUG5：Telegram 内分享必须走 openTelegramLink，不能弹系统分享面板
 const shareProbe = await ev(`(async () => {
@@ -1496,6 +1498,41 @@ const saveProbe = await ev(`(async () => {
 })()`);
 check('点保存卡片弹出原图 + 长按指引（不再毫无反应）',
   saveProbe.opened && saveProbe.imgOk && saveProbe.closed, JSON.stringify(saveProbe));
+
+// ===== 2026-11-25 第二轮 debug（BUG1-BUG5）=====
+// BUG1：行首长词黄块必须覆盖首字母——preciseWordSpanRect 对缺失几何的兜底 + 双向钳制
+check('preciseWordSpanRect 有 token 几何兜底与左右钳制（不再少首字母）',
+  /hasAnchor/.test(html) && /left > anchorLeft\)   left = anchorLeft/.test(html) &&
+  /anchorLeft - emPx/.test(html) && /right < anchorRight\) right = Math\.max/.test(html));
+// BUG2：邀请链接走分享面板，不再静默 no-op
+check('openInviteLink 统一走 telegramShare（不再 openTelegramLink 自己的 startapp）',
+  /function openInviteLink\(\)\{[\s\S]{0,200}telegramShare\(text, url\)/.test(html) &&
+  !/openTelegramLink\(url\)/.test(html));
+// BUG3：完成卡只有一处 CTA（画布不再绘制 CTA/URL）
+check('完成卡画布不再绘制重复的 CTA/URL（finishCtaTitle 键保留但不 fillText）',
+  !/fillText\(t\('finishCtaTitle'\)/.test(html) &&
+  !/fillText\(dl\.length/.test(html) &&
+  /finishCtaTitle:"你也来试试 ScriptDeck"/.test(html));
+// BUG4/5：点完成/刷新后重画起点黄块
+check('存在 showCaretStartMark 且 leaveEditMode 调用它（删行/刷新后光标不消失）',
+  /function showCaretStartMark\(\)/.test(html) &&
+  /updateReadMark\(true, true\); \/\/ allowPaused/.test(html) &&
+  /function leaveEditMode\(\)\{[\s\S]{0,160}showCaretStartMark\(\)/.test(html));
+// 注：jsdom 无真实布局（viewport 尺寸为 0），updateReadMark 的视口边界检查会隐藏黄块，
+// 因此这里验证「状态与调用链」而非最终 display；真实渲染由 Playwright E2E 覆盖。
+// jsdom 无真实 Range 几何 → buildReadTokens 必返回空；这里只验证调用链安全（不抛错、
+// 不误进播放态），真实锚定效果由 Playwright E2E 覆盖。
+const caretMarkProbe = ev(`(() => {
+  const el = document.getElementById('scrollText');
+  el.textContent = 'alpha beta gamma delta epsilon';
+  caretSeekOffset = 6;
+  let threw = null;
+  try { showCaretStartMark(); } catch (e){ threw = String(e && e.message || e); }
+  return { threw: threw, dirty: readTokensDirty, playing: playing, readMarkOn: state.readMark };
+})()`);
+check('点完成后 showCaretStartMark 安全执行并保持暂停态（不抛错、不误播放）',
+  caretMarkProbe.threw === null && caretMarkProbe.playing === false && caretMarkProbe.readMarkOn === true,
+  JSON.stringify(caretMarkProbe));
 
 check('页面脚本无运行时错误', errors.length === 0, errors.join('; '));
 console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`);

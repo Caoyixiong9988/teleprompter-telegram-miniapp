@@ -272,6 +272,31 @@ test('A2 完成卡 CTA / 深链：默认指向 @Dfb9988bot，不再落到 your_b
   expect(await page.evaluate(() => window.__opened.length)).toBe(0);
 });
 
+test('A2 完成卡邀请入口唯一且点击弹分享面板（2026-11-25 BUG2/3）', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { state.displayName = '测试用户'; state.reads = 3; });
+  await page.click('#btnSettings');
+  await page.click('#btnPreviewFinish');
+  // 只有图片下方一对链接，画布内不再绘制重复 CTA（无 usemap/area）
+  const dom = await page.evaluate(() => ({
+    usemap: document.getElementById('finishPreview').getAttribute('usemap'),
+    areas: document.querySelectorAll('#finishCardMap area').length,
+    ctaLinks: [...document.querySelectorAll('#finishOverlay a')].filter(a => /你也来试试|Try ScriptDeck/.test(a.textContent)).length,
+    ctaDrawn: window.__drawTexts.some(s => /你也来试试|Try ScriptDeck too/.test(s)),
+  }));
+  expect(dom.usemap).toBeNull();
+  expect(dom.areas).toBe(0);
+  expect(dom.ctaLinks).toBe(1);
+  expect(dom.ctaDrawn).toBe(false);
+  // 点击走 t.me/share/url（选择聊天），不再是打开自己 startapp 的 no-op
+  await page.click('#finishCtaLink');
+  await expect.poll(() => page.evaluate(() => window.__tgLinks.length)).toBe(1);
+  const shared = await page.evaluate(() => window.__tgLinks[0]);
+  expect(shared).toContain('https://t.me/share/url?');
+  expect(decodeURIComponent(shared)).toContain('t.me/Dfb9988bot?startapp=');
+  expect(await page.evaluate(() => window.__shareCalls.length)).toBe(0);
+});
+
 test('A2 完成卡：普通浏览器可下载 scriptdeck-finish.png', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => {
