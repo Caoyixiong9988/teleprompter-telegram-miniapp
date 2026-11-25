@@ -1,6 +1,6 @@
 # Playwright 测试矩阵与执行手册
 
-> 最后更新：2026-11-19  
+> 最后更新：2026-11-25  
 > 适用项目：单文件 Telegram 提词器（`index.html` + Cloudflare Workers/D1）；第 8 节为跨项目复用清单，供 Google Play 提词器项目直接沿用。  
 > 目标：把「能交给真浏览器验证的行为」尽量交给 Playwright，并用矩阵明确哪些不能/不该交给 Playwright。
 
@@ -18,17 +18,17 @@
 
 | 层 | 入口 | 覆盖内容 | 当前规模 | 是否进本地 push 门禁 |
 |---|---|---|---|---|
-| 配置一致性 | `npm test` → `check-config.test.mjs` | wrangler 配置、D1 ID、Worker 路由、前端 CONFIG 防错配 | 7 项 | 是 |
-| 业务单测 | `npm test` | P2 积分、P3 支付/退款/Pro、P5 增长、P6 遥控/语音/模板、P7 合规、P8 导入、P9 配额 | 161 项（含配置） | 是 |
+| 配置一致性 | `npm test` → `check-config.test.mjs` | wrangler 配置、D1 ID、Worker 路由、前端 CONFIG、同源代理防错配 | 8 项 | 是 |
+| 业务单测 | `npm test` | P2 积分、P3 支付/退款/Pro、P5 增长、P6 遥控/语音/模板、P7 合规、P8 导入、P9 配额、Pages 代理 | 168 项（含配置） | 是 |
 | Worker HTTP | `npm run smoke:worker` | 真 `worker.fetch` 路由分发 | 18 项 | 否（GitHub Actions 跑） |
-| jsdom 编辑器 | `node verify-ios-editor.mjs` | iOS 编辑器源码守卫、mock、canvas stub | 354 项 | 是 |
-| i18n | `node test_i18n_real.mjs` | 七语键数、缺键、占位符一致 | 七语各 252 键 | 是 |
-| Playwright A 层 | `e2e/a-layer.spec.mjs` | 成片卡、保存/分享、完成卡、镜像/对齐/速度、举报、验签、面板、语音、遥控、高亮轨迹 | 18 项 | 是 |
-| Playwright B 层 | `e2e/core-flows.spec.mjs` | 空稿/计次门槛、讲稿库、导入、七语 UI、本机 ID、异常响应、播放状态机 | 8 项 | 是 |
+| jsdom 编辑器 | `node verify-ios-editor.mjs` | iOS 编辑器源码守卫、mock、canvas stub | 386 项 | 是 |
+| i18n | `node test_i18n_real.mjs` | 七语键数、缺键、占位符一致 | 七语各 257 键 | 是 |
+| Playwright A 层 | `e2e/a-layer.spec.mjs` | 成片卡、保存/分享/看图、完成卡、镜像/对齐/速度、举报、验签、面板、语音、遥控、高亮轨迹 | 24 项 | 是 |
+| Playwright B 层 | `e2e/core-flows.spec.mjs` | 空稿/计次门槛、讲稿库、导入、七语 UI、本机 ID、异常响应、播放状态机、编辑完成黄块 | 10 项 | 是 |
 | Playwright a11y | `e2e/accessibility.spec.mjs` | axe WCAG A/AA serious+critical 零违规 | 3 项 | 是 |
 | Lighthouse | `npm run audit:lighthouse` | 性能 / 无障碍评分 / 最佳实践 / SEO | 手动审计 | 否 |
 
-> 本地 pre-push 跑的是 **Chromium 全量 E2E（A+B+a11y，共 29 项）**；WebKit 用 `npm run test:e2e:all` 单独跑，避免每次 push 时间过长。
+> 本地 pre-push 跑的是 **Chromium 全量 E2E（A+B+a11y，共 37 项）**；WebKit 用 `npm run test:e2e:all` 单独跑，避免每次 push 时间过长。
 
 ---
 
@@ -419,6 +419,29 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **部署坑**：wrangler 3.x 的 `pages deploy` **不支持 `--config` 自定义路径**（报 "Pages does not support custom paths for the Wrangler configuration file"）。做法是把 `pages.toml` 复制到 `output/pages-deploy/wrangler.toml`（`pages_build_output_dir="./dist"`），静态页放 `dist/`、代理函数放同目录的 `functions/`，在该目录执行 `npx wrangler pages deploy dist --project-name teleprompter --branch main`。日志出现 "Uploading Functions bundle" 才算成功。
 - **验证**：线上 `GET /api/health` 返回 Worker 的 `{"service":"teleprompter-monolith","status":"ok"}`；`POST /api/verify` 返回 `{"valid":false,"reason":"empty"}`；`GET /api/payments/pro-status?initData=x` 返回 401 `no_hash`（说明鉴权链路通）。注意 `pro-status` 不带任何查询串时 Cloudflare 边缘偶发挂起，前端调用本来就带 `?initData=`，不受影响。单测 168/168（新增 6 条代理单测 + C8 配置门禁）、iOS 386/386（新增 5 条）、i18n 32/32、E2E 37/37（新增 2 条，axe 0 违规）。
 - **Google Play 复用点**：① WebView 里 `<a download>` 与画布文字都不可靠，保存图片必须同时提供系统分享 `ACTION_SEND`、剪贴板 `ClipboardManager` 与可长按的原图；② 当出口域名被地区网络阻断时，用同源边缘函数反代而不是把不可达地址硬写进客户端；③ `hidden` 属性会被作者 CSS 的 `display` 覆盖，全局 `[hidden]{display:none!important}` 是低成本兜底；④ 任何"本地预览/调试开关"都要在真支付路径上硬关，避免变成免费解锁入口。
+
+### 8.22 BotFather 素材与多语言介绍：机器可生成的备齐，账号侧操作留给人（2026-11-25）
+
+- **场景**：为 `@Dfb9988bot` 准备 Main Mini App 媒体预览与七语产品介绍。产出在 `media-preview/`：七语（en/zh/de/fr/ja/ko/ru）各 6 张 1170×2532 截图（主界面 / 播放高亮 / 讲稿库 / 设置 / 成片卡 / 完成卡）+ en、zh 两段 H.264/yuv420p 竖屏 MP4（无音轨）；另有一份上传清单与一份七语 About/Description 文案。
+- **踩过的坑**：① Playwright `recordVideo.size` 必须与 CSS viewport **完全一致**，否则视频画面只占左上角、其余灰底；② 设置面板会遮住底部按钮，截图前要先关面板；③ toast 不清理会压在完成卡按钮上；④ 生成器依赖 ffmpeg-static 的 libx264，路径写死在 `output/tools` 下，重跑前先确认依赖在。
+- **平台硬限制**：BotFather 的 About ≤ **120** 字符、Description ≤ **512** 字符，均支持 `language_code` 按用户 App 语言本地化（Bot API 6.6+ 的 `setMyShortDescription` / `setMyDescription`）。七语文案必须脚本校验长度后再提交，不能靠肉眼估；英文默认兜底也要单独写一组。
+- **验证手法**：`generate.mjs` 可重跑，产出后用脚本逐语跑长度断言（本次 en 111/329、zh 51/140、de 98/406、fr 103/373、ja 63/190、ko 66/212、ru 105/360）；写入 Bot 资料后用 `getMyShortDescription` / `getMyDescription` 逐字回读 8/8 一致。写入走一次性边缘跳板（见 8.19），token 从请求头传入、用完删除函数并核验生产首页哈希。
+- **交付边界**：素材、清单、文案、脚本都能由 AI 生成并进 Git + 桌面备份 `C:/Users/maste/Desktop/ScriptDeck-Media-Preview/`；但**上传媒体预览、真机查看 Bot 资料**必须用户本人在 Telegram 客户端 BotFather 完成（依赖其账号会话）。不要把"文件备好了"说成"已上架"。
+- **Google Play 复用点**：商店截图/视频同样有像素规格、时长与本地化目录要求，且 Play Console 的上传也绑定账号会话；生成脚本要与上传步骤分离，脚本进 CI、上传留人，避免为了自动化去碰账号凭据。
+
+### 8.23 测试 Stars 现状核查：免费测试通道存在，但我们还没搭（2026-11-25）
+
+- **用户问题**："我们现在没有做测试用的 Stars 了，对吧，必须得我自己买 Stars 完成后面的收银台测试，是吧？"
+- **核查结果（不是猜测）**：
+  - 生产 Worker `teleprompter-monolith` 的 secret 只有 `ADMIN_SECRET` / `BOT_TOKEN` / `WEBHOOK_SECRET`，**没有 `BOT_API_TEST`**；Cloudflare API 的 `/workers/scripts/<name>/secrets` 可直接列名字（不读值）。
+  - 本机 `bot-token-test.txt` 是 **0 字节**，没有测试 bot token；没有测试账号/测试 BotFather bot 的记录。
+  - 代码层是支持的：`botApiUrl(env, method)` 在 `BOT_API_TEST=1` 时走 `https://api.telegram.org/bot<token>/test/METHOD`，但开关没开、测试 token 没换。
+  - 结论：**当前确实没有可用的测试 Stars**，真机收银台（下单 → `openInvoice` → webhook → `/payments/pro-status` → 退款）尚未端到端跑过；`npm test` / `smoke:worker` 里的"支付成功"都是伪造 update / stub Bot API，只证明"如果 Telegram 通知收钱，账本会记对"。
+- **但不等于"必须买真 Stars"**，官方（core.telegram.org/bots/payments-stars）明确写着 **"You can freely test payments in Telegram Stars by connecting your bot to Telegram's dedicated test environment"**。两条路：
+  - **路线 A（推荐，零成本）**：登录 Telegram **测试服务器**（Desktop：设置 → `Shift+Alt+右键`点 Add Account → Test Server；iOS：连点设置图标 10 次 → Accounts → Test）→ 重新注册测试账号 → 在测试版 `@BotFather` 建**测试 bot**拿测试 token → Worker 换 `BOT_TOKEN` 并加 `BOT_API_TEST=1` → 用 `/test/setWebhook` 重设 webhook → 测试 Stars 免费付款、退款流程与生产一致。**生产 token 在测试环境无效，反之亦然**；同一套 Worker 不能同时跑两套环境，`initData` 用哪个 token 签的就得用哪个 token 验；换 secret 不需要重新 deploy。
+  - **路线 B（备选，要花真钱）**：用户自己买真实 Stars，买最便宜的月付跑一次，然后立刻在 `/admin` 或 `/paysupport` 全额退款（`refundStarPayment` 原路退回并撤销 Pro）。注意：bot 收到的 Stars 进的是 **bot 余额**，只能提现成 Toncoin 或投 Telegram Ads，**不能转回个人账号**再买自己的商品，所以"bot 发 Stars 给我自测"行不通；Apple / Google 内购渠道抽成在退款时未必返还，频繁自购自退也可能被限制。
+- **判据与下一步**：不要说"必须买 Stars"，也不要说"测试环境已经能用了"。准确口径是"**免费通道存在但我们没搭；要用免费测试星需先建测试账号 + 测试 bot + 切 Worker 环境；若不想搭，才需要你本人小额自购再退**"。选定路线后按 `【上线清单】从账号到真机收银台_2026-11-15.md` 阶段 4–6 执行，完成前不宣称支付闭环验证通过。
+- **Google Play 复用点**：Play 的"测试轨道 + 测试购买/订阅"与 Telegram 测试环境同构——测试凭据与生产凭据隔离、 entitlement 只能由服务端确认、退款必须撤销权益；同样不要拿生产账号自购当常规测试手段，只在发布前做一次端到端确认。
 
 ---
 
