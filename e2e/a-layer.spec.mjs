@@ -249,6 +249,29 @@ test('A2 完成卡：Telegram 内保存弹原图，未填名字被拦截并跳�
   expect((await shareSummary(page)).opened).toBe(0);
 });
 
+test('A2 完成卡 CTA / 深链：默认指向 @Dfb9988bot，不再落到 your_bot', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { state.displayName = '测试用户'; state.reads = 3; state.botUser = ''; });
+  await page.click('#btnSettings');
+  await page.click('#btnPreviewFinish');
+  const links = await page.evaluate(() => ({
+    config: CONFIG.BOT_USERNAME,
+    deep: deepLink(),
+    remote: buildRemoteDeepLink('tokX'),
+    cta: document.getElementById('finishCtaLink').href,
+    url: document.getElementById('finishUrlLink').href,
+  }));
+  expect(links.config).toBe('Dfb9988bot');
+  expect(links.deep).toBe('https://t.me/Dfb9988bot?startapp=invite');
+  expect(links.remote).toBe('https://t.me/Dfb9988bot?startapp=remote_tokX');
+  expect(links.cta).toContain('t.me/Dfb9988bot?startapp=');
+  expect(links.url).toContain('t.me/Dfb9988bot?startapp=');
+  await page.click('#finishCtaLink');
+  await expect.poll(() => page.evaluate(() => window.__tgLinks.length)).toBe(1);
+  expect(decodeURIComponent(await page.evaluate(() => window.__tgLinks[0]))).toContain('t.me/Dfb9988bot?startapp=');
+  expect(await page.evaluate(() => window.__opened.length)).toBe(0);
+});
+
 test('A2 完成卡：普通浏览器可下载 scriptdeck-finish.png', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => {

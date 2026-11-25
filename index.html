@@ -573,7 +573,7 @@
       <div class="field">
         <label data-i18n="botUserLabel">Bot 用户名（用于分享深链，可留空）</label>
         <input type="text" id="setBotUser" data-i18n-ph="botUserPlaceholder" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
-        <div class="hint" data-i18n="botUserHint">仅用于生成分享链接；不影响提词功能。留空时显示占位 <code>your_bot</code>。</div>
+        <div class="hint" data-i18n="botUserHint">仅用于生成分享链接；不影响提词功能。留空自动使用内置 @Dfb9988bot。</div>
       </div>
 
       <div class="field">
@@ -872,8 +872,8 @@ const CONFIG = {
   // 单体后端根地址：所有 /verify /credits /payments /bounty /growth /scripts /remote /templates /compliance 都挂在这一个 Worker 下。
   // 只填这一个 URL；下方端点由它派生，避免多处重复填 URL 导致日后漂移 / clash。
   API_BASE: '',
-  // Bot 用户名（用于分享深链）；留空时显示占位 your_bot
-  BOT_USERNAME: '',
+  // Bot 用户名（用于分享深链）；内置真实 Bot，绝不能退回 your_bot（那是 Telegram 上另一个真实测试机器人）
+  BOT_USERNAME: 'Dfb9988bot',
   // 广告位预留开关：默认 false（完全不展示，体验纯净）。
   // 接入 TMA 广告网络（TMAds / Adexium / Monetag 等）后置为 true，
   // 并用对应 SDK 把素材注入 #adSlotSettings（设置面板底部）/ #adSlotCard（成片卡页底部）。
@@ -949,11 +949,11 @@ const I18N = {
   switchUnit:"切换单位",
   speedHint:"单位：像素/秒（px/s）或 字/分（CPM，按当前字号估算）。",
   refCodeLabel:"推荐码（用于成片卡分享深链，可自定义）",
-  refHint:"分享卡片会带上 ?startapp=推荐码 深链；在 BotFather 配置好用户名后于下方填写 bot 用户名即可生效。",
+  refHint:"分享卡片会带上 ?startapp=推荐码 深链；默认指向 @Dfb9988bot，如需改用其他 Bot 可在下方填写用户名。",
   botUserLabel:"Bot 用户名（用于分享深链，可留空）",
-  botUserHint:"仅用于生成分享链接；不影响提词功能。留空时显示占位 your_bot。",
+  botUserHint:"仅用于生成分享链接；不影响提词功能。留空自动使用内置 @Dfb9988bot。",
   refCodePlaceholder:"例如 my2026",
-  botUserPlaceholder:"例如 your_bot",
+  botUserPlaceholder:"例如 Dfb9988bot（留空即用内置）",
   done:"完成",
   cardTitle:"成片卡 / 脚本卡",
   cardHint:"卡片含讲稿片段、应用水印与你的推荐码深链，可保存到相册或分享到聊天。",
@@ -1196,11 +1196,11 @@ const I18N = {
   switchUnit:"Switch Unit",
   speedHint:"Units: pixels/second (px/s) or characters/minute (CPM, estimated from current font size).",
   refCodeLabel:"Referral code (used in the result-card share deep link; customizable)",
-  refHint:"The share card carries a ?startapp=referral-code deep link; fill in your bot username below (configured in BotFather) to activate it.",
+  refHint:"The share card carries a ?startapp=referral-code deep link pointing to @Dfb9988bot by default; enter another bot username below to override.",
   botUserLabel:"Bot username (for share deep link; optional)",
-  botUserHint:"Used only to build the share link; does not affect prompting. Shows placeholder your_bot when empty.",
+  botUserHint:"Used only to build the share link; does not affect prompting. Defaults to @Dfb9988bot when empty.",
   refCodePlaceholder:"e.g. my2026",
-  botUserPlaceholder:"e.g. your_bot",
+  botUserPlaceholder:"e.g. Dfb9988bot (blank uses default)",
   done:"Done",
   cardTitle:"Result Card / Script Card",
   cardHint:"The card contains a script excerpt, the app watermark, and your referral-code deep link. Save it to your album or share it in a chat.",
@@ -1456,11 +1456,11 @@ const I18N = {
   switchUnit:'Einheit wechseln',
   speedHint:'Einheit: Pixel pro Sekunde (px/s) oder Zeichen pro Minute (CPM, anhand der aktuellen Schriftgröße geschätzt).',
   refCodeLabel:'Empfehlungscode (für den Deeplink der Karte, anpassbar)',
-  refHint:'Die geteilte Karte enthält den Deeplink ?startapp=Empfehlungscode; trage unten den Bot-Benutzernamen ein, sobald er in BotFather eingerichtet ist.',
+  refHint:'Die geteilte Karte enthält den Deeplink ?startapp=Empfehlungscode, der standardmäßig auf @Dfb9988bot zeigt. Unten kannst du einen anderen Bot-Namen eintragen.',
   botUserLabel:'Bot-Benutzername (für Deeplinks, kann leer bleiben)',
-  botUserHint:'Nur für Teilen-Links; die Vorlesefunktion ist nicht betroffen. Leer wird your_bot angezeigt.',
+  botUserHint:'Nur für Teilen-Links; die Vorlesefunktion ist nicht betroffen. Leer wird automatisch @Dfb9988bot verwendet.',
   refCodePlaceholder:'z. B. my2026',
-  botUserPlaceholder:'z. B. your_bot',
+  botUserPlaceholder:'z. B. Dfb9988bot (leer = Standard)',
   done:'Fertig',
   cardTitle:'Karte / Skriptkarte',
   cardHint:'Die Karte enthält einen Ausschnitt des Skripts, ein App-Wasserzeichen und deinen Empfehlungscode-Deeplink; speichere sie in der Galerie oder teile sie im Chat.',
@@ -1716,11 +1716,11 @@ const I18N = {
   switchUnit:'Changer d’unité',
   speedHint:'Unité : pixels par seconde (px/s) ou caractères par minute (CPM, estimés selon la taille de police actuelle).',
   refCodeLabel:'Code de parrainage (pour le lien profond de la carte, personnalisable)',
-  refHint:'La carte partagée contient le lien profond ?startapp=code ; renseignez ci-dessous le nom d’utilisateur du bot une fois configuré dans BotFather.',
+  refHint:'La carte partagée contient le lien profond ?startapp=code pointant par défaut vers @Dfb9988bot ; saisissez ci-dessous un autre nom de bot pour le modifier.',
   botUserLabel:'Nom d’utilisateur du bot (pour les liens de partage, facultatif)',
-  botUserHint:'Uniquement pour les liens de partage ; sans effet sur la lecture. Vide, le texte affiche your_bot.',
+  botUserHint:'Uniquement pour les liens de partage ; sans effet sur la lecture. Vide, @Dfb9988bot est utilisé par défaut.',
   refCodePlaceholder:'p. ex. my2026',
-  botUserPlaceholder:'p. ex. your_bot',
+  botUserPlaceholder:'p. ex. Dfb9988bot (vide = par défaut)',
   done:'Terminé',
   cardTitle:'Carte / carte de script',
   cardHint:'La carte contient un extrait du script, un filigrane de l’application et votre lien de parrainage ; enregistrez-la dans la galerie ou partagez-la dans une discussion.',
@@ -1963,11 +1963,11 @@ const I18N = {
   switchUnit:"単位切替",
   speedHint:"単位：ピクセル/秒（px/s）または 文字/分（CPM、現在の文字サイズから算出）。",
   refCodeLabel:"紹介コード（結果カードの共有ディープリンク用、任意設定）",
-  refHint:"共有カードには ?startapp=紹介コード のディープリンクが付きます。BotFather で設定した Bot ユーザー名を下に入力すると有効になります。",
+  refHint:"共有カードには ?startapp=紹介コード のディープリンクが付き、既定では @Dfb9988bot を指します。別の Bot を使う場合は下にユーザー名を入力してください。",
   botUserLabel:"Bot ユーザー名（共有ディープリンク用、任意）",
-  botUserHint:"共有リンクの生成のみに使用。提词機能には影響しません。空の場合は your_bot と表示。",
+  botUserHint:"共有リンクの生成のみに使用。提词機能には影響しません。空の場合は内蔵の @Dfb9988bot を使用します。",
   refCodePlaceholder:"例: my2026",
-  botUserPlaceholder:"例: your_bot",
+  botUserPlaceholder:"例: Dfb9988bot（空欄なら既定）",
   done:"完了",
   cardTitle:"結果カード / 原稿カード",
   cardHint:"カードには原稿の抜粋、アプリの透かし、紹介コードのディープリンクが含まれます。アルバムに保存するかチャットで共有できます。",
@@ -2210,11 +2210,11 @@ const I18N = {
   switchUnit:"단위 전환",
   speedHint:"단위: 픽셀/초（px/s） 또는 자/분（CPM, 현재 글자 크기 기준 추정）.",
   refCodeLabel:"추천 코드（결과 카드 공유 딥링크용, 임의 설정）",
-  refHint:"공유 카드에는 ?startapp=추천코드 딥링크가 포함됩니다. BotFather에서 설정한 Bot 사용자명을 아래에 입력하면 활성화됩니다.",
+  refHint:"공유 카드에는 ?startapp=추천코드 딥링크가 포함되며 기본적으로 @Dfb9988bot을 가리킵니다. 다른 Bot을 쓰려면 아래에 사용자명을 입력하세요.",
   botUserLabel:"Bot 사용자명（공유 딥링크용, 선택）",
-  botUserHint:"공유 링크 생성에만 사용되며提词 기능에 영향하지 않습니다. 비어 있으면 your_bot 표시.",
+  botUserHint:"공유 링크 생성에만 사용되며提词 기능에 영향하지 않습니다. 비어 있으면 내장된 @Dfb9988bot을 사용합니다.",
   refCodePlaceholder:"예: my2026",
-  botUserPlaceholder:"예: your_bot",
+  botUserPlaceholder:"예: Dfb9988bot（비우면 기본값）",
   done:"완료",
   cardTitle:"결과 카드 / 대본 카드",
   cardHint:"카드에는 대본 발췌, 앱 워터마크, 추천 코드 딥링크가 포함됩니다. 앨범에 저장하거나 채팅으로 공유하세요.",
@@ -2457,11 +2457,11 @@ const I18N = {
   switchUnit:"Ед. изм.",
   speedHint:"Единицы: пиксели в секунду (px/s) или символы в минуту (CPM, оценка по текущему размеру шрифта).",
   refCodeLabel:"Реферальный код (для диплинка в карточке; можно изменить)",
-  refHint:"Карточка содержит диплинк ?startapp=код. Укажите ниже имя бота (настроенное в BotFather), чтобы ссылка заработала.",
+  refHint:"Карточка содержит диплинк ?startapp=код, по умолчанию ведущий к @Dfb9988bot. Укажите ниже другое имя бота, чтобы изменить адрес.",
   botUserLabel:"Имя бота (для диплинка; можно не заполнять)",
-  botUserHint:"Используется только для ссылки и не влияет на суфлёр. Если пусто — показывается заглушка your_bot.",
+  botUserHint:"Используется только для ссылки и не влияет на суфлёр. Если пусто — используется встроенный @Dfb9988bot.",
   refCodePlaceholder:"например my2026",
-  botUserPlaceholder:"например your_bot",
+  botUserPlaceholder:"например Dfb9988bot (пусто = по умолчанию)",
   done:"Готово",
   cardTitle:"Итоговая карточка / Карточка сценария",
   cardHint:"Карточка содержит фрагмент сценария, водяной знак приложения и диплинк с вашим реферальным кодом. Её можно сохранить в галерею или отправить в чат.",
@@ -2779,9 +2779,12 @@ function applyI18n() {
   if (vr) vr.textContent = fmt(t('validReadRule'), { n: MIN_CHARS_FOR_READ });
   // 验签状态是动态文本（无 data-i18n），必须在这里重新按当前语言渲染。
   if (typeof renderVerifyStatus === 'function') renderVerifyStatus();
-  // 完成卡上的可点链接文字是静态 DOM，但文案随语言；深链本身不变。
+  // 完成卡上的可点链接文字是静态 DOM，文案随语言；深链必须始终是完整邀请链接（含 startapp），
+  // 不能只在生成卡片时才刷新——否则卡片未生成前 href 是光的 t.me/<bot>，点击少推荐码。
   const fcl = document.getElementById('finishCtaLink');
-  if (fcl) fcl.textContent = t('finishCtaTitle');
+  if (fcl){ fcl.textContent = t('finishCtaTitle'); fcl.href = deepLink(); }
+  const ful = document.getElementById('finishUrlLink');
+  if (ful){ const dl = deepLink(); ful.href = dl; ful.textContent = dl; }
   const ssl = document.getElementById('saveSheetTitle');
   if (ssl) ssl.textContent = t('saveImageTitle');
   const ssh = document.getElementById('saveSheetHint');
@@ -3933,7 +3936,8 @@ function telegramShare(text, url){
   try { window.open(shareUrl, '_blank'); } catch(e){}
 }
 function deepLink(){
-  const bot = (state.botUser || CONFIG.BOT_USERNAME || 'your_bot');
+  // 兜底必须是自己的真实 Bot：your_bot 是 Telegram 上另一个真实机器人，曾导致邀请链接跳错号
+  const bot = (state.botUser || CONFIG.BOT_USERNAME || 'Dfb9988bot');
   const code = encodeURIComponent(state.referralCode || 'invite');
   return 'https://t.me/' + bot + '?startapp=' + code;
 }
@@ -6165,7 +6169,7 @@ function parseRemoteToken(raw){
 }
 // 纯函数：生成"分享给控制端"的 Telegram 深链（对方打开即进入控制端并预填令牌）
 function buildRemoteDeepLink(token){
-  const bot = (state.botUser || CONFIG.BOT_USERNAME || 'your_bot');
+  const bot = (state.botUser || CONFIG.BOT_USERNAME || 'Dfb9988bot');
   return 'https://t.me/' + bot + '?startapp=remote_' + encodeURIComponent(token);
 }
 

@@ -371,6 +371,14 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **验证手法**：iOS 门禁补 11 条断言，其中 4 条是**行为级**：mock `document.createRange` 复现"整词 Range 缺首字母 + 跨 text node"，验证修正后的黄块 left/w 覆盖完整单词；切法语后检查验签节点无中文；`handleOpenFile` 验证以文件名为标题新增并载入；`shareCompletion` 验证 Telegram 内 `navigator.share` 调用数为 0；`saveCardImage` 验证保存面板开/关。Playwright A2 层同步改成双环境断言（Telegram 内 + 普通浏览器各跑一遍），避免"只测了浏览器路径却宣称 Telegram 修好"。
 - **Google Play 复用点**：Android WebView 同样有 `a[download]` 被吞、`navigator.share` 弹系统面板的问题；原生端用 `ACTION_SEND` + `FileProvider` 才是真分享，TWA 则要 `openTelegramLink` 等价的 deep link 顺序。动态 i18n 状态在 Compose/Flutter 里对应"状态存 key 不存字符串"，否则切 locale 也会残留旧语言。
 
+### 8.18 邀请深链跳到别的机器人：占位符兜底必须换成真实 Bot（2026-11-25 上午）
+- **现象**：完成卡上的「你也来试试」/ 卡片下方网址点击后，Telegram 打开的是 `YourBot`（机器人、暂无消息、底部「开始」按钮），不是 `@Dfb9988bot`。
+- **根因**：`CONFIG.BOT_USERNAME` 留空（设计成"用户在设置里填"），`deepLink()` 与 `buildRemoteDeepLink()` 的兜底写成字面量 `'your_bot'`；**`your_bot` 是 Telegram 上真实存在的测试机器人**，所以链接不是失效而是跳错号，更容易被忽略。卡片上 4 个可点入口（image map 两个 `<area>` + 两个 `<a>`）统一走 `openInviteLink() → deepLink()`，因此全部中招；静态 `<a href>` 虽然写了 `Dfb9988bot`，但点击被 `preventDefault` 后由 JS 重算，静态值救不了。
+- **判据**：默认（设置里 Bot 用户名为空）时 `deepLink()` 必须等于 `https://t.me/Dfb9988bot?startapp=invite`；`buildRemoteDeepLink('tokX')` 必须等于 `...?startapp=remote_tokX`；卡片 4 个入口渲染出的 href 必须匹配 `^https://t.me/Dfb9988bot\?startapp=`；全局不得残留 `'your_bot'` 作为可到达值（注释保留可以）。
+- **修法**：① `CONFIG.BOT_USERNAME` 内置 `'Dfb9988bot'`；② 两个 deep link 函数的兜底从 `'your_bot'` 改为 `'Dfb9988bot'`；③ `applyI18n()` 里同步刷新完成卡链接的 `href`（此前只在生成卡片时刷新，卡片未生成前 href 是光的 `t.me/<bot>`、缺 `startapp`）；④ 七语 `botUserHint` / `botUserPlaceholder` / `refHint` 从"留空显示 your_bot"改为"留空自动使用内置 @Dfb9988bot"，避免继续引导用户填占位符。
+- **验证手法**：iOS 门禁加 1 条行为断言，在 `state.botUser=''` 下读 config / deepLink / buildRemoteDeepLink / 两个 `<a>.href` / 点击 CTA 后 `openTelegramLink` 的实参，一次性比对；Playwright A2 层加同名 E2E，真浏览器里点 CTA 断言 `window.__tgLinks[0]` 含 `Dfb9988bot?startapp=`，且 `window.open` 未被调用。
+- **Google Play 复用点**：任何"用户名可配置"的外部跳转都要有**已验证的真实默认值**，不能用文档示例占位符兜底——示例字符串往往真的被别人注册了。Android 端对应 deep link / App Link 的 host 与 pathPrefix 白名单，默认 host 写错会跳到别人的 App 或应用商店。
+
 ---
 
 ## 9. 相关文档

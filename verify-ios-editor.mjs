@@ -1447,6 +1447,29 @@ const linkProbe = ev(`(() => {
 })()`);
 check('点击"你也来试试 ScriptDeck"打开 Telegram 邀请深链（不再是死文字）',
   typeof linkProbe === 'string' && linkProbe.startsWith('https://t.me/'), String(linkProbe));
+// BUG7：默认 Bot 必须是 @Dfb9988bot；your_bot 是 Telegram 上真实存在的测试机器人
+const botDefault = ev(`(() => {
+  const old = state.botUser; state.botUser = '';
+  const out = {
+    config: CONFIG.BOT_USERNAME,
+    deep: deepLink(),
+    remote: buildRemoteDeepLink('tokX'),
+    cta: document.getElementById('finishCtaLink').href,
+    url: document.getElementById('finishUrlLink').href,
+    tg: (() => { let u = null; window.Telegram = { WebApp: { initData: 'test', openTelegramLink: x => { u = x; } } };
+      document.getElementById('finishCtaLink').dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+      window.Telegram = undefined; return u; })(),
+  };
+  state.botUser = old; return out;
+})()`);
+check('默认邀请深链内置 @Dfb9988bot，绝不落到 your_bot 测试机器人',
+  botDefault.config === 'Dfb9988bot' &&
+  botDefault.deep === 'https://t.me/Dfb9988bot?startapp=invite' &&
+  botDefault.remote === 'https://t.me/Dfb9988bot?startapp=remote_tokX' &&
+  /^https:\/\/t\.me\/Dfb9988bot\?startapp=/.test(botDefault.cta) &&
+  /^https:\/\/t\.me\/Dfb9988bot\?startapp=/.test(botDefault.url) &&
+  /^https:\/\/t\.me\/Dfb9988bot\?startapp=/.test(botDefault.tg) &&
+  !/your_bot/.test(JSON.stringify(botDefault)), JSON.stringify(botDefault));
 // BUG5：Telegram 内分享必须走 openTelegramLink，不能弹系统分享面板
 const shareProbe = await ev(`(async () => {
   let tg = null, sys = 0;
