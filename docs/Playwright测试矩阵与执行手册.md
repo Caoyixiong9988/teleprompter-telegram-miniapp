@@ -429,19 +429,20 @@ node tools/lighthouse-audit.mjs https://teleprompter-49y.pages.dev/
 - **交付边界**：素材、清单、文案、脚本都能由 AI 生成并进 Git + 桌面备份 `C:/Users/maste/Desktop/ScriptDeck-Media-Preview/`；但**上传媒体预览、真机查看 Bot 资料**必须用户本人在 Telegram 客户端 BotFather 完成（依赖其账号会话）。不要把"文件备好了"说成"已上架"。
 - **Google Play 复用点**：商店截图/视频同样有像素规格、时长与本地化目录要求，且 Play Console 的上传也绑定账号会话；生成脚本要与上传步骤分离，脚本进 CI、上传留人，避免为了自动化去碰账号凭据。
 
-### 8.23 测试 Stars 现状核查：免费测试通道存在，但我们还没搭（2026-11-25）
+### 8.23 测试 Stars 现状核查与实测纠正：免费测试星已被官方锁掉（2026-11-25/26）
 
 - **用户问题**："我们现在没有做测试用的 Stars 了，对吧，必须得我自己买 Stars 完成后面的收银台测试，是吧？"
-- **核查结果（不是猜测）**：
-  - 生产 Worker `teleprompter-monolith` 的 secret 只有 `ADMIN_SECRET` / `BOT_TOKEN` / `WEBHOOK_SECRET`，**没有 `BOT_API_TEST`**；Cloudflare API 的 `/workers/scripts/<name>/secrets` 可直接列名字（不读值）。
-  - 本机 `bot-token-test.txt` 是 **0 字节**，没有测试 bot token；没有测试账号/测试 BotFather bot 的记录。
-  - 代码层是支持的：`botApiUrl(env, method)` 在 `BOT_API_TEST=1` 时走 `https://api.telegram.org/bot<token>/test/METHOD`，但开关没开、测试 token 没换。
-  - 结论：**当前确实没有可用的测试 Stars**，真机收银台（下单 → `openInvoice` → webhook → `/payments/pro-status` → 退款）尚未端到端跑过；`npm test` / `smoke:worker` 里的"支付成功"都是伪造 update / stub Bot API，只证明"如果 Telegram 通知收钱，账本会记对"。
-- **但不等于"必须买真 Stars"**，官方（core.telegram.org/bots/payments-stars）明确写着 **"You can freely test payments in Telegram Stars by connecting your bot to Telegram's dedicated test environment"**。两条路：
-  - **路线 A（推荐，零成本）**：登录 Telegram **测试服务器**（Desktop：设置 → `Shift+Alt+右键`点 Add Account → Test Server；iOS：连点设置图标 10 次 → Accounts → Test）→ 重新注册测试账号 → 在测试版 `@BotFather` 建**测试 bot**拿测试 token → Worker 换 `BOT_TOKEN` 并加 `BOT_API_TEST=1` → 用 `/test/setWebhook` 重设 webhook → 测试 Stars 免费付款、退款流程与生产一致。**生产 token 在测试环境无效，反之亦然**；同一套 Worker 不能同时跑两套环境，`initData` 用哪个 token 签的就得用哪个 token 验；换 secret 不需要重新 deploy。
-  - **路线 B（备选，要花真钱）**：用户自己买真实 Stars，买最便宜的月付跑一次，然后立刻在 `/admin` 或 `/paysupport` 全额退款（`refundStarPayment` 原路退回并撤销 Pro）。注意：bot 收到的 Stars 进的是 **bot 余额**，只能提现成 Toncoin 或投 Telegram Ads，**不能转回个人账号**再买自己的商品，所以"bot 发 Stars 给我自测"行不通；Apple / Google 内购渠道抽成在退款时未必返还，频繁自购自退也可能被限制。
-- **判据与下一步**：不要说"必须买 Stars"，也不要说"测试环境已经能用了"。准确口径是"**免费通道存在但我们没搭；要用免费测试星需先建测试账号 + 测试 bot + 切 Worker 环境；若不想搭，才需要你本人小额自购再退**"。选定路线后按 `【上线清单】从账号到真机收银台_2026-11-15.md` 阶段 4–6 执行，完成前不宣称支付闭环验证通过。
-- **Google Play 复用点**：Play 的"测试轨道 + 测试购买/订阅"与 Telegram 测试环境同构——测试凭据与生产凭据隔离、 entitlement 只能由服务端确认、退款必须撤销权益；同样不要拿生产账号自购当常规测试手段，只在发布前做一次端到端确认。
+- **初步核查（11-25）**：生产 Worker `teleprompter-monolith` 的 secret 只有 `ADMIN_SECRET` / `BOT_TOKEN` / `WEBHOOK_SECRET`，没有 `BOT_API_TEST`；本机 `bot-token-test.txt` 是 0 字节。代码层支持 `BOT_API_TEST=1` 走 `/test/METHOD`，但开关没开。官方文档 `core.telegram.org/bots/payments-stars` 仍写着 "You can freely test payments in Telegram Stars by connecting your bot to Telegram's dedicated test environment"，所以当时判断"免费通道存在，只是没搭"。
+- **实测（11-26，纠正上述判断）**：按官方步骤完整搭好测试环境——测试服账号 → 真 `@BotFather` 建测试 bot `@ScriptDeckTest_bot` → Worker 换测试 token + `BOT_API_TEST=1` → 一次性边缘跳板跑 `/test/getMe`（身份正确）、`/test/setWebhook`（URL 正确、pending=0）→ 测试 bot Menu Button 挂生产 Pages 地址。**收银台成功弹出**（证明下单链路通了），但测试账号余额 `⭐0`；点「确认并支付 400」后进入「需要 400 颗星星」充值页，列出的全是 **$9.99/500 颗等真实内购价格**，点下去弹的是 **Apple App Store 真实付款面板**（账号 `victorcao2026@icloud.com`），不是免费测试星。
+- **权威旁证**：Telegram Desktop GitHub issue **#29956 "Cannot top up star on test environment"**（2025-10-29）中官方仓库协作者回复：**"test server aint to get free stars"**，并说明 **"people abused free stars and they locked it"**（有人拿测试服当免费生产环境刷星，于是锁掉）。该 issue 2026-01 已 locked as resolved。结论：**官方文档过时，2026 年测试服已无法获取免费 Stars**；此前手册里"路线 A 推荐、零成本"的口径作废。
+- **正确口径**：要真正跑通「下单 → `openInvoice` → webhook 落库 → `/payments/pro-status` 解锁 → `refundStarPayment` 退款撤销」全链路，**现在只能由用户本人用真实 Stars 小额自购一次并立即退款**。bot 收到的 Stars 进 bot 余额，**不能转回个人账号**自循环；Apple / Google 内购渠道抽成退款时未必返还，频繁自购自退可能被限制。若不想花真钱，只能停留在 `smoke:worker` 的伪造 update / stub Bot API 层，它只证明"如果 Telegram 通知收钱，账本会记对"，不证明用户能把钱付进来。
+- **环境切换实操（本次验证过）**：
+  - 测试服入口：iOS 连点 Telegram 内设置图标 10 次 → Accounts → Login to another account → Test；桌面版 `Shift+Alt+右键`点 Add Account → Test Server。**是 Telegram App 内的设置图标，不是 iOS 系统设置**。
+  - 测试服 `@BotFather` 用户名仍是 `@BotFather`；搜索会出现带认证勾的 `@boterr_vf` / `@bot_father_vf` 等仿冒号，**只认精确用户名**。
+  - `BOT_API_TEST=1` 只影响 `createInvoiceLink` / `refundStarPayment`；`setWebhook` 必须手工走 `/test/setWebhook`。换 secret 无需重新 deploy。
+  - 本机到 `api.telegram.org` 不通，仍需一次性 Pages Function 跳板（token 走请求头、用完删除）。wrangler 3.x `pages deploy` **不会自动新建项目**，先 `wrangler pages project create <name> --production-branch main`，直接调 Cloudflare API POST `/pages/projects` 在该账号报 unknown error。
+  - 实测结束后立即删 `BOT_API_TEST`、从 `bot-token.txt` 恢复生产 `BOT_TOKEN`，密钥列表回到 3 个；`/api/health` 200。**生产 bot 不能长时间停在测试 token 上**，否则真实用户验签全挂。
+- **Google Play 复用点**：Play 的"测试轨道 + 测试购买"目前仍可比 Telegram 测试服更完整地跑通零成本支付验证，别假设两个平台的沙盒等价；任何支付沙盒都要在真机上**亲眼看到余额/支付面板**才算可用，官方文档和"有 /test/ 端点"都不足以证明免费。
 
 ---
 
